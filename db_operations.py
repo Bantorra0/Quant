@@ -30,3 +30,29 @@ def _parse_config(path):
     return configs
 
 
+def parse_config(path):
+    with open(path) as f:
+        split_symbol = "-"*4
+        config_str = "".join(f.readlines()).strip(split_symbol)
+        configs = []
+        for config_table in config_str.split(split_symbol):
+            configs.append(_parse_config_table(config_table))
+    return dict(configs)
+
+
+def _parse_config_table(config_table:str):
+    split_symbol = ":"*2
+    table_name, config_tab_details  = config_table.split(split_symbol)
+    table_name = table_name.replace("\n","").replace(" ","")
+    return table_name, _parse_config_tab_details(config_tab_details)
+
+
+def _parse_config_tab_details(config_tab_details:str):
+    split_symbol = "-"*2
+    config_cols, config_others = config_tab_details.split(split_symbol)
+    pass
+
+
+if __name__ == '__main__':
+    pass
+

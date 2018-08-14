@@ -1,4 +1,4 @@
-from collect import _init_api,TOKEN
+from collecting import _init_api,TOKEN
 from df_operations import natural_outer_join
 import tushare as ts
 
