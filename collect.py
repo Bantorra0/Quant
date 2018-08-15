@@ -1,4 +1,5 @@
 import tushare as ts
+from collecting import stock_day, index_day
 from db_operations import connect_db, _parse_config, close_db
 from df_operations import natural_outer_join
 import datetime

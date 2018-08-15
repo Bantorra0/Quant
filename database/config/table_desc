@@ -1,0 +1,28 @@
+index_day::
+code:   varchar(45)
+date:   varchar(45)
+open:   decimal(20,2)
+high:   decimal(20,2)
+low:    decimal(20,2)
+close:  decimal(20,2)
+vol:    int(20)
+--
+primary key: code,date
+
+
+----
+stock_day::
+code,		varchar(45)
+date,		varchar(45)
+open,		decimal(20,2)
+high,		decimal(20,2)
+low,		decimal(20,2)
+close,		decimal(20,2)
+vol,		int(20)
+amt,		decimal(30,2)
+pre_close,	decimal(20,2)
+change,	    decimal(20,2)
+pct_change,	decimal(20,2)
+adj_factor,	decimal(20,2)
+--
+primary key(code,date)
