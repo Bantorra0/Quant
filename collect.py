@@ -1,10 +1,16 @@
 import tushare as ts
-from collecting import stock_day, index_day
 from db_operations import connect_db, _parse_config, close_db
 from df_operations import natural_outer_join
 import datetime
 
 TOKEN = 'ca7a0727b75dce94ad988adf953673340308f01bacf1a101d23f15fc'
+
+TABLE,COLUMNS="table","columns"
+STOCK_DAY = {TABLE:"stock_day",
+             COLUMNS:("code","date","open","high","low","close","vol","amt",
+                        "pre_close","p_change","pct_change","adj_factor")}
+INDEX_DAY = {TABLE:"index_day",
+             COLUMNS:("code","date","open","high","low","close","vol")}
 
 
 def _sql_insert(db:str, table_name:str, cols:[str]):
@@ -81,9 +87,9 @@ def collect_index_day(pools:[str], db_type:str):
 
         for _,row in df.iterrows():
             try:
-                cursor.execute(_sql_insert(db_type, index_day.TABLE_NAME,
-                                           index_day.COLUMNS),
-                               list(row[index_day.COLUMNS]))
+                cursor.execute(_sql_insert(db_type, INDEX_DAY.TABLE,
+                                           INDEX_DAY.COLUMNS),
+                               list(row[INDEX_DAY.COLUMNS]))
                 conn.commit()
             except Exception as err:
                 print(err)
@@ -113,9 +119,9 @@ def collect_stock_day(pools:[str], db_type:str):
         for _,row in df.iterrows():
             try:
                 row["date"] = (datetime.datetime.strptime(row["date"], "%Y%m%d")).strftime('%Y-%m-%d')
-                cursor.execute(_sql_insert(db_type,stock_day.TABLE_NAME,
-                                           stock_day.COLUMNS),
-                               tuple(row[stock_day.COLUMNS]))
+                cursor.execute(_sql_insert(db_type,STOCK_DAY.TABLE,
+                                           STOCK_DAY.COLUMNS),
+                               tuple(row[STOCK_DAY.COLUMNS]))
                 conn.commit()
 
             except Exception as err:
@@ -125,21 +131,19 @@ def collect_stock_day(pools:[str], db_type:str):
 
 
 def main():
-    db_type = "mysql"
+    db_type = "sqlite3"
+    #
+    # init_table(STOCK_DAY.TABLE_NAME, db_type)
+    # collect_stock_day(STOCK_DAY.pools(),db_type)
+    #
+    # init_table(INDEX_DAY.TABLE_NAME, db_type)
+    # collect_index_day(INDEX_DAY.pools(), db_type)
 
-    # init_table(stock_day.TABLE_NAME, db_type)
-
-    # collect_stock_day(stock_day.pools(),db_type)
     conn = connect_db(db_type)
     cursor = conn.cursor()
-    cursor.execute("select * from stock_day")
+    # print(cursor.execute("select * from stock_day").fetchmany(50))
     print(cursor.fetchmany(100))
 
-    init_table(index_day.TABLE_NAME, db_type)
-
-    collect_index_day(index_day.pools(), db_type)
-    conn = connect_db(db_type)
-    cursor = conn.cursor()
     cursor.execute("select * from index_day")
     print(cursor.fetchmany(100))
     # print(cursor.execute("select * from stock_day").fetchmany(100))

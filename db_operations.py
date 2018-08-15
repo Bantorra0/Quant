@@ -53,6 +53,10 @@ def _parse_config_tab_details(config_tab_details:str):
     pass
 
 
+def cols_from_cur(cursor):
+    return tuple(desc[0] for desc in cursor.description)
+
+
 if __name__ == '__main__':
     pass
 
