@@ -120,7 +120,7 @@ def main():
     df_idx_d = pd.DataFrame(cursor.fetchall())
     df_idx_d.columns = dbop.cols_from_cur(cursor)
 
-    df_stck_d = df_stck_d.set_index(["date"])
+    df_stck_d = df_stck_d.set_index(["date"]).sort_index(ascending=False)
 
     df_stck_list = []
     pred_period = 20
@@ -144,17 +144,19 @@ def main():
         # print(tmp[tmp[col_label[0]].isnull()])
 
     df_stck_d_all = pd.concat(df_stck_list,sort=False)
+    print(df_stck_d_all)
 
     # print(df_stck_d_all[df_stck_d_all["f20max_high"].isnull()])
 
 
-    df_idx_d = df_idx_d.set_index("date")
+    df_idx_d = df_idx_d.set_index("date").sort_index(ascending=False)
     df_idx_list = [_prefix(name,
                            pd.concat([group]+[_move(i,group,cols_move)
-                                          for i in [1,2,3]],axis=1,sort=False))
+                                          for i in [1,2,3]],axis=1,
+                                     sort=False))
                    for name,group in df_idx_d.groupby("code")]
 
-    df_idx_d = pd.concat(df_idx_list,axis=0,sort=False)
+    df_idx_d = pd.concat(df_idx_list,axis=1,sort=False)
 
     print(df_idx_d)
     df_all = df_stck_d_all.join(df_idx_d)
@@ -165,33 +167,37 @@ def main():
 
     import xgboost.sklearn as xgb
 
-    clf = xgb.XGBClassifier()
+    clf = xgb.XGBClassifier(n_estimators=10)
 
     print(col_label)
     print(df_all.shape)
-    print(df_all[df_all[col_label[0]].isnull()])
-    # df_all = df_all[df_all[col_label].isnull()]
-    # print(df_all.shape)
-    # period = (df_all.index>"2015-01-01")
-    # df_all = df_all[period]
-    # print(df_all.shape)
-    # print(df_all[col_label])
-    # y = df_all[col_label[0]]
-    # features = df_all.columns.difference([col_label[0],"sh_code","sz_code",
-    #                                       "code"])
-    # X = df_all[features]
+    # print(df_all[df_all[col_label[0]].isnull()])
+    df_all = df_all[df_all[col_label[0]].notnull()]
+    print(df_all.shape)
+    period = (df_all.index>"2015-01-01")
+    df_all = df_all[period]
+    print(df_all.shape)
+    print(df_all[col_label])
+    y = df_all[col_label[0]]/df_all["open"]-1
+    y[y>0.1]=1
+    y[y<=0.1]=0
+    print(y)
+    features = df_all.columns.difference([col_label[0],"sh_code","sz_code",
+                                          "code"])
+    X = df_all[features]
 
-    # condition = (X.index>"2018-01-01")
-    # X_train,y_train = X[~condition],y[~condition]
-    # X_test,y_test=X[condition],y[condition]
-    #
-    # clf.fit(X_train,y_train)
-    #
-    # y_prd = clf.predict(X_test)
-    #
-    # import sklearn.metrics as metrics
-    #
-    # print(metrics.accuracy_score(y_test,y_prd))
+    condition = (X.index>"2018-01-01")
+    X_train,y_train = X[~condition],y[~condition]
+    X_test,y_test=X[condition],y[condition]
+
+    clf.fit(X_train,y_train)
+
+    y_prd = clf.predict(X_test)
+    print(y_prd.shape)
+
+    import sklearn.metrics as metrics
+
+    print(metrics.accuracy_score(y_test,y_prd))
 
 
 if __name__ == '__main__':
