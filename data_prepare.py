@@ -167,7 +167,7 @@ def main():
 
     import xgboost.sklearn as xgb
 
-    clf = xgb.XGBClassifier(n_estimators=10)
+    clf = xgb.XGBClassifier(n_estimators=20,scale_pos_weight=10,max_depth=4)
 
     print(col_label)
     print(df_all.shape)
@@ -192,13 +192,22 @@ def main():
 
     clf.fit(X_train,y_train)
 
-    y_prd = clf.predict(X_test)
-    print(y_prd.shape)
+    y_prd_prob = clf.predict_proba(X_test)
+    print(y_prd_prob)
+    y_prd = np.where(y_prd_prob[:,0]<0.55,1,0)
+    print(y_prd.shape,sum(y_prd))
 
     import sklearn.metrics as metrics
 
+    print(clf.classes_)
     print(metrics.accuracy_score(y_test,y_prd))
-
+    print(metrics.precision_score(y_test,y_prd))
+    print(metrics.recall_score(y_test,y_prd))
+    print(len(metrics.precision_recall_curve(y_test,y_prd_prob[:,1])))
+    x,y,_=metrics.precision_recall_curve(y_test,y_prd_prob[:,1])
+    import matplotlib.pyplot as plt
+    plt.plot(x,y)
+    plt.show()
 
 if __name__ == '__main__':
     main()
