@@ -120,49 +120,78 @@ def main():
     df_idx_d = pd.DataFrame(cursor.fetchall())
     df_idx_d.columns = dbop.cols_from_cur(cursor)
 
-    df_stck_d = df_stck_d.set_index(["date","code"])
-    df_idx_d = df_idx_d.set_index("date")
+    df_stck_d = df_stck_d.set_index(["date"])
 
-    df = df_stck_d.copy()
-
+    df_stck_list = []
     pred_period = 20
-    df_label_max = _rolling_max(pred_period,df,"high")
-    print(type(df_label_max))
-    col_label = df_label_max.columns
-    # df_label_min = _rolling_min(pred_period,df,"low")
+    cols_move = ["open", "high", "low", "close"]
+    cols_roll = ["open", "close"]
+    for _,df in df_stck_d.groupby("code"):
 
-    cols_move = ["open","high","low","close"]
-    df_move_list = [_move(i,df, cols_move) for i in range(1,6)]
-
-    cols_roll = ["open","close"]
-    df_rolling_list = [[_rolling_max(i,df,cols_move),
+        df_label_max = _rolling_max(pred_period,df,"high")
+        col_label = df_label_max.columns
+        # df_label_min = _rolling_min(pred_period,df,"low")
+        df_move_list = [_move(i,df, cols_move) for i in range(1,6)]
+        df_rolling_list = [[_rolling_max(i,df,cols_move),
                         _rolling_min(i,df,cols_roll),
                         _rolling_mean(i,df,cols_roll)]
                        for i in [-5,-10,-20]]
-    df_rolling_list = np.concatenate(df_rolling_list).tolist()
+        df_rolling_list = np.concatenate(df_rolling_list).tolist()
+        tmp = pd.concat([df] + df_move_list + df_rolling_list + [df_label_max],
+                      axis=1,sort=False)
+        df_stck_list.append(tmp)
+        # print(tmp.shape)
+        # print(tmp[tmp[col_label[0]].isnull()])
 
-    df_idx_list = [_prefix(name,group) for name,group in df_idx_d.groupby(
-        "code")]
+    df_stck_d_all = pd.concat(df_stck_list,sort=False)
 
-    idx_dc_list = [df]+df_move_list + df_rolling_list + [df_label_max]
-    idx_d_list = df_idx_list
+    # print(df_stck_d_all[df_stck_d_all["f20max_high"].isnull()])
 
-    df_idx_dc = pd.concat(idx_dc_list,axis=1,sort=False)
-    df_idx_d = pd.concat(idx_d_list,axis=1,sort=False)
 
-    df_idx_dc.reset_index(level=1,inplace=True)
+    df_idx_d = df_idx_d.set_index("date")
+    df_idx_list = [_prefix(name,
+                           pd.concat([group]+[_move(i,group,cols_move)
+                                          for i in [1,2,3]],axis=1,sort=False))
+                   for name,group in df_idx_d.groupby("code")]
 
-    df_train = df_idx_dc.join(df_idx_d)
+    df_idx_d = pd.concat(df_idx_list,axis=0,sort=False)
 
-    columns = np.concatenate([list(df.columns) for df in idx_dc_list+idx_d_list])
+    print(df_idx_d)
+    df_all = df_stck_d_all.join(df_idx_d)
 
-    print(df_train.shape)
-
-    df_train = df_train[columns]
-    print(df_train.columns)
     #
-    # print(df_train.shape)
-    # print(df_train.columns)
+    # print(df_all.shape)
+    # print(df_all.columns)
+
+    import xgboost.sklearn as xgb
+
+    clf = xgb.XGBClassifier()
+
+    print(col_label)
+    print(df_all.shape)
+    print(df_all[df_all[col_label[0]].isnull()])
+    # df_all = df_all[df_all[col_label].isnull()]
+    # print(df_all.shape)
+    # period = (df_all.index>"2015-01-01")
+    # df_all = df_all[period]
+    # print(df_all.shape)
+    # print(df_all[col_label])
+    # y = df_all[col_label[0]]
+    # features = df_all.columns.difference([col_label[0],"sh_code","sz_code",
+    #                                       "code"])
+    # X = df_all[features]
+
+    # condition = (X.index>"2018-01-01")
+    # X_train,y_train = X[~condition],y[~condition]
+    # X_test,y_test=X[condition],y[condition]
+    #
+    # clf.fit(X_train,y_train)
+    #
+    # y_prd = clf.predict(X_test)
+    #
+    # import sklearn.metrics as metrics
+    #
+    # print(metrics.accuracy_score(y_test,y_prd))
 
 
 if __name__ == '__main__':
