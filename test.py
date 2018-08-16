@@ -30,11 +30,24 @@ if __name__ == '__main__':
     df1 = df1.set_index(keys="date")
     df2 = df2.set_index(keys="date")
 
-    # print(df1.index)
-    # print(df2.index)
 
-    # print(df1.index.difference(df2.index))
     print(df1.loc[df1.index.difference(df2.index)])
+    print(df2.loc[df2.index.difference(df1.index)])
 
+
+    # import time
+    # t1 = time.time()
+    # df1 = ts.get_k_data(code="000581", start="1991-01-01")
+    # t2= time.time()
+    # print(t2-t1)
+    # print(df1)
+    # print()
+    #
+    # t3= time.time()
+    # df2 = api.daily(ts_code="000581.SZ")
+    # t4 = time.time()
+    # print(t4-t3)
+    # print(df2)
+    # print()
 
 
