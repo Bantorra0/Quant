@@ -134,7 +134,7 @@ def prepare_each_stck(df_stck):
     print(df_stck[qfq_cols].dtypes)
     print(qfq_factor.shape, qfq_factor.dtype)
     # print(df_stck[qfq_cols]/qfq_factor)
-    df_stck.loc[:, qfq_cols] = df_stck[qfq_cols] / qfq_factor
+    df_stck.loc[:, qfq_cols] = df_stck[qfq_cols] * qfq_factor
     print(qfq_factor[:30])
     return df_stck
 
@@ -148,6 +148,7 @@ def proc_stck_d(df_stck_d):
     cols_roll = ["open", "high", "low", "close", "amt"]
     for _, df in df_stck_d.groupby("code"):
         df = prepare_each_stck(df)
+        del df["code"]
         df_label_max = _rolling_max(pred_period, df, "high")
         # df_label_min = _rolling_min(pred_period,df,"low")
 
@@ -179,6 +180,7 @@ def proc_idx_d(df_idx_d: pd.DataFrame):
 
     df_idx_list = []
     for name, group in df_idx_d.groupby("code"):
+        del group["code"]
         df_move_list = [change_rate(group[cols_move], _move(i, group, cols_move)) for i in range(1, 6)]
         df_rolling_list = [(change_rate(group[cols_roll], _rolling_max(i, group, cols_roll)),
                             change_rate(group[cols_roll], _rolling_min(i, group, cols_roll)),
@@ -230,7 +232,9 @@ def main():
 
     clfs = [
         xgb.XGBClassifier(n_estimators=200, scale_pos_weight=0.1, max_depth=5, random_state=0),
-        # lgbm.LGBMClassifier(n_estimators=200, scale_pos_weight=0.1,random_state=0)
+        lgbm.LGBMClassifier(n_estimators=400, scale_pos_weight=0.166,
+                            num_leaves=31,
+                            max_depth=5,random_state=0)
     ]
 
     df_all = df_all[df_all[col_label].notnull()]
@@ -238,9 +242,24 @@ def main():
     df_all = df_all[period]
 
     y = df_all[col_label] / df_all["open"] - 1
-    threshold = 0.08
+
+    # print distribution of y
+    print("y<=-0.5:",sum(y<=-0.5))
+    for i in range(-5,5):
+        tmp1 = ((i*0.1)< y)
+        tmp2 = (y <=((i+1)*0.1))
+        if len(tmp1)==0 or len(tmp2)==0:
+            tmp = [False]
+        else:
+            tmp = tmp1 & tmp2
+        print("{0}<y<={1}:".format(i*0.1,(i+1)*0.1),
+              sum(tmp))
+    print("y>0.5",sum(y>0.5))
+
+    threshold = 0.15
     y[y > threshold] = 1
     y[y <= threshold] = 0
+
     print("total positive", sum(y))
 
     features = df_all.columns.difference([col_label, "sh_code", "sz_code",
@@ -262,7 +281,8 @@ def main():
         y_prd_list.append([clf, t2 - t1, clf.predict_proba(X_test), c])
 
     for clf, t, y_prd_prob, c in y_prd_list:
-        y_prd = np.where(y_prd_prob[:, 0] < 0.55, 1, 0)
+        y_prd = np.where(y_prd_prob[:, 0] < 0.4, 1, 0)
+        print(clf.classes_)
         print(y_prd.shape, sum(y_prd))
 
         print("accuracy", metrics.accuracy_score(y_test, y_prd))
