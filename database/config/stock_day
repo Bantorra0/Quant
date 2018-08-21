@@ -9,9 +9,6 @@ low      decimal(20,2),
 close    decimal(20,2),
 vol  int(20),
 amt  decimal(30,2),
-pre_close decimal(20,2),
-p_change decimal(20,2),
-pct_change decimal(20,2),
 adj_factor decimal(20,2),
 primary key(code,date)
 );

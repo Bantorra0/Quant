@@ -95,6 +95,108 @@ def _rolling_mean(days, df: pd.DataFrame, cols):
     return df_rolling
 
 
+def change_rate(df1: pd.DataFrame, df2: pd.DataFrame):
+    if df1.shape[1] != df2.shape[1]:
+        raise ValueError("Column length not the same:{0}!={1}".format(df1.shape[1], df2.shape[1]))
+
+    df1 = df1.copy()
+    df1.columns = df2.columns
+    df3 = (df2 - df1) / df1
+    df3 = _prefix("change_rate", df3)
+    return df3
+
+
+def create_df(cursor, table_name):
+    sql_select_all = "select * from {}"
+    cursor.execute(sql_select_all.format(table_name))
+    df = pd.DataFrame(cursor.fetchall())
+    df.columns = dbop.cols_from_cur(cursor)
+    return df
+
+
+def prepare_stck_d(df_stck_d):
+    df_stck_d = df_stck_d.set_index(["date"]).sort_index(ascending=False)
+    df_stck_d = df_stck_d[["code", "open", "high", "low", "close", "vol", "amt", "adj_factor"]]
+    return df_stck_d
+
+
+def prepare_idx_d(df_idx_d):
+    df_idx_d = df_idx_d.set_index("date").sort_index(ascending=False)
+    return df_idx_d
+
+
+def prepare_each_stck(df_stck):
+    df_stck = df_stck.copy()
+    qfq_cols = ["open", "high", "low", "close"]
+    qfq_factor = np.array(df_stck["adj_factor"] / df_stck["adj_factor"].iloc[0])
+    print(qfq_factor.shape)
+    qfq_factor = qfq_factor.reshape(-1, 1) * np.ones((1, len(qfq_cols)))
+    print(df_stck[qfq_cols].dtypes)
+    print(qfq_factor.shape, qfq_factor.dtype)
+    # print(df_stck[qfq_cols]/qfq_factor)
+    df_stck.loc[:, qfq_cols] = df_stck[qfq_cols] / qfq_factor
+    print(qfq_factor[:30])
+    return df_stck
+
+
+def proc_stck_d(df_stck_d):
+    df_stck_d = prepare_stck_d(df_stck_d)
+
+    df_stck_list = []
+    pred_period = 20
+    cols_move = ["open", "high", "low", "close", "amt"]
+    cols_roll = ["open", "high", "low", "close", "amt"]
+    for _, df in df_stck_d.groupby("code"):
+        df = prepare_each_stck(df)
+        df_label_max = _rolling_max(pred_period, df, "high")
+        # df_label_min = _rolling_min(pred_period,df,"low")
+
+        df_move_list = [change_rate(df[cols_move], _move(i, df, cols_move)) for i in range(1, 6)]
+        df_rolling_list = [(change_rate(df[cols_roll], _rolling_max(i, df, cols_roll)),
+                            change_rate(df[cols_roll], _rolling_min(i, df, cols_roll)),
+                            change_rate(df[cols_roll], _rolling_mean(i, df, cols_roll)))
+                           for i in [-5, -10, -20]]
+
+        df_roll_flat_list = []
+        for df_rolling_group in df_rolling_list:
+            df_roll_flat_list.extend(df_rolling_group)
+
+        tmp = pd.concat([df] + df_move_list + df_roll_flat_list + [df_label_max],
+                        axis=1, sort=False)
+        df_stck_list.append(tmp)
+        # print(tmp.shape)
+        # print(tmp[tmp[col_label].isnull()])
+
+    df_stck_d_all = pd.concat(df_stck_list, sort=False)
+
+    return df_stck_d_all
+
+
+def proc_idx_d(df_idx_d: pd.DataFrame):
+    df_idx_d = prepare_idx_d(df_idx_d)
+    cols_move = ["open", "high", "low", "close", "vol"]
+    cols_roll = cols_move
+
+    df_idx_list = []
+    for name, group in df_idx_d.groupby("code"):
+        df_move_list = [change_rate(group[cols_move], _move(i, group, cols_move)) for i in range(1, 6)]
+        df_rolling_list = [(change_rate(group[cols_roll], _rolling_max(i, group, cols_roll)),
+                            change_rate(group[cols_roll], _rolling_min(i, group, cols_roll)),
+                            change_rate(group[cols_roll], _rolling_mean(i, group, cols_roll)))
+                           for i in [-5, -10, -20]]
+
+        df_roll_flat_list = []
+        for df_rolling_group in df_rolling_list:
+            df_roll_flat_list.extend(df_rolling_group)
+
+        tmp_list = [group] + df_move_list + df_roll_flat_list
+        tmp = pd.concat(tmp_list, axis=1, sort=False)
+        df_idx_list.append(_prefix(name, tmp))
+
+    df_idx_d = pd.concat(df_idx_list, axis=1, sort=False)
+    return df_idx_d
+
+
 def main():
     db_type = "sqlite3"
 
@@ -107,60 +209,18 @@ def main():
     conn = dbop.connect_db(db_type)
     cursor = conn.cursor()
 
-    sql_select_all = "select * from {}"
-
     stock_day, index_day = clct.STOCK_DAY[clct.TABLE], clct.INDEX_DAY[clct.TABLE]
 
-    cursor.execute(sql_select_all.format(stock_day))
-    df_stck_d = pd.DataFrame(cursor.fetchall())
-    df_stck_d.columns = dbop.cols_from_cur(cursor)
+    df_stck_d = create_df(cursor, stock_day)
+    df_idx_d = create_df(cursor, index_day)
 
-    cursor.execute(sql_select_all.format(index_day))
-    df_idx_d = pd.DataFrame(cursor.fetchall())
-    df_idx_d.columns = dbop.cols_from_cur(cursor)
+    df_stck_d_all = proc_stck_d(df_stck_d)
+    print(df_stck_d_all.shape)
+    col_label = df_stck_d_all.columns[-1]
 
-    df_stck_d = df_stck_d.set_index(["date"]).sort_index(ascending=False)
-
-    df_stck_list = []
-    pred_period = 20
-    cols_move = ["open", "high", "low", "close"]
-    cols_roll = ["open", "close"]
-    for _, df in df_stck_d.groupby("code"):
-        df_label_max = _rolling_max(pred_period, df, "high")
-        col_label = df_label_max.columns
-        # df_label_min = _rolling_min(pred_period,df,"low")
-        df_move_list = [_move(i, df, cols_move) for i in range(1, 6)]
-        df_rolling_list = [[_rolling_max(i, df, cols_move),
-                            _rolling_min(i, df, cols_roll),
-                            _rolling_mean(i, df, cols_roll)]
-                           for i in [-5, -10, -20]]
-        df_rolling_list = np.concatenate(df_rolling_list).tolist()
-        tmp = pd.concat([df] + df_move_list + df_rolling_list + [df_label_max],
-                        axis=1, sort=False)
-        df_stck_list.append(tmp)
-        # print(tmp.shape)
-        # print(tmp[tmp[col_label[0]].isnull()])
-
-    df_stck_d_all = pd.concat(df_stck_list, sort=False)
-    print(df_stck_d_all)
-
-    # print(df_stck_d_all[df_stck_d_all["f20max_high"].isnull()])
-
-    df_idx_d = df_idx_d.set_index("date").sort_index(ascending=False)
-    df_idx_list = [_prefix(name,
-                           pd.concat([group] + [_move(i, group, cols_move)
-                                                for i in [1, 2, 3]], axis=1,
-                                     sort=False))
-                   for name, group in df_idx_d.groupby("code")]
-
-    df_idx_d = pd.concat(df_idx_list, axis=1, sort=False)
-
-    print(df_idx_d)
+    df_idx_d = proc_idx_d(df_idx_d)
+    print(df_idx_d.shape)
     df_all = df_stck_d_all.join(df_idx_d)
-
-    #
-    # print(df_all.shape)
-    # print(df_all.columns)
 
     import xgboost.sklearn as xgb
     import lightgbm.sklearn as lgbm
@@ -169,24 +229,21 @@ def main():
     import time
 
     clfs = [
-        xgb.XGBClassifier(n_estimators=200, max_depth=4, random_state=0),
-        lgbm.LGBMClassifier(n_estimators=200, random_state=0)
+        xgb.XGBClassifier(n_estimators=200, scale_pos_weight=0.1, max_depth=5, random_state=0),
+        # lgbm.LGBMClassifier(n_estimators=200, scale_pos_weight=0.1,random_state=0)
     ]
 
-    print(col_label)
-    print(df_all.shape)
-    # print(df_all[df_all[col_label[0]].isnull()])
-    df_all = df_all[df_all[col_label[0]].notnull()]
-    print(df_all.shape)
+    df_all = df_all[df_all[col_label].notnull()]
     period = (df_all.index > "2014-01-01")
     df_all = df_all[period]
-    print(df_all.shape)
-    # print(df_all[col_label])
-    y = df_all[col_label[0]] / df_all["open"] - 1
-    y[y > 0.1] = 1
-    y[y <= 0.1] = 0
-    # print(y)
-    features = df_all.columns.difference([col_label[0], "sh_code", "sz_code",
+
+    y = df_all[col_label] / df_all["open"] - 1
+    threshold = 0.08
+    y[y > threshold] = 1
+    y[y <= threshold] = 0
+    print("total positive", sum(y))
+
+    features = df_all.columns.difference([col_label, "sh_code", "sz_code",
                                           "code"])
     X = df_all[features]
 
@@ -194,27 +251,32 @@ def main():
     X_train, y_train = X[~condition], y[~condition]
     X_test, y_test = X[condition], y[condition]
 
+    print("test positive:", sum(y_test))
+
     y_prd_list = []
-    colors = ["r","b"]
-    for clf,c in zip(clfs,colors):
+    colors = ["r", "b"]
+    for clf, c in zip(reversed(clfs), colors):
         t1 = time.time()
         clf.fit(X_train, y_train)
         t2 = time.time()
-        y_prd_list.append([clf,t2-t1,clf.predict_proba(X_test),c])
+        y_prd_list.append([clf, t2 - t1, clf.predict_proba(X_test), c])
 
-    for clf,t,y_prd_prob,c in y_prd_list:
+    for clf, t, y_prd_prob, c in y_prd_list:
         y_prd = np.where(y_prd_prob[:, 0] < 0.55, 1, 0)
         print(y_prd.shape, sum(y_prd))
 
-        # print(clf.classes_)
-        print("accuracy",metrics.accuracy_score(y_test, y_prd))
-        print("precison",metrics.precision_score(y_test, y_prd))
-        print("recall",metrics.recall_score(y_test, y_prd))
-        # print(len(metrics.precision_recall_curve(y_test, y_prd_prob[:, 1])))
-        x, y, _ = metrics.precision_recall_curve(y_test, y_prd_prob[:, 1])
-        plt.plot(x, y,color=c)
-        plt.legend
-        print(clf,t)
+        print("accuracy", metrics.accuracy_score(y_test, y_prd))
+        print("precison", metrics.precision_score(y_test, y_prd))
+        print("recall", metrics.recall_score(y_test, y_prd))
+        precision, recall, _ = metrics.precision_recall_curve(y_test, y_prd_prob[:, 1])
+
+        plt.figure()
+        plt.xlim(0, 1)
+        plt.ylim(0, 1)
+        plt.xlabel("recall")
+        plt.ylabel("precision")
+        plt.plot(recall, precision, color=c)
+        print(clf, t)
 
     plt.show()
 

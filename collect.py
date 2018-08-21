@@ -2,6 +2,7 @@ import tushare as ts
 from db_operations import connect_db, _parse_config, close_db
 from df_operations import natural_outer_join
 import datetime
+import pandas as pd
 
 TOKEN = 'ca7a0727b75dce94ad988adf953673340308f01bacf1a101d23f15fc'
 
@@ -11,6 +12,28 @@ STOCK_DAY = {TABLE:"stock_day",
                         "pre_close","p_change","pct_change","adj_factor")}
 INDEX_DAY = {TABLE:"index_day",
              COLUMNS:("code","date","open","high","low","close","vol")}
+
+
+def stck_pools():
+    api = _init_api(TOKEN)
+    hgt_stcks = api.stock_basic(is_hs="H")
+    sgt_stcks = api.stock_basic(is_hs="S")
+    stcks = set(unify_df_col_nm(pd.concat([hgt_stcks,sgt_stcks]))["code"])
+
+    print(stcks)
+    stck_amt = pd.DataFrame(index=["code"],columns=["avg_amt"])
+    for code in stcks:
+        print("------{}------".format(code))
+        tmp = unify_df_col_nm(api.daily(ts_code=code, start_date="20180701"))
+        stck_amt[code]=tmp["amt"].mean()
+
+    stcks_large_amt = set(stck_amt.sort_values(by="avg_amt",ascending=False).index[:100])
+
+    return stcks & stcks_large_amt
+
+
+def idx_pools():
+    return ["sh","sz","hs300","sz50","cyb"]
 
 
 def _sql_insert(db:str, table_name:str, cols:[str]):
@@ -59,6 +82,15 @@ def unify_col_names(columns:list):
             idx = columns.index(col1)
             columns[idx] = col2
     return columns
+
+
+def unify_df_col_nm(df:pd.DataFrame, copy=False):
+    if copy:
+        df = df.copy()
+
+    new_columns = unify_col_names(df.columns)
+    df.columns = new_columns
+    return df
 
 
 def insert_to_db(row, db_type:str, table_name, columns):
@@ -139,14 +171,16 @@ def main():
     # init_table(INDEX_DAY.TABLE_NAME, db_type)
     # collect_index_day(INDEX_DAY.pools(), db_type)
 
-    conn = connect_db(db_type)
-    cursor = conn.cursor()
-    # print(cursor.execute("select * from stock_day").fetchmany(50))
-    print(cursor.fetchmany(100))
+    # conn = connect_db(db_type)
+    # cursor = conn.cursor()
+    # # print(cursor.execute("select * from stock_day").fetchmany(50))
+    # print(cursor.fetchmany(100))
+    #
+    # cursor.execute("select * from index_day")
+    # print(cursor.fetchmany(100))
+    # # print(cursor.execute("select * from stock_day").fetchmany(100))
 
-    cursor.execute("select * from index_day")
-    print(cursor.fetchmany(100))
-    # print(cursor.execute("select * from stock_day").fetchmany(100))
+    print(stck_pools())
 
 
 if __name__ == '__main__':
