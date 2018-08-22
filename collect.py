@@ -187,8 +187,8 @@ def collect_stock_day(pools: [str], db_type: str):
 def main():
     db_type = "sqlite3"
 
-    # init_table(STOCK_DAY[TABLE], db_type)
-    # collect_stock_day(stck_pools(), db_type)
+    init_table(STOCK_DAY[TABLE], db_type)
+    collect_stock_day(stck_pools(), db_type)
 
     init_table(INDEX_DAY[TABLE], db_type)
     collect_index_day(idx_pools(), db_type)
