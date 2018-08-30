@@ -3,6 +3,10 @@ import df_operations as dfop
 import collect as clct
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
+import sklearn as sk
+import sklearn.preprocessing as preproc
+
 
 
 def _check_int(arg):
@@ -234,25 +238,29 @@ def prepare_data(cursor):
     return df_all,cols_future
 
 
-def y_distribution(y:pd.DataFrame):
+def y_distribution(y):
+    y = y.copy().dropna()
+    print(y)
     # print distribution of y
-    print("y<-0.5:",sum(y<-0.5))
-    for i in range(-5,5):
-        tmp1 = ((i*0.1)<= y)
-        tmp2 = (y <((i+1)*0.1))
-        if len(tmp1)==0 or len(tmp2)==0:
+    print("before",sum(y<0))
+    print("y<-0.5:", sum(y < -0.5))
+    for i in range(-5, 5):
+        tmp1 = ((i * 0.1) <= y)
+        tmp2 = (y < ((i + 1) * 0.1))
+        if len(tmp1) == 0 or len(tmp2) == 0:
             tmp = [False]
         else:
             tmp = tmp1 & tmp2
-        print("{0}<=y<{1}:".format(i*0.1,(i+1)*0.1),
+        print("{0:.2f}<=y<{1:.2f}:".format(i * 0.1, (i + 1) * 0.1),
               sum(tmp))
-    print("y>0.5",sum(y>0.5))
+    print("y>0.5", sum(y > 0.5))
+    print("after", sum(y < 0))
+    plt.figure()
+    plt.hist(y,bins=np.arange(-10, 11)*0.1)
 
 
 def label(df_all:pd.DataFrame):
-
     y = df_all["f20max_high"] / df_all["f1move_open"] - 1
-
     y_distribution(y)
 
     threshold = 0.15
@@ -264,6 +272,26 @@ def label(df_all:pd.DataFrame):
     print("过滤涨停后",sum(y==1))
 
     return y
+
+
+def feature_select(X,y):
+    import sklearn.ensemble as ensemble
+    clf = ensemble.ExtraTreesClassifier(random_state=0)
+    clf.fit(X,y)
+    import sklearn.feature_selection as fselect
+    model = fselect.SelectFromModel(clf,prefit=True)
+    X_new = model.transform(X)
+    print("selected feature number:", X_new.shape)
+
+    return X_new,model
+
+
+def drop_null(X,y):
+    Xy = np.concatenate((np.array(X), np.array(y).reshape(-1, 1)), axis=1)
+    Xy = pd.DataFrame(Xy, index=X.index).dropna()
+    X = Xy.iloc[:, :-1].copy()
+    y = Xy.iloc[:, -1].copy()
+    return X,y
 
 
 def main():
@@ -289,32 +317,50 @@ def main():
     period = (df_all.index > "2014-01-01")
     df_all = df_all[period]
 
+    df_all = df_all[df_all["amt"]!=0]
+
     y = label(df_all)
     print("null:",sum(y.isnull()))
 
     features = df_all.columns.difference(cols_future+["code"])
-    X = df_all[features][y.notnull()]
-    X_full = df_all[y.notnull()]
+
+
+    X = df_all[features]
+    X_full = df_all
+
+
+    X,y = drop_null(X,y)
+    X = X[y.notnull()]
     y = y.dropna()
+    print(X.shape,y.shape)
     print("total positive", sum(y))
 
     condition = (X.index > "2018-01-01")
     X_train, y_train = X[~condition], y[~condition]
     X_test, y_test = X[condition], y[condition]
 
-    X_train_full = X_full[~condition]
-    X_test_full = X_full[condition]
-
     print("test positive:", sum(y_test))
+
+
+    X_train_full = X_full.loc[X_train.index]
+    X_test_full = X_full.loc[X_test.index]
+    #
+    scaler = preproc.StandardScaler()
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.transform(X_test)
+
+    # X_train,selector = feature_select(X_train,y_train)
+    # X_test = selector.transform(X_test)
+
 
     scale_pos_weight = sum(y==0)/sum(y==1)
 
     clfs = [
         lgbm.LGBMClassifier(n_estimators=300, scale_pos_weight=0.1,
                             num_leaves=31, max_depth=5, random_state=0),
-        # xgb.XGBClassifier(n_estimators=300, scale_pos_weight=0.1,
-        #                   max_depth=5,
-        #                   random_state=0),
+        xgb.XGBClassifier(n_estimators=300, scale_pos_weight=0.1,
+                          max_depth=5,
+                          random_state=0),
     ]
 
     y_prd_list = []
@@ -330,7 +376,7 @@ def main():
         print(clf.classes_)
         print(y_prd.shape, sum(y_prd))
 
-        print(X_test_full["code"].iloc[y_prd==1])
+        # print(X_test_full["code"].iloc[y_prd==1])
 
         print("accuracy", metrics.accuracy_score(y_test, y_prd))
         print("precison", metrics.precision_score(y_test, y_prd))
@@ -338,6 +384,7 @@ def main():
         precision, recall, _ = metrics.precision_recall_curve(y_test, y_prd_prob[:, 1])
 
         plt.figure()
+        plt.title(clf.__class__)
         plt.xlim(0, 1)
         plt.ylim(0, 1)
         plt.xlabel("recall")
