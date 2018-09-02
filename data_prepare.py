@@ -1,12 +1,9 @@
-import db_operations as dbop
-import df_operations as dfop
-import collect as clct
-import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
-import sklearn as sk
-import sklearn.preprocessing as preproc
+import numpy as np
+import pandas as pd
 
+import collect as clct
+import db_operations as dbop
 
 
 def _check_int(arg):
@@ -33,40 +30,53 @@ def _prefix(prefix, df: pd.DataFrame, copy=False):
     return df
 
 
-def _move(days, df: pd.DataFrame, cols, prefix=True):
+def _move(days, df: pd.DataFrame, cols=None, prefix=True):
     _check_int(days)
+    if cols is None:
+        cols = df.columns
     cols = _make_iterable(cols)
 
     if days > 0:
-        pre = "p{}move".format(abs(days))
-        df_move = df[cols].iloc[days:].copy()
-        df_move.index = df.index[:-days]
+        pre = "p{}mv".format(abs(days))
+        df_mv = df[cols].iloc[days:].copy()
+        df_mv.index = df.index[:-days]
     else:
-        pre = "f{}move".format(abs(days))
-        df_move = df[cols].iloc[:days].copy()
-        df_move.index = df.index[-days:]
+        pre = "f{}mv".format(abs(days))
+        df_mv = df[cols].iloc[:days].copy()
+        df_mv.index = df.index[-days:]
 
     if prefix:
-        return _prefix(pre, df_move)
+        return _prefix(pre, df_mv)
     else:
-        return df_move
+        return df_mv
 
 
 def _rolling_max(days, df: pd.DataFrame, cols, move=0, has_prefix=True):
     _check_int(days)
     cols = _make_iterable(cols)
 
-    n = len(df.index)
     period = abs(days)
     df_rolling = df[cols].rolling(window=abs(days)).max()
+    if move!=0:
+        # print("--------",move)
+        # print(df_rolling[df["code"] == "600887.SH"]["high"].iloc[:30])
+        df_rolling = _move(move, df_rolling)
+        # print(df_rolling[df["code"] == "600887.SH"]["f1mv_high"].iloc[:30])
+    n = len(df_rolling)
+    idxes = df_rolling.index
     if days > 0:
         pre = "f" + str(abs(days)) + "max"
-        df_rolling = df_rolling.iloc[period-1:n+move]
-        df_rolling.index = df.index[period-1-move:n]
+        df_rolling = df_rolling.iloc[period-1:n]
+        df_rolling.index = idxes[period-1:n]
+        # df_rolling = df_rolling.iloc[period-1:n+move]
+        # df_rolling.index = df.index[period-1-move:n]
     else:
         pre= "p" + str(abs(days)) + "max"
-        df_rolling = df_rolling.iloc[period-1+move:n]
-        df_rolling.index = df.index[:n-period+1-move]
+        df_rolling = df_rolling.iloc[period-1:n]
+        df_rolling.index = idxes[:n-period+1]
+
+        # df_rolling = df_rolling.iloc[period-1+move:n]
+        # df_rolling.index = df.index[:n-period+1-move]
 
     if has_prefix:
         return _prefix(pre,df_rolling)
@@ -78,13 +88,26 @@ def _rolling_min(days, df: pd.DataFrame, cols, move=0, has_prefix=True):
     _check_int(days)
     cols = _make_iterable(cols)
 
+    period = abs(days)
     df_rolling = df[cols].rolling(window=abs(days)).min()
+    pre = ""
+    if move!=0:
+        df_rolling = _move(move, df_rolling)
+        pre = "_p{}mv".format(move) if move>0 else "f{}mv".format(move)
+    n = len(df_rolling)
     if days > 0:
-        pre = "f" + str(abs(days)) + "min"
+        pre = "f" + str(abs(days)) + "min"+pre
+        df_rolling = df_rolling.iloc[period-1:n]
+        df_rolling.index = df.index[period-1:n]
+        # df_rolling = df_rolling.iloc[period-1:n+move]
+        # df_rolling.index = df.index[period-1-move:n]
     else:
-        pre= "p" + str(abs(days)) + "min"
-        df_rolling = df_rolling.dropna()
-        df_rolling.index = df.index[:len(df_rolling)]
+        pre= "p" + str(abs(days)) + "min"+pre
+        df_rolling = df_rolling.iloc[period-1:n]
+        df_rolling.index = df.index[:n-period+1]
+
+        # df_rolling = df_rolling.iloc[period-1+move:n]
+        # df_rolling.index = df.index[:n-period+1-move]
 
     if has_prefix:
         return _prefix(pre,df_rolling)
@@ -96,13 +119,27 @@ def _rolling_mean(days, df: pd.DataFrame, cols, move=0, has_prefix=True):
     _check_int(days)
     cols = _make_iterable(cols)
 
+    period = abs(days)
     df_rolling = df[cols].rolling(window=abs(days)).mean()
+    pre = ""
+    if move!=0:
+        df_rolling = _move(move, df_rolling)
+        pre = "_p{}mv".format(move) if move>0 else "f{}mv".format(move)
+
+    n = len(df_rolling)
     if days > 0:
-        pre = "f" + str(abs(days)) + "mean"
+        pre = "f" + str(abs(days)) + "mean"+pre
+        df_rolling = df_rolling.iloc[period-1:n]
+        df_rolling.index = df.index[period-1:n]
+        # df_rolling = df_rolling.iloc[period-1:n+move]
+        # df_rolling.index = df.index[period-1-move:n]
     else:
-        pre = "p" + str(abs(days)) + "mean"
-        df_rolling = df_rolling.dropna()
-        df_rolling.index = df.index[:len(df_rolling)]
+        pre= "p" + str(abs(days)) + "mean"+pre
+        df_rolling = df_rolling.iloc[period-1:n]
+        df_rolling.index = df.index[:n-period+1]
+
+        # df_rolling = df_rolling.iloc[period-1+move:n]
+        # df_rolling.index = df.index[:n-period+1-move]
 
     if has_prefix:
         return _prefix(pre,df_rolling)
@@ -143,11 +180,12 @@ def prepare_idx_d(df_idx_d):
 def prepare_each_stck(df_stck):
     df_stck = df_stck.copy()
     qfq_cols = ["open", "high", "low", "close"]
-    qfq_factor = np.array(df_stck["adj_factor"] / df_stck["adj_factor"].iloc[0])
-    print(qfq_factor.shape)
-    qfq_factor = qfq_factor.reshape(-1, 1) * np.ones((1, len(qfq_cols)))
-    print(df_stck[qfq_cols].dtypes)
-    print(qfq_factor.shape, qfq_factor.dtype)
+    # qfq_factor = np.array(df_stck["adj_factor"] / df_stck["adj_factor"].iloc[0])
+    # print(qfq_factor.shape)
+    qfq_factor = np.array(df_stck["adj_factor"]).reshape(-1, 1) * np.ones((1,
+                                                                  len(qfq_cols)))
+    # print(df_stck[qfq_cols].dtypes)
+    # print(qfq_factor.shape, qfq_factor.dtype)
     # print(df_stck[qfq_cols]/qfq_factor)
     df_stck.loc[:, qfq_cols] = df_stck[qfq_cols] * qfq_factor
     # print(qfq_factor[:30])
@@ -162,13 +200,16 @@ def proc_stck_d(df_stck_d):
     cols_move = ["open", "high", "low", "close", "amt"]
     cols_roll = ["open", "high", "low", "close", "amt"]
     cols_future = None
-    for _, df in df_stck_d.groupby("code"):
+    for code, df in df_stck_d.groupby("code"):
         df = df.sort_index(ascending=False)
         df = prepare_each_stck(df)
         df_label_max = _rolling_max(pred_period, df, "high", move=-1)
         df_tomorrow = _move(-1,df,["open","high","low","close"])
         # df_label_min = _rolling_min(pred_period,df,"low")
 
+        # if code == "000002.SZ":
+        #     tmp = _rolling_min(-5,df,cols_roll).loc["2018-08-07"]
+        #     print(tmp)
         df_move_list = [change_rate(df[cols_move], _move(i, df, cols_move)) for i in range(1, 6)]
         df_rolling_list = [(change_rate(df[cols_roll], _rolling_max(i, df, cols_roll)),
                             change_rate(df[cols_roll], _rolling_min(i, df, cols_roll)),
@@ -260,7 +301,7 @@ def y_distribution(y):
 
 
 def label(df_all:pd.DataFrame):
-    y = df_all["f20max_high"] / df_all["f1move_open"] - 1
+    y = df_all["f20max_f1mv_high"] / df_all["f1mv_open"] - 1
     y_distribution(y)
 
     threshold = 0.15
@@ -268,7 +309,7 @@ def label(df_all:pd.DataFrame):
     y[y <= threshold] = 0
     print("过滤涨停前",sum(y==1))
 
-    y[df_all["f1move_high"]==df_all["f1move_low"]] = 0
+    y[df_all["f1mv_high"]==df_all["f1mv_low"]] = 0
     print("过滤涨停后",sum(y==1))
 
     return y
@@ -308,11 +349,64 @@ def main():
 
     df_all,cols_future = prepare_data(cursor)
 
+    # test
+    # df_test = df_all[df_all["code"]=="600887.SH"]
+    # basic_cols = ["open", "high", "low", "close", "amt", "adj_factor"]
+    # derived_cols = ['change_rate_p1mv_open', 'change_rate_p1mv_high',
+    #                 'change_rate_p1mv_low', 'change_rate_p1mv_close',
+    #                 'change_rate_p1mv_amt', 'change_rate_p3mv_open',
+    #                 'change_rate_p3mv_high', 'change_rate_p3mv_low',
+    #                 'change_rate_p3mv_close', 'change_rate_p3mv_amt',
+    #                 'change_rate_p5mv_open', 'change_rate_p5mv_high',
+    #                 'change_rate_p5mv_low', 'change_rate_p5mv_close',
+    #                 'change_rate_p5mv_amt', 'change_rate_p5max_open',
+    #                 'change_rate_p5max_high', 'change_rate_p5max_low',
+    #                 'change_rate_p5max_close', 'change_rate_p5max_amt',
+    #                 'change_rate_p5min_open', 'change_rate_p5min_high',
+    #                 'change_rate_p5min_low', 'change_rate_p5min_close',
+    #                 'change_rate_p5min_amt', 'change_rate_p5mean_open',
+    #                 'change_rate_p5mean_high', 'change_rate_p5mean_low',
+    #                 'change_rate_p5mean_close', 'change_rate_p5mean_amt',
+    #                 'change_rate_p20max_open', 'change_rate_p20max_high',
+    #                 'change_rate_p20max_low', 'change_rate_p20max_close',
+    #                 'change_rate_p20max_amt', 'change_rate_p20min_open',
+    #                 'change_rate_p20min_high', 'change_rate_p20min_low',
+    #                 'change_rate_p20min_close', 'change_rate_p20min_amt',
+    #                 'change_rate_p20mean_open', 'change_rate_p20mean_high',
+    #                 'change_rate_p20mean_low', 'change_rate_p20mean_close',
+    #                 'change_rate_p20mean_amt', 'f1mv_open', 'f1mv_high',
+    #                 'f1mv_low', 'f1mv_close', 'f20max_f1mv_high',
+    #                 'sz50_open', 'sz50_high', 'sz50_low', 'sz50_close',
+    #                 'sz50_vol', 'sz50_change_rate_p1mv_open',
+    #                 'sz50_change_rate_p1mv_high',
+    #                 'sz50_change_rate_p1mv_low',
+    #                 'sz50_change_rate_p1mv_close',
+    #                 'sz50_change_rate_p1mv_vol']
+    #
+    # test_cols = basic_cols + derived_cols
+    # print(test_cols)
+    # df_test[test_cols].sort_index(ascending=False).iloc[:100].to_excel(
+    #     "test_data.xlsx",header=True,index=True)
+
+
+
+
+    # # test
+    # df_test_list = []
+    # for code in df_all["code"].unique()[:3]:
+    #     df = df_all[df_all["code"]==code].sort_index(
+    #         ascending=False).iloc[:50]
+    #     print(df)
+    #     df_test_list.append(df)
+    # pd.concat(df_test_list).to_excel("test_data.xlsx",header=True,index=True)
+    #
+    #
     import xgboost.sklearn as xgb
     import lightgbm.sklearn as lgbm
     import sklearn.metrics as metrics
     import matplotlib.pyplot as plt
     import time
+    import sklearn.preprocessing as preproc
 
     period = (df_all.index > "2014-01-01")
     df_all = df_all[period]
@@ -357,9 +451,9 @@ def main():
 
     clfs = [
         lgbm.LGBMClassifier(n_estimators=300, scale_pos_weight=0.1,
-                            num_leaves=31, max_depth=5, random_state=0),
+                            num_leaves=100, max_depth=8, random_state=0),
         xgb.XGBClassifier(n_estimators=300, scale_pos_weight=0.1,
-                          max_depth=5,
+                          max_depth=6,
                           random_state=0),
     ]
 
