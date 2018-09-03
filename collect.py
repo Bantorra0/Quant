@@ -47,7 +47,12 @@ def stck_pools():
 
     pools = list(stcks.join(symbols, how="inner")["code"])
 
-    return pools
+    stcks_5g = ['600487.SH', '601138.SH', '002217.SZ', '600522.SH',
+                '002913.SZ', '002402.SZ', '600345.SH', '300292.SZ',
+                '300038.SZ', '300113.SZ', '300068.SZ', '002446.SZ',
+                '000070.SZ', '300679.SZ', '002335.SZ', '000063.SZ']
+
+    return set(pools) | set(stcks_5g)
 
 
 def idx_pools():
@@ -118,12 +123,22 @@ def insert_to_db(row, db_type: str, table_name, columns):
     conn.commit()
 
 
-def collect_index_day(pools: [str], db_type: str):
+def collect_index_day(pools: [str], db_type: str, update=False):
     conn = connect_db(db_type)
     cursor = conn.cursor()
     for i, code in enumerate(pools):
         try:
-            df = ts.get_k_data(code=code, start="2010-01-01")
+            start = "2000-01-01"
+            if update:
+                cursor.execute("select date from {0} where code='{1}'".format(
+                    INDEX_DAY[TABLE],code))
+                rs = cursor.fetchall()
+                print(rs)
+                if len(rs)>0:
+                    start = sorted(rs,reverse=True)[0][0]
+
+            print("start:",start)
+            df = ts.get_k_data(code=code, start=start)
             # 打印进度
             print('Seq: ' + str(i + 1) + ' of ' + str(
                 len(pools)) + '   Code: ' + str(code))
@@ -143,18 +158,34 @@ def collect_index_day(pools: [str], db_type: str):
                 conn.commit()
             except Exception as err:
                 print(err)
+
                 continue
     close_db(conn)
 
 
-def collect_stock_day(pools: [str], db_type: str):
+def collect_stock_day(pools: [str], db_type: str, update=False):
     pro = _init_api(TOKEN)
     conn = connect_db(db_type)
     cursor = conn.cursor()
     for i, code in enumerate(pools):
         try:
-            daily = pro.daily(ts_code=code)
+            start = "20000101"
+            if update:
+                cursor.execute("select date from {0} where code='{1}'".format(
+                    STOCK_DAY[TABLE],code))
+                rs = cursor.fetchall()
+                print(rs)
+                if len(rs)>0:
+                    start = str(sorted(rs,reverse=True)[0][0]).replace("-","")
+
+            print("start:",start)
+            daily = pro.daily(ts_code=code, start_date=start)
             adj_factor = pro.adj_factor(ts_code=code)
+
+            if update:
+                adj_factor = adj_factor[adj_factor["trade_date"]>=start]
+                print("adj:",adj_factor.shape)
+
             df = natural_outer_join(daily, adj_factor)
             # 打印进度
             print('Seq: ' + str(i + 1) + ' of ' + str(
@@ -187,11 +218,12 @@ def collect_stock_day(pools: [str], db_type: str):
 def main():
     db_type = "sqlite3"
 
-    init_table(STOCK_DAY[TABLE], db_type)
-    collect_stock_day(stck_pools(), db_type)
+    # init_table(STOCK_DAY[TABLE], db_type)
+    print(len(stck_pools()))
+    collect_stock_day(stck_pools(), db_type, update=True)
 
-    init_table(INDEX_DAY[TABLE], db_type)
-    collect_index_day(idx_pools(), db_type)
+    # init_table(INDEX_DAY[TABLE], db_type)
+    # collect_index_day(idx_pools(), db_type, update=True)
 
     # conn = connect_db(db_type)
     # cursor = conn.cursor()

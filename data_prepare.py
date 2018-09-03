@@ -453,7 +453,7 @@ def main():
         lgbm.LGBMClassifier(n_estimators=300, scale_pos_weight=0.1,
                             num_leaves=100, max_depth=8, random_state=0),
         xgb.XGBClassifier(n_estimators=300, scale_pos_weight=0.1,
-                          max_depth=6,
+                          max_depth=5,
                           random_state=0),
     ]
 
@@ -470,7 +470,7 @@ def main():
         print(clf.classes_)
         print(y_prd.shape, sum(y_prd))
 
-        # print(X_test_full["code"].iloc[y_prd==1])
+        print(X_test_full["code"].iloc[y_prd==1])
 
         print("accuracy", metrics.accuracy_score(y_test, y_prd))
         print("precison", metrics.precision_score(y_test, y_prd))

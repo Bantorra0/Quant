@@ -58,5 +58,8 @@ def cols_from_cur(cursor):
 
 
 if __name__ == '__main__':
-    pass
+    cursor = connect_db("sqlite3").cursor()
+    cursor.execute("select * from stock_day where date>='2018-08-15'")
+    for row in cursor.fetchall():
+        print(row)
 
