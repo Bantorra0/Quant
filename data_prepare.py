@@ -90,24 +90,21 @@ def _rolling_min(days, df: pd.DataFrame, cols, move=0, has_prefix=True):
 
     period = abs(days)
     df_rolling = df[cols].rolling(window=abs(days)).min()
-    pre = ""
-    if move!=0:
+    if move != 0:
+        # print("--------",move)
+        # print(df_rolling[df["code"] == "600887.SH"]["high"].iloc[:30])
         df_rolling = _move(move, df_rolling)
-        pre = "_p{}mv".format(move) if move>0 else "f{}mv".format(move)
+        # print(df_rolling[df["code"] == "600887.SH"]["f1mv_high"].iloc[:30])
     n = len(df_rolling)
+    idxes = df_rolling.index
     if days > 0:
-        pre = "f" + str(abs(days)) + "min"+pre
-        df_rolling = df_rolling.iloc[period-1:n]
-        df_rolling.index = df.index[period-1:n]
-        # df_rolling = df_rolling.iloc[period-1:n+move]
-        # df_rolling.index = df.index[period-1-move:n]
+        pre = "f" + str(abs(days)) + "min"
+        df_rolling = df_rolling.iloc[period - 1:n]
+        df_rolling.index = idxes[period - 1:n]
     else:
-        pre= "p" + str(abs(days)) + "min"+pre
-        df_rolling = df_rolling.iloc[period-1:n]
-        df_rolling.index = df.index[:n-period+1]
-
-        # df_rolling = df_rolling.iloc[period-1+move:n]
-        # df_rolling.index = df.index[:n-period+1-move]
+        pre = "p" + str(abs(days)) + "min"
+        df_rolling = df_rolling.iloc[period - 1:n]
+        df_rolling.index = idxes[:n - period + 1]
 
     if has_prefix:
         return _prefix(pre,df_rolling)
@@ -158,9 +155,12 @@ def change_rate(df1: pd.DataFrame, df2: pd.DataFrame):
     return df3
 
 
-def create_df(cursor, table_name):
-    sql_select_all = "select * from {}"
-    cursor.execute(sql_select_all.format(table_name))
+def create_df(cursor, table_name, start=None):
+    if start:
+        sql_select = "select * from {0} where date>={1}".format(table_name,start)
+    else:
+        sql_select = "select * from {0}".format(table_name)
+    cursor.execute(sql_select)
     df = pd.DataFrame(cursor.fetchall())
     df.columns = dbop.cols_from_cur(cursor)
     return df
@@ -192,11 +192,10 @@ def prepare_each_stck(df_stck):
     return df_stck
 
 
-def proc_stck_d(df_stck_d):
+def proc_stck_d(df_stck_d, pred_period = 10):
     df_stck_d = prepare_stck_d(df_stck_d)
 
     df_stck_list = []
-    pred_period = 20
     cols_move = ["open", "high", "low", "close", "amt"]
     cols_roll = ["open", "high", "low", "close", "amt"]
     cols_future = None
@@ -204,6 +203,8 @@ def proc_stck_d(df_stck_d):
         df = df.sort_index(ascending=False)
         df = prepare_each_stck(df)
         df_label_max = _rolling_max(pred_period, df, "high", move=-1)
+        df_label_min = _rolling_min(pred_period, df, "low", move=-1)
+        print(df_label_min.columns)
         df_tomorrow = _move(-1,df,["open","high","low","close"])
         # df_label_min = _rolling_min(pred_period,df,"low")
 
@@ -221,12 +222,12 @@ def proc_stck_d(df_stck_d):
             df_roll_flat_list.extend(df_rolling_group)
 
         tmp = pd.concat(
-            [df] + df_move_list + df_roll_flat_list + [df_tomorrow,df_label_max],
+            [df] + df_move_list + df_roll_flat_list + [df_tomorrow,df_label_max,df_label_min],
                         axis=1, sort=False)
         df_stck_list.append(tmp)
 
         if not cols_future:
-            cols_future = list(df_tomorrow.columns) + list(df_label_max.columns)
+            cols_future = list(df_tomorrow.columns) + list(df_label_max.columns) + list(df_label_min.columns)
         # print(tmp.shape)
         # print(tmp[tmp[col_label].isnull()])
 
@@ -262,14 +263,14 @@ def proc_idx_d(df_idx_d: pd.DataFrame):
     return df_idx_d
 
 
-def prepare_data(cursor):
+def prepare_data(cursor, pred_period=10):
     stock_day, index_day = clct.STOCK_DAY[clct.TABLE], clct.INDEX_DAY[
         clct.TABLE]
 
     df_stck_d = create_df(cursor, stock_day)
     df_idx_d = create_df(cursor, index_day)
 
-    df_stck_d_all,cols_future = proc_stck_d(df_stck_d)
+    df_stck_d_all,cols_future = proc_stck_d(df_stck_d,pred_period=pred_period)
     print(df_stck_d_all.shape)
 
     df_idx_d = proc_idx_d(df_idx_d)
@@ -300,11 +301,10 @@ def y_distribution(y):
     plt.hist(y,bins=np.arange(-10, 11)*0.1)
 
 
-def label(df_all:pd.DataFrame):
-    y = df_all["f20max_f1mv_high"] / df_all["f1mv_open"] - 1
+def label(df_all:pd.DataFrame, threshold=0.1,pred_period=10):
+    y = -(df_all["f{}min_f1mv_low".format(pred_period)] / df_all["f1mv_open"] - 1)
     y_distribution(y)
 
-    threshold = 0.15
     y[y > threshold] = 1
     y[y <= threshold] = 0
     print("过滤涨停前",sum(y==1))
@@ -347,7 +347,8 @@ def main():
     conn = dbop.connect_db(db_type)
     cursor = conn.cursor()
 
-    df_all,cols_future = prepare_data(cursor)
+    pred_period=20
+    df_all,cols_future = prepare_data(cursor,pred_period=pred_period)
 
     # test
     # df_test = df_all[df_all["code"]=="600887.SH"]
@@ -413,7 +414,7 @@ def main():
 
     df_all = df_all[df_all["amt"]!=0]
 
-    y = label(df_all)
+    y = label(df_all,threshold=0.15,pred_period=pred_period)
     print("null:",sum(y.isnull()))
 
     features = df_all.columns.difference(cols_future+["code"])
@@ -466,7 +467,7 @@ def main():
         y_prd_list.append([clf, t2 - t1, clf.predict_proba(X_test), c])
 
     for clf, t, y_prd_prob, c in y_prd_list:
-        y_prd = np.where(y_prd_prob[:, 0] < 0.2, 1, 0)
+        y_prd = np.where(y_prd_prob[:, 0] < 0.25, 1, 0)
         print(clf.classes_)
         print(y_prd.shape, sum(y_prd))
 
