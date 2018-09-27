@@ -136,6 +136,8 @@ def collect_index_day(pools: [str], db_type: str, update=False):
                 print(rs)
                 if len(rs)>0:
                     start = sorted(rs,reverse=True)[0][0]
+                    cursor.execute(("delete from {0} where code='{1}' "
+                                   "and date='{2}'").format(INDEX_DAY[TABLE],code,start))
 
             print("start:",start)
             df = ts.get_k_data(code=code, start=start)
@@ -174,9 +176,12 @@ def collect_stock_day(pools: [str], db_type: str, update=False):
                 cursor.execute("select date from {0} where code='{1}'".format(
                     STOCK_DAY[TABLE],code))
                 rs = cursor.fetchall()
-                print(rs)
                 if len(rs)>0:
-                    start = str(sorted(rs,reverse=True)[0][0]).replace("-","")
+                    start = sorted(rs,reverse=True)[0][0]
+                    cursor.execute(("delete from {0} where code='{1}' "
+                                   "and date='{2}'").format(STOCK_DAY[TABLE],
+                                                            code,start))
+                    start = str(start).replace("-","")
 
             print("start:",start)
             daily = pro.daily(ts_code=code, start_date=start)
@@ -223,7 +228,7 @@ def main():
     collect_stock_day(stck_pools(), db_type, update=True)
 
     # init_table(INDEX_DAY[TABLE], db_type)
-    # collect_index_day(idx_pools(), db_type, update=True)
+    collect_index_day(idx_pools(), db_type, update=True)
 
     # conn = connect_db(db_type)
     # cursor = conn.cursor()
@@ -234,7 +239,7 @@ def main():
     # print(cursor.fetchmany(100))
     # # print(cursor.execute("select * from stock_day").fetchmany(100))
 
-    print(stck_pools())
+    # print(stck_pools())
 
 
 if __name__ == '__main__':

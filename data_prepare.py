@@ -73,7 +73,8 @@ def _rolling_max(days, df: pd.DataFrame, cols, move=0, has_prefix=True):
     else:
         pre= "p" + str(abs(days)) + "max"
         df_rolling = df_rolling.iloc[period-1:n]
-        df_rolling.index = idxes[:n-period+1]
+        if n-period+1>=0:
+            df_rolling.index = idxes[:n-period+1]
 
         # df_rolling = df_rolling.iloc[period-1+move:n]
         # df_rolling.index = df.index[:n-period+1-move]
@@ -104,7 +105,8 @@ def _rolling_min(days, df: pd.DataFrame, cols, move=0, has_prefix=True):
     else:
         pre = "p" + str(abs(days)) + "min"
         df_rolling = df_rolling.iloc[period - 1:n]
-        df_rolling.index = idxes[:n - period + 1]
+        if n-period+1>=0:
+            df_rolling.index = idxes[:n-period+1]
 
     if has_prefix:
         return _prefix(pre,df_rolling)
@@ -118,23 +120,22 @@ def _rolling_mean(days, df: pd.DataFrame, cols, move=0, has_prefix=True):
 
     period = abs(days)
     df_rolling = df[cols].rolling(window=abs(days)).mean()
-    pre = ""
+
     if move!=0:
         df_rolling = _move(move, df_rolling)
         pre = "_p{}mv".format(move) if move>0 else "f{}mv".format(move)
 
     n = len(df_rolling)
+    idxes = df_rolling.index
     if days > 0:
-        pre = "f" + str(abs(days)) + "mean"+pre
-        df_rolling = df_rolling.iloc[period-1:n]
-        df_rolling.index = df.index[period-1:n]
-        # df_rolling = df_rolling.iloc[period-1:n+move]
-        # df_rolling.index = df.index[period-1-move:n]
+        pre = "f" + str(abs(days)) + "mean"
+        df_rolling = df_rolling.iloc[period - 1:n]
+        df_rolling.index = idxes[period - 1:n]
     else:
-        pre= "p" + str(abs(days)) + "mean"+pre
-        df_rolling = df_rolling.iloc[period-1:n]
-        df_rolling.index = df.index[:n-period+1]
-
+        pre = "p" + str(abs(days)) + "mean"
+        df_rolling = df_rolling.iloc[period - 1:n]
+        if n - period + 1 >= 0:
+            df_rolling.index = idxes[:n - period + 1]
         # df_rolling = df_rolling.iloc[period-1+move:n]
         # df_rolling.index = df.index[:n-period+1-move]
 
@@ -215,7 +216,7 @@ def proc_stck_d(df_stck_d, pred_period = 10):
         df_rolling_list = [(change_rate(df[cols_roll], _rolling_max(i, df, cols_roll)),
                             change_rate(df[cols_roll], _rolling_min(i, df, cols_roll)),
                             change_rate(df[cols_roll], _rolling_mean(i, df, cols_roll)))
-                           for i in [-5, -10, -20, 60, 120, 250]]
+                           for i in [-5, -10, -20, -60, -120, -250]]
 
         df_roll_flat_list = []
         for df_rolling_group in df_rolling_list:
@@ -257,7 +258,7 @@ def proc_idx_d(df_idx_d: pd.DataFrame):
         df_rolling_list = [(change_rate(group[["high","vol"]], _rolling_max(i, group, ["high","vol"])),
                             change_rate(group[["low","vol"]], _rolling_min(i, group, ["low","vol"])),
                             change_rate(group[["open","close","vol"]], _rolling_mean(i, group, ["open","close","vol"])))
-                           for i in [-5, -10, -20,60,120,250,500]]
+                           for i in [-5, -10, -20,-60,-120,-250,-500]]
 
         df_roll_flat_list = []
         for df_rolling_group in df_rolling_list:
@@ -481,46 +482,46 @@ def main():
     # # X_test = selector.transform(X_test)
     #
     #
-    # scale_pos_weight = sum(y==0)/sum(y==1)
-    #
-    # clfs = [
-    #     lgbm.LGBMClassifier(n_estimators=300, scale_pos_weight=0.1,
-    #                         num_leaves=100, max_depth=8, random_state=0),
-    #     xgb.XGBClassifier(n_estimators=300, scale_pos_weight=0.1,
-    #                       max_depth=5,
-    #                       random_state=0),
-    # ]
-    #
-    # y_prd_list = []
-    # colors = ["r", "b"]
-    # for clf, c in zip(clfs, colors):
-    #     t1 = time.time()
-    #     clf.fit(X_train, y_train)
-    #     t2 = time.time()
-    #     y_prd_list.append([clf, t2 - t1, clf.predict_proba(X_test), c])
-    #
-    # for clf, t, y_prd_prob, c in y_prd_list:
-    #     y_prd = np.where(y_prd_prob[:, 0] < 0.25, 1, 0)
-    #     print(clf.classes_)
-    #     print(y_prd.shape, sum(y_prd))
-    #
-    #     print(X_test_full["code"].iloc[y_prd==1])
-    #
-    #     print("accuracy", metrics.accuracy_score(y_test, y_prd))
-    #     print("precison", metrics.precision_score(y_test, y_prd))
-    #     print("recall", metrics.recall_score(y_test, y_prd))
-    #     precision, recall, _ = metrics.precision_recall_curve(y_test, y_prd_prob[:, 1])
-    #
-    #     plt.figure()
-    #     plt.title(clf.__class__)
-    #     plt.xlim(0, 1)
-    #     plt.ylim(0, 1)
-    #     plt.xlabel("recall")
-    #     plt.ylabel("precision")
-    #     plt.plot(recall, precision, color=c)
-    #     print(clf, t)
-    #
-    # plt.show()
+    scale_pos_weight = sum(y==0)/sum(y==1)
+
+    clfs = [
+        lgbm.LGBMClassifier(n_estimators=300, scale_pos_weight=0.1,
+                            num_leaves=100, max_depth=8, random_state=0),
+        xgb.XGBClassifier(n_estimators=300, scale_pos_weight=0.1,
+                          max_depth=5,
+                          random_state=0),
+    ]
+
+    y_prd_list = []
+    colors = ["r", "b"]
+    for clf, c in zip(clfs, colors):
+        t1 = time.time()
+        clf.fit(X_train, y_train)
+        t2 = time.time()
+        y_prd_list.append([clf, t2 - t1, clf.predict_proba(X_test), c])
+
+    for clf, t, y_prd_prob, c in y_prd_list:
+        y_prd = np.where(y_prd_prob[:, 0] < 0.25, 1, 0)
+        print(clf.classes_)
+        print(y_prd.shape, sum(y_prd))
+
+        print(X_test_full["code"].iloc[y_prd==1])
+
+        print("accuracy", metrics.accuracy_score(y_test, y_prd))
+        print("precison", metrics.precision_score(y_test, y_prd))
+        print("recall", metrics.recall_score(y_test, y_prd))
+        precision, recall, _ = metrics.precision_recall_curve(y_test, y_prd_prob[:, 1])
+
+        plt.figure()
+        plt.title(clf.__class__)
+        plt.xlim(0, 1)
+        plt.ylim(0, 1)
+        plt.xlabel("recall")
+        plt.ylabel("precision")
+        plt.plot(recall, precision, color=c)
+        print(clf, t)
+
+    plt.show()
 
 
 if __name__ == '__main__':
