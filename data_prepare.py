@@ -204,7 +204,7 @@ def proc_stck_d(df_stck_d, pred_period = 10):
         df = prepare_each_stck(df)
         df_label_max = _rolling_max(pred_period, df, "high", move=-1)
         df_label_min = _rolling_min(pred_period, df, "low", move=-1)
-        print(df_label_min.columns)
+        # print(df_label_min.columns)
         df_tomorrow = _move(-1,df,["open","high","low","close"])
         # df_label_min = _rolling_min(pred_period,df,"low")
 
@@ -215,7 +215,7 @@ def proc_stck_d(df_stck_d, pred_period = 10):
         df_rolling_list = [(change_rate(df[cols_roll], _rolling_max(i, df, cols_roll)),
                             change_rate(df[cols_roll], _rolling_min(i, df, cols_roll)),
                             change_rate(df[cols_roll], _rolling_mean(i, df, cols_roll)))
-                           for i in [-5, -10, -20]]
+                           for i in [-5, -10, -20, 60, 120, 250]]
 
         df_roll_flat_list = []
         for df_rolling_group in df_rolling_list:
@@ -230,8 +230,16 @@ def proc_stck_d(df_stck_d, pred_period = 10):
             cols_future = list(df_tomorrow.columns) + list(df_label_max.columns) + list(df_label_min.columns)
         # print(tmp.shape)
         # print(tmp[tmp[col_label].isnull()])
+        if code == "002217.SZ":
+            print(df[df.index=="2018-01-02"])
+            print(tmp[tmp.index=="2018-01-02"])
 
     df_stck_d_all = pd.concat(df_stck_list, sort=False)
+    for df in df_stck_list:
+        print(df["code"].unique(),df.shape)
+        print(df["code"].unique(),df[df.index>="2018-01-01"].shape)
+    print("count stck",len(df_stck_d_all["code"][df_stck_d_all.index >= "2018-01-01"].unique()))
+    print(df_stck_d_all.shape)
 
     return df_stck_d_all,cols_future
 
@@ -246,10 +254,10 @@ def proc_idx_d(df_idx_d: pd.DataFrame):
         group = group.sort_index(ascending=False)
         del group["code"]
         df_move_list = [change_rate(group[cols_move], _move(i, group, cols_move)) for i in range(1, 6)]
-        df_rolling_list = [(change_rate(group[cols_roll], _rolling_max(i, group, cols_roll)),
-                            change_rate(group[cols_roll], _rolling_min(i, group, cols_roll)),
-                            change_rate(group[cols_roll], _rolling_mean(i, group, cols_roll)))
-                           for i in [-5, -10, -20]]
+        df_rolling_list = [(change_rate(group[["high","vol"]], _rolling_max(i, group, ["high","vol"])),
+                            change_rate(group[["low","vol"]], _rolling_min(i, group, ["low","vol"])),
+                            change_rate(group[["open","close","vol"]], _rolling_mean(i, group, ["open","close","vol"])))
+                           for i in [-5, -10, -20,60,120,250,500]]
 
         df_roll_flat_list = []
         for df_rolling_group in df_rolling_list:
@@ -263,19 +271,22 @@ def proc_idx_d(df_idx_d: pd.DataFrame):
     return df_idx_d
 
 
-def prepare_data(cursor, pred_period=10):
+def prepare_data(cursor, pred_period=10, start=None):
     stock_day, index_day = clct.STOCK_DAY[clct.TABLE], clct.INDEX_DAY[
         clct.TABLE]
 
-    df_stck_d = create_df(cursor, stock_day)
-    df_idx_d = create_df(cursor, index_day)
+    df_stck_d = create_df(cursor, stock_day,start)
+    df_idx_d = create_df(cursor, index_day,start)
 
     df_stck_d_all,cols_future = proc_stck_d(df_stck_d,pred_period=pred_period)
     print(df_stck_d_all.shape)
 
     df_idx_d = proc_idx_d(df_idx_d)
-    print(df_idx_d.shape)
+    print(df_idx_d.shape,len(df_idx_d.index.unique()))
     df_all = df_stck_d_all.join(df_idx_d)
+    print(df_all.shape)
+
+    print(df_all[(df_all.index == "2018-01-02") & (df_all["code"]=="002217.SZ")])
 
     return df_all,cols_future
 
@@ -301,7 +312,21 @@ def y_distribution(y):
     plt.hist(y,bins=np.arange(-10, 11)*0.1)
 
 
-def label(df_all:pd.DataFrame, threshold=0.1,pred_period=10):
+def label_inc(df_all:pd.DataFrame, threshold=0.1, pred_period=10):
+    y = (df_all["f{}max_f1mv_high".format(pred_period)] / df_all["f1mv_open"] - 1)
+    y_distribution(y)
+
+    y[y > threshold] = 1
+    y[y <= threshold] = 0
+    print("过滤涨停前",sum(y==1))
+
+    y[df_all["f1mv_high"]==df_all["f1mv_low"]] = 0
+    print("过滤涨停后",sum(y==1))
+
+    return y
+
+
+def label_dec(df_all:pd.DataFrame, threshold=0.1, pred_period=10):
     y = -(df_all["f{}min_f1mv_low".format(pred_period)] / df_all["f1mv_open"] - 1)
     y_distribution(y)
 
@@ -347,8 +372,8 @@ def main():
     conn = dbop.connect_db(db_type)
     cursor = conn.cursor()
 
-    pred_period=20
-    df_all,cols_future = prepare_data(cursor,pred_period=pred_period)
+    pred_period=60
+    df_all,cols_future = prepare_data(cursor,pred_period=pred_period,start="2011-01-01")
 
     # test
     # df_test = df_all[df_all["code"]=="600887.SH"]
@@ -409,85 +434,93 @@ def main():
     import time
     import sklearn.preprocessing as preproc
 
-    period = (df_all.index > "2014-01-01")
+    period = (df_all.index >= "2014-01-01")
     df_all = df_all[period]
 
     df_all = df_all[df_all["amt"]!=0]
 
-    y = label(df_all,threshold=0.15,pred_period=pred_period)
+    y = label_inc(df_all, threshold=0.25, pred_period=pred_period)
     print("null:",sum(y.isnull()))
 
     features = df_all.columns.difference(cols_future+["code"])
 
 
     X = df_all[features]
-    X_full = df_all
 
 
-    X,y = drop_null(X,y)
+    # X,y = drop_null(X,y)
     X = X[y.notnull()]
+    X_full = df_all[y.notnull()]
+    print("full and X",X.shape,X_full.shape)
     y = y.dropna()
     print(X.shape,y.shape)
     print("total positive", sum(y))
 
-    condition = (X.index > "2018-01-01")
+    condition = (X.index >= "2018-01-01")
     X_train, y_train = X[~condition], y[~condition]
     X_test, y_test = X[condition], y[condition]
 
+    print(X_test.shape,y_test.shape)
     print("test positive:", sum(y_test))
 
+    X_train_full = X_full.loc[condition]
+    X_test_full = X_full.loc[condition]
 
-    X_train_full = X_full.loc[X_train.index]
-    X_test_full = X_full.loc[X_test.index]
+    print(X_test_full.shape,X_test.shape)
+    print(X_test_full[(X_test_full.index == "2018-01-02") & (X_test_full["code"]=="002217.SZ")].shape)
+
+
+    # print(X_test_full["code"].iloc[np.array(y_test == 1)])
+    # print(X_test_full[X_test_full["code"]=="002217.SZ"])
+
+    # # scaler = preproc.StandardScaler()
+    # # X_train = scaler.fit_transform(X_train)
+    # # X_test = scaler.transform(X_test)
     #
-    scaler = preproc.StandardScaler()
-    X_train = scaler.fit_transform(X_train)
-    X_test = scaler.transform(X_test)
-
-    # X_train,selector = feature_select(X_train,y_train)
-    # X_test = selector.transform(X_test)
-
-
-    scale_pos_weight = sum(y==0)/sum(y==1)
-
-    clfs = [
-        lgbm.LGBMClassifier(n_estimators=300, scale_pos_weight=0.1,
-                            num_leaves=100, max_depth=8, random_state=0),
-        xgb.XGBClassifier(n_estimators=300, scale_pos_weight=0.1,
-                          max_depth=5,
-                          random_state=0),
-    ]
-
-    y_prd_list = []
-    colors = ["r", "b"]
-    for clf, c in zip(clfs, colors):
-        t1 = time.time()
-        clf.fit(X_train, y_train)
-        t2 = time.time()
-        y_prd_list.append([clf, t2 - t1, clf.predict_proba(X_test), c])
-
-    for clf, t, y_prd_prob, c in y_prd_list:
-        y_prd = np.where(y_prd_prob[:, 0] < 0.25, 1, 0)
-        print(clf.classes_)
-        print(y_prd.shape, sum(y_prd))
-
-        print(X_test_full["code"].iloc[y_prd==1])
-
-        print("accuracy", metrics.accuracy_score(y_test, y_prd))
-        print("precison", metrics.precision_score(y_test, y_prd))
-        print("recall", metrics.recall_score(y_test, y_prd))
-        precision, recall, _ = metrics.precision_recall_curve(y_test, y_prd_prob[:, 1])
-
-        plt.figure()
-        plt.title(clf.__class__)
-        plt.xlim(0, 1)
-        plt.ylim(0, 1)
-        plt.xlabel("recall")
-        plt.ylabel("precision")
-        plt.plot(recall, precision, color=c)
-        print(clf, t)
-
-    plt.show()
+    # # X_train,selector = feature_select(X_train,y_train)
+    # # X_test = selector.transform(X_test)
+    #
+    #
+    # scale_pos_weight = sum(y==0)/sum(y==1)
+    #
+    # clfs = [
+    #     lgbm.LGBMClassifier(n_estimators=300, scale_pos_weight=0.1,
+    #                         num_leaves=100, max_depth=8, random_state=0),
+    #     xgb.XGBClassifier(n_estimators=300, scale_pos_weight=0.1,
+    #                       max_depth=5,
+    #                       random_state=0),
+    # ]
+    #
+    # y_prd_list = []
+    # colors = ["r", "b"]
+    # for clf, c in zip(clfs, colors):
+    #     t1 = time.time()
+    #     clf.fit(X_train, y_train)
+    #     t2 = time.time()
+    #     y_prd_list.append([clf, t2 - t1, clf.predict_proba(X_test), c])
+    #
+    # for clf, t, y_prd_prob, c in y_prd_list:
+    #     y_prd = np.where(y_prd_prob[:, 0] < 0.25, 1, 0)
+    #     print(clf.classes_)
+    #     print(y_prd.shape, sum(y_prd))
+    #
+    #     print(X_test_full["code"].iloc[y_prd==1])
+    #
+    #     print("accuracy", metrics.accuracy_score(y_test, y_prd))
+    #     print("precison", metrics.precision_score(y_test, y_prd))
+    #     print("recall", metrics.recall_score(y_test, y_prd))
+    #     precision, recall, _ = metrics.precision_recall_curve(y_test, y_prd_prob[:, 1])
+    #
+    #     plt.figure()
+    #     plt.title(clf.__class__)
+    #     plt.xlim(0, 1)
+    #     plt.ylim(0, 1)
+    #     plt.xlabel("recall")
+    #     plt.ylabel("precision")
+    #     plt.plot(recall, precision, color=c)
+    #     print(clf, t)
+    #
+    # plt.show()
 
 
 if __name__ == '__main__':
