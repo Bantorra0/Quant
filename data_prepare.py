@@ -51,6 +51,48 @@ def _move(days, df: pd.DataFrame, cols=None, prefix=True):
         return df_mv
 
 
+def _rolling(rolling_type, days, df: pd.DataFrame, cols, move=0, has_prefix=True):
+    _check_int(days)
+    cols = _make_iterable(cols)
+
+    period = abs(days)
+    if rolling_type=="max":
+        df_rolling = df[cols].rolling(window=abs(days)).max()
+    elif rolling_type=="min":
+        df_rolling = df[cols].rolling(window=abs(days)).min()
+    elif rolling_type=="mean":
+        df_rolling = df[cols].rolling(window=abs(days)).max()
+    else:
+        raise ValueError("rolling_type='{}' is not supported.".format(rolling_type))
+
+    if move != 0:
+        # print("--------",move)
+        # print(df_rolling[df["code"] == "600887.SH"]["high"].iloc[:30])
+        df_rolling = _move(move, df_rolling)
+        # print(df_rolling[df["code"] == "600887.SH"]["f1mv_high"].iloc[:30])
+    n = len(df_rolling)
+    idxes = df_rolling.index
+    if days > 0:
+        pre = "f" + str(abs(days)) + "max"
+        df_rolling = df_rolling.iloc[period - 1:n]
+        df_rolling.index = idxes[period - 1:n]
+        # df_rolling = df_rolling.iloc[period-1:n+move]
+        # df_rolling.index = df.index[period-1-move:n]
+    else:
+        pre = "p" + str(abs(days)) + "max"
+        df_rolling = df_rolling.iloc[period - 1:n]
+        if n - period + 1 >= 0:
+            df_rolling.index = idxes[:n - period + 1]
+
+        # df_rolling = df_rolling.iloc[period-1+move:n]
+        # df_rolling.index = df.index[:n-period+1-move]
+
+    if has_prefix:
+        return _prefix(pre, df_rolling)
+    else:
+        return df_rolling
+
+
 def _rolling_max(days, df: pd.DataFrame, cols, move=0, has_prefix=True):
     _check_int(days)
     cols = _make_iterable(cols)
@@ -120,11 +162,8 @@ def _rolling_mean(days, df: pd.DataFrame, cols, move=0, has_prefix=True):
 
     period = abs(days)
     df_rolling = df[cols].rolling(window=abs(days)).mean()
-
-    if move!=0:
+    if move != 0:
         df_rolling = _move(move, df_rolling)
-        pre = "_p{}mv".format(move) if move>0 else "f{}mv".format(move)
-
     n = len(df_rolling)
     idxes = df_rolling.index
     if days > 0:
@@ -136,8 +175,6 @@ def _rolling_mean(days, df: pd.DataFrame, cols, move=0, has_prefix=True):
         df_rolling = df_rolling.iloc[period - 1:n]
         if n - period + 1 >= 0:
             df_rolling.index = idxes[:n - period + 1]
-        # df_rolling = df_rolling.iloc[period-1+move:n]
-        # df_rolling.index = df.index[:n-period+1-move]
 
     if has_prefix:
         return _prefix(pre,df_rolling)
@@ -373,7 +410,7 @@ def main():
     conn = dbop.connect_db(db_type)
     cursor = conn.cursor()
 
-    pred_period=60
+    pred_period=20
     df_all,cols_future = prepare_data(cursor,pred_period=pred_period,start="2011-01-01")
 
     # test
@@ -440,7 +477,7 @@ def main():
 
     df_all = df_all[df_all["amt"]!=0]
 
-    y = label_inc(df_all, threshold=0.25, pred_period=pred_period)
+    y = label_inc(df_all, threshold=0.15, pred_period=pred_period)
     print("null:",sum(y.isnull()))
 
     features = df_all.columns.difference(cols_future+["code"])
@@ -489,7 +526,7 @@ def main():
                             num_leaves=100, max_depth=8, random_state=0),
         xgb.XGBClassifier(n_estimators=300, scale_pos_weight=0.1,
                           max_depth=5,
-                          random_state=0),
+                          random_state=0,),
     ]
 
     y_prd_list = []
@@ -506,6 +543,7 @@ def main():
         print(y_prd.shape, sum(y_prd))
 
         print(X_test_full["code"].iloc[y_prd==1])
+        # print(X_test_full["code"])
 
         print("accuracy", metrics.accuracy_score(y_test, y_prd))
         print("precison", metrics.precision_score(y_test, y_prd))
