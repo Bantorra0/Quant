@@ -13,7 +13,7 @@ import xgboost.sklearn as xgb
 import db_operations as dbop
 from data_prepare import prepare_data, gen_y, drop_null, feature_select, label
 
-from constants import BASE_DIR
+from constants import BASE_DIR,FLOAT_DELTA
 
 
 def gen_data(pred_period=20, lower_bound="2011-01-01", start="2014-01-01"):
@@ -117,6 +117,45 @@ def train(data, models, is_reg=True):
     return y_pred_list
 
 
+def pred_vs_real(inc:pd.DataFrame, y_pred):
+    x_min = -1
+
+    # Average for all.
+    y0 = inc["pct"].mean()
+    print(y0)
+    x0 = np.arange(x_min,11) * 0.1
+    y0 = np.ones(x0.shape) * y0
+
+    # prediction performance
+    y = []
+    cnt = []
+    std = []
+    p_pred = []
+    for i in range(-1,10):
+        p0 = i * 0.1
+        p1 = (i + 1) * 0.1
+        cond = (p0 < y_pred) & (y_pred < p1)
+        p_pred.append(p0)
+        cnt.append(sum(cond))
+        y.append(inc["pct"][cond].mean())
+        std.append(inc["pct"][cond].std())
+        print("{0:.1f}-{1:.1f}:".format(p0, p1),
+              sum(cond),
+              inc["pct"][cond].min(),
+              inc["pct"][cond].mean(),
+              inc["pct"][cond].max(),
+              inc["pct"][cond].std())
+
+    # for p0_pred, c, p_real,s in zip(p_pred,cnt, y,std):
+    #     print("{0:.1f}-{1:.1f}:".format(p0_pred,p0_pred+0.1),c, p_real, s)
+    print(sum([c * p_real for p0_pred,c, p_real in zip(p_pred,cnt, y) if
+               p0_pred > 0.3*FLOAT_DELTA and not np.isnan(p_real)]))
+    plt.figure()
+    plt.bar(np.array(p_pred) + 0.05, y, width=0.08)
+    plt.plot(x0, y0, color='r')
+    plt.xlim(-0.2, 1)
+
+
 def main():
     data = gen_dataset(label_type=None)
 
@@ -155,23 +194,25 @@ def main():
     # for code, group in clf_pred_inc.groupby("code"):
     #     print(group)
 
-    y1 = []
-    cnt1 = []
-    for i in range(10):
-        p0 = i * 0.1
-        p1 = (i + 1) * 0.1
-        cond = (p0 < y_pred_clf) & (y_pred_clf < p1)
-        cnt1.append(sum(cond))
-        y1.append(inc["pct"][cond].mean())
-    for c, p in zip(cnt1, y1):
-        print(c, p)
-    print(sum([c * p for i, (c, p) in enumerate(zip(cnt1, y1)) if i > 6]))
-    plt.figure()
-    plt.bar(np.arange(len(y1)) * 0.1 + 0.05, y1, width=0.08)
-    plt.plot(x0, y0, color='r')
-    # plt.plot(x,y1,color='r')
-    plt.xlim(0, 1)
-    plt.ylim(0, 0.5)
+    # y1 = []
+    # cnt1 = []
+    # for i in range(10):
+    #     p0 = i * 0.1
+    #     p1 = (i + 1) * 0.1
+    #     cond = (p0 < y_pred_clf) & (y_pred_clf < p1)
+    #     cnt1.append(sum(cond))
+    #     y1.append(inc["pct"][cond].mean())
+    # for c, p in zip(cnt1, y1):
+    #     print(c, p)
+    # print(sum([c * p for i, (c, p) in enumerate(zip(cnt1, y1)) if i > 6]))
+    # plt.figure()
+    # plt.bar(np.arange(len(y1)) * 0.1 + 0.05, y1, width=0.08)
+    # plt.plot(x0, y0, color='r')
+    # # plt.plot(x,y1,color='r')
+    # plt.xlim(0, 1)
+    # plt.ylim(0, 0.5)
+
+    pred_vs_real(inc, y_pred_clf)
 
     y_pred_reg = y_pred_list_reg[1][2]
     threshold = 0.3
@@ -183,36 +224,59 @@ def main():
     # for code, group in reg_pred_inc.groupby("code"):
     #     print(group)
 
-    y2 = []
-    cnt2 = []
-    for i in range(10):
-        p0 = i * 0.1
-        p1 = (i + 1) * 0.1
-        cond = (p0 < y_pred_reg) & (y_pred_reg < p1)
-        cnt2.append(sum(cond))
-        y2.append(inc["pct"][cond].mean())
-    for c, p in zip(cnt2, y2):
-        print(c, p)
-    print(sum([c * p for i, (c, p) in enumerate(zip(cnt2, y2)) if
-               i > 2 and not np.isnan(p)]))
-    plt.figure()
-    plt.bar(np.arange(len(y2)) * 0.1 + 0.05, y2, width=0.08)
-    plt.plot(x0, y0, color='r')
-    # plt.plot(x,y2,color='r')
-    plt.xlim(0, 1)
-    plt.ylim(0, 0.5)
+    # y2 = []
+    # cnt2 = []
+    # for i in range(10):
+    #     p0 = i * 0.1
+    #     p1 = (i + 1) * 0.1
+    #     cond = (p0 < y_pred_reg) & (y_pred_reg < p1)
+    #     cnt2.append(sum(cond))
+    #     y2.append(inc["pct"][cond].mean())
+    # for c, p in zip(cnt2, y2):
+    #     print(c, p)
+    # print(sum([c * p for i, (c, p) in enumerate(zip(cnt2, y2)) if
+    #            i > 2 and not np.isnan(p)]))
+    # plt.figure()
+    # plt.bar(np.arange(len(y2)) * 0.1 + 0.05, y2, width=0.08)
+    # plt.plot(x0, y0, color='r')
+    # # plt.plot(x,y2,color='r')
+    # plt.xlim(0, 1)
+    # plt.ylim(0, 0.5)
 
-    # save model
+    # # save model
+    # for model in regs+clfs:
+    #     fname = re.search("\.([^.]*)'", str(type(model))).group(1)
+    #     print(fname)
+    #     with open(os.path.join(BASE_DIR, fname), \
+    #               "wb") as f:
+    #         pickle.dump(model, f)
 
-    for model in regs+clfs:
-        fname = re.search("\.([^.]*)'", str(type(model))).group(1)
-        print(fname)
-        with open(os.path.join(BASE_DIR, fname), \
-                  "wb") as f:
-            pickle.dump(model, f)
+    pred_vs_real(inc,y_pred_reg)
+
+    plt.show()
+
+
+def main2():
+    f_name = "XGBRegressor"
+    print("model:", f_name)
+    with open(os.path.join(BASE_DIR, f_name), "rb") as f:
+        model = pickle.load(f)
+
+    dataset = gen_dataset(
+        lower_bound="2015-01-01",start="2018-01-01",
+                          label_type=None)
+    X_test, y_test = dataset["test"]
+    _, X_test_full = dataset["full"]
+
+    inc = X_test_full[["code", "f1mv_open", "f19max_f2mv_high"]].copy()
+    inc["pct"] = inc["f19max_f2mv_high"] / inc["f1mv_open"] - 1
+
+    y_pred = model.predict(X_test)
+
+    pred_vs_real(inc,y_pred)
 
     plt.show()
 
 
 if __name__ == '__main__':
-    main()
+    main2()

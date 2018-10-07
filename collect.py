@@ -127,7 +127,7 @@ def collect_index_day(pools: [str], db_type: str, update=False):
                 cursor.execute("select date from {0} where code='{1}'".format(
                     INDEX_DAY[TABLE],code))
                 rs = cursor.fetchall()
-                print(rs)
+                # print(rs)
                 if len(rs)>0:
                     start = sorted(rs,reverse=True)[0][0]
                     cursor.execute(("delete from {0} where code='{1}' "
@@ -223,15 +223,6 @@ def main():
 
     # init_table(INDEX_DAY[TABLE], db_type)
     collect_index_day(idx_pools(), db_type, update=True)
-
-    # conn = connect_db(db_type)
-    # cursor = conn.cursor()
-    # # print(cursor.execute("select * from stock_day").fetchmany(50))
-    # print(cursor.fetchmany(100))
-    #
-    # cursor.execute("select * from index_day")
-    # print(cursor.fetchmany(100))
-    # # print(cursor.execute("select * from stock_day").fetchmany(100))
 
     # print(stck_pools())
 

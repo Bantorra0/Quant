@@ -18,11 +18,21 @@ class Account:
 
 
 class Trader:
-    def gen_trade_order(self, day_signal, account:Account, date):
-        print(day_signal)
+    def gen_trade_order(self, day_signal, account:Account, date,
+                        threshold=0.2):
+        # print(day_signal)
+        order = {}
+
+        for code in account.stocks:
+            if day_signal[day_signal["code"]==code]["y_pred"]<threshold:
+                order[code] == 0
+
+        buying_stcks = day_signal[day_signal["y_pred"]>threshold][["code",
+                                                               "y_pred"]]
+        print(buying_stcks)
+
         # day_data= self.get_day_data(date)
         # TODO: generate trade order
-        order = []
         return order
 
     def get_day_data(self,date):
@@ -88,9 +98,9 @@ class BackTest:
 
 
 def main():
-    fname = "LGBMRegressor"
-    print("model:", fname)
-    with open(os.path.join(BASE_DIR, fname), "rb") as f:
+    f_name = "XGBRegressor"
+    print("model:", f_name)
+    with open(os.path.join(BASE_DIR, f_name), "rb") as f:
         model = pickle.load(f)
     backtester = BackTest(start="2018-08-15")
 
