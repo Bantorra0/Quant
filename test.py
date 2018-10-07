@@ -1,4 +1,5 @@
-from collect import _init_api,TOKEN
+from collect import _init_api
+from constants import TOKEN
 from df_operations import natural_outer_join
 import tushare as ts
 import pandas as pd

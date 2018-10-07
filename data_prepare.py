@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 
 import collect as clct
+import constants
 import db_operations as dbop
 
 
@@ -51,41 +52,35 @@ def _move(days, df: pd.DataFrame, cols=None, prefix=True):
         return df_mv
 
 
-def _rolling(rolling_type, days, df: pd.DataFrame, cols, move=0, has_prefix=True):
+def _rolling(rolling_type, days, df: pd.DataFrame, cols, move=0,
+             has_prefix=True):
     _check_int(days)
     cols = _make_iterable(cols)
 
     period = abs(days)
-    if rolling_type=="max":
+    if rolling_type == "max":
         df_rolling = df[cols].rolling(window=abs(days)).max()
-    elif rolling_type=="min":
+    elif rolling_type == "min":
         df_rolling = df[cols].rolling(window=abs(days)).min()
-    elif rolling_type=="mean":
+    elif rolling_type == "mean":
         df_rolling = df[cols].rolling(window=abs(days)).max()
     else:
-        raise ValueError("rolling_type='{}' is not supported.".format(rolling_type))
+        raise ValueError(
+            "rolling_type='{}' is not supported.".format(rolling_type))
 
     if move != 0:
-        # print("--------",move)
-        # print(df_rolling[df["code"] == "600887.SH"]["high"].iloc[:30])
         df_rolling = _move(move, df_rolling)
-        # print(df_rolling[df["code"] == "600887.SH"]["f1mv_high"].iloc[:30])
     n = len(df_rolling)
     idxes = df_rolling.index
     if days > 0:
-        pre = "f" + str(abs(days)) + "max"
+        pre = "f" + str(abs(days)) + rolling_type
         df_rolling = df_rolling.iloc[period - 1:n]
         df_rolling.index = idxes[period - 1:n]
-        # df_rolling = df_rolling.iloc[period-1:n+move]
-        # df_rolling.index = df.index[period-1-move:n]
     else:
-        pre = "p" + str(abs(days)) + "max"
+        pre = "p" + str(abs(days)) + rolling_type
         df_rolling = df_rolling.iloc[period - 1:n]
         if n - period + 1 >= 0:
             df_rolling.index = idxes[:n - period + 1]
-
-        # df_rolling = df_rolling.iloc[period-1+move:n]
-        # df_rolling.index = df.index[:n-period+1-move]
 
     if has_prefix:
         return _prefix(pre, df_rolling)
@@ -99,30 +94,28 @@ def _rolling_max(days, df: pd.DataFrame, cols, move=0, has_prefix=True):
 
     period = abs(days)
     df_rolling = df[cols].rolling(window=abs(days)).max()
-    if move!=0:
+    if move != 0:
         # print("--------",move)
         # print(df_rolling[df["code"] == "600887.SH"]["high"].iloc[:30])
-        df_rolling = _move(move, df_rolling)
-        # print(df_rolling[df["code"] == "600887.SH"]["f1mv_high"].iloc[:30])
+        df_rolling = _move(move,
+                           df_rolling)  # print(df_rolling[df["code"] == "600887.SH"]["f1mv_high"].iloc[:30])
     n = len(df_rolling)
     idxes = df_rolling.index
     if days > 0:
         pre = "f" + str(abs(days)) + "max"
-        df_rolling = df_rolling.iloc[period-1:n]
-        df_rolling.index = idxes[period-1:n]
-        # df_rolling = df_rolling.iloc[period-1:n+move]
-        # df_rolling.index = df.index[period-1-move:n]
+        df_rolling = df_rolling.iloc[period - 1:n]
+        df_rolling.index = idxes[
+                           period - 1:n]  # df_rolling = df_rolling.iloc[period-1:n+move]  # df_rolling.index = df.index[period-1-move:n]
     else:
-        pre= "p" + str(abs(days)) + "max"
-        df_rolling = df_rolling.iloc[period-1:n]
-        if n-period+1>=0:
-            df_rolling.index = idxes[:n-period+1]
+        pre = "p" + str(abs(days)) + "max"
+        df_rolling = df_rolling.iloc[period - 1:n]
+        if n - period + 1 >= 0:
+            df_rolling.index = idxes[:n - period + 1]
 
-        # df_rolling = df_rolling.iloc[period-1+move:n]
-        # df_rolling.index = df.index[:n-period+1-move]
+        # df_rolling = df_rolling.iloc[period-1+move:n]  # df_rolling.index = df.index[:n-period+1-move]
 
     if has_prefix:
-        return _prefix(pre,df_rolling)
+        return _prefix(pre, df_rolling)
     else:
         return df_rolling
 
@@ -136,8 +129,8 @@ def _rolling_min(days, df: pd.DataFrame, cols, move=0, has_prefix=True):
     if move != 0:
         # print("--------",move)
         # print(df_rolling[df["code"] == "600887.SH"]["high"].iloc[:30])
-        df_rolling = _move(move, df_rolling)
-        # print(df_rolling[df["code"] == "600887.SH"]["f1mv_high"].iloc[:30])
+        df_rolling = _move(move,
+                           df_rolling)  # print(df_rolling[df["code"] == "600887.SH"]["f1mv_high"].iloc[:30])
     n = len(df_rolling)
     idxes = df_rolling.index
     if days > 0:
@@ -147,11 +140,11 @@ def _rolling_min(days, df: pd.DataFrame, cols, move=0, has_prefix=True):
     else:
         pre = "p" + str(abs(days)) + "min"
         df_rolling = df_rolling.iloc[period - 1:n]
-        if n-period+1>=0:
-            df_rolling.index = idxes[:n-period+1]
+        if n - period + 1 >= 0:
+            df_rolling.index = idxes[:n - period + 1]
 
     if has_prefix:
-        return _prefix(pre,df_rolling)
+        return _prefix(pre, df_rolling)
     else:
         return df_rolling
 
@@ -177,14 +170,21 @@ def _rolling_mean(days, df: pd.DataFrame, cols, move=0, has_prefix=True):
             df_rolling.index = idxes[:n - period + 1]
 
     if has_prefix:
-        return _prefix(pre,df_rolling)
+        return _prefix(pre, df_rolling)
     else:
         return df_rolling
 
 
-def change_rate(df1: pd.DataFrame, df2: pd.DataFrame):
+def change_rate(df1: pd.DataFrame, df2: pd.DataFrame, cols1=None, cols2=None):
+    if cols1:
+        df1 = df1[cols1].copy()
+    if cols2:
+        df2 = df2[cols2].copy()
+
     if df1.shape[1] != df2.shape[1]:
-        raise ValueError("Column length not the same:{0}!={1}".format(df1.shape[1], df2.shape[1]))
+        raise ValueError(
+            "Column length not the same:{0}!={1}".format(df1.shape[1],
+                                                         df2.shape[1]))
 
     df1 = df1.copy()
     df1.columns = df2.columns
@@ -195,7 +195,8 @@ def change_rate(df1: pd.DataFrame, df2: pd.DataFrame):
 
 def create_df(cursor, table_name, start=None):
     if start:
-        sql_select = "select * from {0} where date>={1}".format(table_name,start)
+        sql_select = "select * from {0} where date>='{1}'".format(table_name,
+                                                                start)
     else:
         sql_select = "select * from {0}".format(table_name)
     cursor.execute(sql_select)
@@ -206,7 +207,8 @@ def create_df(cursor, table_name, start=None):
 
 def prepare_stck_d(df_stck_d):
     df_stck_d = df_stck_d.set_index(["date"]).sort_index(ascending=False)
-    df_stck_d = df_stck_d[["code", "open", "high", "low", "close", "vol", "amt", "adj_factor"]]
+    df_stck_d = df_stck_d[
+        ["code", "open", "high", "low", "close", "vol", "amt", "adj_factor"]]
     return df_stck_d
 
 
@@ -215,22 +217,33 @@ def prepare_idx_d(df_idx_d):
     return df_idx_d
 
 
-def prepare_each_stck(df_stck):
+def prepare_each_stck(df_stck, qfq_type="hfq"):
+    if qfq_type and qfq_type not in ["hfq","qfq"]:
+        raise ValueError("qfq_type {} is not supported".format(qfq_type))
+
     df_stck = df_stck.copy()
     qfq_cols = ["open", "high", "low", "close"]
-    # qfq_factor = np.array(df_stck["adj_factor"] / df_stck["adj_factor"].iloc[0])
+
+    for col in qfq_cols:
+        df_stck[col+"0"] = df_stck[col]
+
+    # 后复权
+    if qfq_type=="qfq":
+        qfq_factor = np.array(df_stck["adj_factor"]
+                          / df_stck["adj_factor"].iloc[0])
+
     # print(qfq_factor.shape)
-    qfq_factor = np.array(df_stck["adj_factor"]).reshape(-1, 1) * np.ones((1,
-                                                                  len(qfq_cols)))
+    qfq_factor = np.array(df_stck["adj_factor"]).reshape(-1, 1) * np.ones(
+        (1, len(qfq_cols)))
     # print(df_stck[qfq_cols].dtypes)
     # print(qfq_factor.shape, qfq_factor.dtype)
     # print(df_stck[qfq_cols]/qfq_factor)
     df_stck.loc[:, qfq_cols] = df_stck[qfq_cols] * qfq_factor
-    # print(qfq_factor[:30])
+
     return df_stck
 
 
-def proc_stck_d(df_stck_d, pred_period = 10):
+def proc_stck_d(df_stck_d, pred_period=10):
     df_stck_d = prepare_stck_d(df_stck_d)
 
     df_stck_list = []
@@ -240,46 +253,62 @@ def proc_stck_d(df_stck_d, pred_period = 10):
     for code, df in df_stck_d.groupby("code"):
         df = df.sort_index(ascending=False)
         df = prepare_each_stck(df)
-        df_label_max = _rolling_max(pred_period, df, "high", move=-1)
         df_label_min = _rolling_min(pred_period, df, "low", move=-1)
+        df_label_max = _rolling_max(pred_period - 1, df, "high", move=-2)
+        p1 = (pred_period - 1) // 3
+        p2 = p1
+        p3 = pred_period - 1 - p1 - p2
+        df_label_mean1 = _rolling_mean(p1, df, "open", move=-2)
+        df_label_mean2 = _rolling_mean(p2, df, "open", move=-2 - p1)
+        df_label_mean3 = _rolling_mean(p3, df, "open", move=-2 - p1 - p2)
+
         # print(df_label_min.columns)
-        df_tomorrow = _move(-1,df,["open","high","low","close"])
+        df_tomorrow = _move(-1, df, ["open", "high", "low", "close"])
+
         # df_label_min = _rolling_min(pred_period,df,"low")
 
         # if code == "000002.SZ":
         #     tmp = _rolling_min(-5,df,cols_roll).loc["2018-08-07"]
         #     print(tmp)
-        df_move_list = [change_rate(df[cols_move], _move(i, df, cols_move)) for i in range(1, 6)]
-        df_rolling_list = [(change_rate(df[cols_roll], _rolling_max(i, df, cols_roll)),
-                            change_rate(df[cols_roll], _rolling_min(i, df, cols_roll)),
-                            change_rate(df[cols_roll], _rolling_mean(i, df, cols_roll)))
-                           for i in [-5, -10, -20, -60, -120, -250]]
+        df_move_list = [change_rate(df[cols_move], _move(i, df, cols_move)) for
+                        i in range(1, 6)]
+        df_rolling_list = [(change_rate(df[cols_roll],
+                                        _rolling_max(i, df, cols_roll)),
+                            change_rate(df[cols_roll],
+                                        _rolling_min(i, df, cols_roll)),
+                            change_rate(df[cols_roll],
+                                        _rolling_mean(i, df, cols_roll))) for i
+                           in [-5, -10, -20, -60, -120, -250]]
 
         df_roll_flat_list = []
         for df_rolling_group in df_rolling_list:
             df_roll_flat_list.extend(df_rolling_group)
 
-        tmp = pd.concat(
-            [df] + df_move_list + df_roll_flat_list + [df_tomorrow,df_label_max,df_label_min],
-                        axis=1, sort=False)
-        df_stck_list.append(tmp)
+        df_labels = pd.concat(
+            [df_tomorrow, df_label_max, df_label_min, df_label_mean1,
+             df_label_mean2, df_label_mean3], axis=1, sort=False)
+        df_stck = pd.concat(
+            [df] + df_move_list + df_roll_flat_list + [df_labels], axis=1,
+            sort=False)
+        df_stck_list.append(df_stck)
 
         if not cols_future:
-            cols_future = list(df_tomorrow.columns) + list(df_label_max.columns) + list(df_label_min.columns)
+            cols_future = list(df_labels)
         # print(tmp.shape)
         # print(tmp[tmp[col_label].isnull()])
-        if code == "002217.SZ":
-            print(df[df.index=="2018-01-02"])
-            print(tmp[tmp.index=="2018-01-02"])
+        # if code == "002217.SZ":
+        #     print(df[df.index == "2018-01-02"])
+        #     print(df_stck[df_stck.index == "2018-01-02"])
 
     df_stck_d_all = pd.concat(df_stck_list, sort=False)
-    for df in df_stck_list:
-        print(df["code"].unique(),df.shape)
-        print(df["code"].unique(),df[df.index>="2018-01-01"].shape)
-    print("count stck",len(df_stck_d_all["code"][df_stck_d_all.index >= "2018-01-01"].unique()))
+    # for df in df_stck_list:
+    #     print(df["code"].unique(), df.shape)
+    #     print(df["code"].unique(), df[df.index >= "2018-01-01"].shape)
+    print("count stck", len(
+        df_stck_d_all["code"][df_stck_d_all.index >= "2018-01-01"].unique()))
     print(df_stck_d_all.shape)
 
-    return df_stck_d_all,cols_future
+    return df_stck_d_all, cols_future
 
 
 def proc_idx_d(df_idx_d: pd.DataFrame):
@@ -291,11 +320,20 @@ def proc_idx_d(df_idx_d: pd.DataFrame):
     for name, group in df_idx_d.groupby("code"):
         group = group.sort_index(ascending=False)
         del group["code"]
-        df_move_list = [change_rate(group[cols_move], _move(i, group, cols_move)) for i in range(1, 6)]
-        df_rolling_list = [(change_rate(group[["high","vol"]], _rolling_max(i, group, ["high","vol"])),
-                            change_rate(group[["low","vol"]], _rolling_min(i, group, ["low","vol"])),
-                            change_rate(group[["open","close","vol"]], _rolling_mean(i, group, ["open","close","vol"])))
-                           for i in [-5, -10, -20,-60,-120,-250,-500]]
+        df_move_list = [
+            change_rate(group[cols_move], _move(i, group, cols_move)) for i in
+            range(1, 6)]
+        df_rolling_list = [(change_rate(group[["high", "vol"]],
+                                        _rolling_max(i, group,
+                                                     ["high", "vol"])),
+                            change_rate(group[["low", "vol"]],
+                                        _rolling_min(i, group,
+                                                     ["low", "vol"])),
+                            change_rate(group[["open", "close", "vol"]],
+                                        _rolling_mean(i, group,
+                                                      ["open", "close",
+                                                       "vol"]))) for i in
+                           [-5, -10, -20, -60, -120, -250, -500]]
 
         df_roll_flat_list = []
         for df_rolling_group in df_rolling_list:
@@ -310,30 +348,32 @@ def proc_idx_d(df_idx_d: pd.DataFrame):
 
 
 def prepare_data(cursor, pred_period=10, start=None):
-    stock_day, index_day = clct.STOCK_DAY[clct.TABLE], clct.INDEX_DAY[
+    stock_day, index_day = constants.STOCK_DAY[clct.TABLE], constants.INDEX_DAY[
         clct.TABLE]
+    print("start:",start)
+    df_stck_d = create_df(cursor, stock_day, start)
+    print("min_date",min(df_stck_d.date))
+    df_idx_d = create_df(cursor, index_day, start)
 
-    df_stck_d = create_df(cursor, stock_day,start)
-    df_idx_d = create_df(cursor, index_day,start)
-
-    df_stck_d_all,cols_future = proc_stck_d(df_stck_d,pred_period=pred_period)
+    df_stck_d_all, cols_future = proc_stck_d(df_stck_d,
+                                             pred_period=pred_period)
     print(df_stck_d_all.shape)
 
     df_idx_d = proc_idx_d(df_idx_d)
-    print(df_idx_d.shape,len(df_idx_d.index.unique()))
+    print(df_idx_d.shape, len(df_idx_d.index.unique()))
     df_all = df_stck_d_all.join(df_idx_d)
     print(df_all.shape)
 
-    print(df_all[(df_all.index == "2018-01-02") & (df_all["code"]=="002217.SZ")])
+    # print(df_all[(df_all.index == "2018-01-02") & (
+    #             df_all["code"] == "002217.SZ")])
 
-    return df_all,cols_future
+    return df_all, cols_future
 
 
 def y_distribution(y):
     y = y.copy().dropna()
-    print(y)
     # print distribution of y
-    print("before",sum(y<0))
+    print("before", sum(y < 0))
     print("y<-0.5:", sum(y < -0.5))
     for i in range(-5, 5):
         tmp1 = ((i * 0.1) <= y)
@@ -342,70 +382,62 @@ def y_distribution(y):
             tmp = [False]
         else:
             tmp = tmp1 & tmp2
-        print("{0:.2f}<=y<{1:.2f}:".format(i * 0.1, (i + 1) * 0.1),
-              sum(tmp))
+        print("{0:.2f}<=y<{1:.2f}:".format(i * 0.1, (i + 1) * 0.1), sum(tmp))
     print("y>0.5", sum(y > 0.5))
     print("after", sum(y < 0))
     plt.figure()
-    plt.hist(y,bins=np.arange(-10, 11)*0.1)
+    plt.hist(y, bins=np.arange(-10, 11) * 0.1)
 
 
-def label_inc(df_all:pd.DataFrame, threshold=0.1, pred_period=10):
-    y = (df_all["f{}max_f1mv_high".format(pred_period)] / df_all["f1mv_open"] - 1)
+def gen_y(df_all: pd.DataFrame, pred_period=10,threshold=0.1,
+          label_type=None):
+    if label_type and (label_type not in ["inc", "dec"]):
+        raise ValueError("label_type {} is not supported!".format(label_type))
+
+    y = df_all["f{}max_f2mv_high".format(pred_period - 1)] / df_all["f1mv_open"] - 1
     y_distribution(y)
 
-    y[y > threshold] = 1
-    y[y <= threshold] = 0
-    print("过滤涨停前",sum(y==1))
+    # print("--------------")
+    # print(y[y.isna() & (df_all["f1mv_high"] == df_all["f1mv_low"])])
+    y[y.notnull() & (df_all["f1mv_high"] == df_all["f1mv_low"])] = 0
+    print("过滤涨停项：", sum(df_all["f1mv_high"] == df_all["f1mv_low"]))
 
-    y[df_all["f1mv_high"]==df_all["f1mv_low"]] = 0
-    print("过滤涨停后",sum(y==1))
+    return label(y,threshold,label_type)
+
+
+def label(y, threshold=0.1, label_type=None):
+    if label_type == "dec":
+        y = -y
+
+    if label_type:
+        y[y > threshold] = 1
+        y[y <= threshold] = 0
 
     return y
 
 
-def label_dec(df_all:pd.DataFrame, threshold=0.1, pred_period=10):
-    y = -(df_all["f{}min_f1mv_low".format(pred_period)] / df_all["f1mv_open"] - 1)
-    y_distribution(y)
-
-    y[y > threshold] = 1
-    y[y <= threshold] = 0
-    print("过滤涨停前",sum(y==1))
-
-    y[df_all["f1mv_high"]==df_all["f1mv_low"]] = 0
-    print("过滤涨停后",sum(y==1))
-
-    return y
-
-
-def feature_select(X,y):
+def feature_select(X, y):
     import sklearn.ensemble as ensemble
     clf = ensemble.ExtraTreesClassifier(random_state=0)
-    clf.fit(X,y)
+    clf.fit(X, y)
     import sklearn.feature_selection as fselect
-    model = fselect.SelectFromModel(clf,prefit=True)
+    model = fselect.SelectFromModel(clf, prefit=True)
     X_new = model.transform(X)
     print("selected feature number:", X_new.shape)
 
-    return X_new,model
+    return X_new, model
 
 
-def drop_null(X,y):
+def drop_null(X, y):
     Xy = np.concatenate((np.array(X), np.array(y).reshape(-1, 1)), axis=1)
     Xy = pd.DataFrame(Xy, index=X.index).dropna()
     X = Xy.iloc[:, :-1].copy()
     y = Xy.iloc[:, -1].copy()
-    return X,y
+    return X, y
 
 
 def main():
     db_type = "sqlite3"
-
-    # init_table(STOCK_DAY.TABLE_NAME, db_type)
-    # collect_stock_day(STOCK_DAY.pools(),db_type)
-    #
-    # init_table(INDEX_DAY.TABLE_NAME, db_type)
-    # collect_index_day(INDEX_DAY.pools(), db_type)
 
     conn = dbop.connect_db(db_type)
     cursor = conn.cursor()
@@ -477,7 +509,7 @@ def main():
 
     df_all = df_all[df_all["amt"]!=0]
 
-    y = label_inc(df_all, threshold=0.15, pred_period=pred_period)
+    y = gen_y(df_all, threshold=0.15, pred_period=pred_period)
     print("null:",sum(y.isnull()))
 
     features = df_all.columns.difference(cols_future+["code"])

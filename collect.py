@@ -4,16 +4,10 @@ import numpy as np
 import pandas as pd
 import tushare as ts
 
+from constants import TOKEN, STOCK_DAY, INDEX_DAY,TABLE,COLUMNS
 from db_operations import connect_db, _parse_config, close_db
 from df_operations import natural_outer_join
 
-TOKEN = 'ca7a0727b75dce94ad988adf953673340308f01bacf1a101d23f15fc'
-
-TABLE, COLUMNS = "table", "columns"
-STOCK_DAY = {TABLE: "stock_day", COLUMNS: (
-"code", "date", "open", "high", "low", "close", "vol", "amt", "adj_factor")}
-INDEX_DAY = {TABLE: "index_day",
-             COLUMNS: ("code", "date", "open", "high", "low", "close", "vol")}
 
 
 def stck_pools():
@@ -137,7 +131,7 @@ def collect_index_day(pools: [str], db_type: str, update=False):
                 if len(rs)>0:
                     start = sorted(rs,reverse=True)[0][0]
                     cursor.execute(("delete from {0} where code='{1}' "
-                                   "and date='{2}'").format(INDEX_DAY[TABLE],code,start))
+                                   "and date='{2}'").format(INDEX_DAY[TABLE], code, start))
 
             print("start:",start)
             df = ts.get_k_data(code=code, start=start)
@@ -180,7 +174,7 @@ def collect_stock_day(pools: [str], db_type: str, update=False):
                     start = sorted(rs,reverse=True)[0][0]
                     cursor.execute(("delete from {0} where code='{1}' "
                                    "and date='{2}'").format(STOCK_DAY[TABLE],
-                                                            code,start))
+                                                            code, start))
                     start = str(start).replace("-","")
 
             print("start:",start)
