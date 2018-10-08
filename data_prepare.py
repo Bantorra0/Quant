@@ -405,6 +405,14 @@ def gen_y(df_all: pd.DataFrame, pred_period=10,threshold=0.1,
     return label(y,threshold,label_type)
 
 
+def get_target_col(pred_period = 20,is_high = True):
+    if is_high:
+        target_col = "f{}max_f2mv_high".format(pred_period-1)
+    else:
+        target_col = "f{}min_f2mv_low".format(pred_period-1)
+    return target_col
+
+
 def label(y, threshold=0.1, label_type=None):
     if label_type == "dec":
         y = -y

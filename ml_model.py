@@ -11,7 +11,8 @@ import sklearn.preprocessing as preproc
 import xgboost.sklearn as xgb
 
 import db_operations as dbop
-from data_prepare import prepare_data, gen_y, drop_null, feature_select, label
+from data_prepare import prepare_data, gen_y, drop_null, feature_select, \
+    label, get_target_col
 
 from constants import BASE_DIR,FLOAT_DELTA
 
@@ -111,6 +112,7 @@ def train(data, models, is_reg=True):
             y_pred_list.append([model, t2 - t1])
         else:
             y_pred_list.append([model, t2 - t1])
+        print("training time:", t2-t1)
 
     return y_pred_list
 
@@ -126,12 +128,12 @@ def pred_vs_real(inc:pd.DataFrame, y_pred):
 
     # prediction performance
     df = pd.DataFrame(columns=["p0","range","cnt","min","mean","median","max","std"])
-    df.set_index(["p0"])
+    df = df.set_index(["p0"])
     for i in range(-1,10):
         p0 = i * 0.1
         p1 = (i + 1) * 0.1
         cond = (p0 < y_pred) & (y_pred < p1)
-        df[p0] = ("{:.1f}-{:.1f}".format(p0,p1),
+        df.loc["{:.1f}".format(p0)] = ("{:.1f}-{:.1f}".format(p0,p1),
                   sum(cond),
                   inc["pct"][cond].min(),
                   inc["pct"][cond].mean(),
@@ -140,7 +142,7 @@ def pred_vs_real(inc:pd.DataFrame, y_pred):
                   inc["pct"][cond].std())
         if p0 > 0.3*FLOAT_DELTA and sum(cond)>0:
             plt.figure()
-            plt.title(df.loc[p0,"range"])
+            plt.title(df.loc["{:.1f}".format(p0), "range"])
             plt.hist(inc["pct"][cond], bins=5)
     print(df)
 
@@ -152,16 +154,35 @@ def pred_vs_real(inc:pd.DataFrame, y_pred):
 
     # for p0_pred, c, p_real,s in zip(p_pred,cnt, y,std):
     #     print("{0:.1f}-{1:.1f}:".format(p0_pred,p0_pred+0.1),c, p_real, s)
-    print(sum([c * p_real for p0_pred,c, p_real in zip(p_pred,cnt, y) if
-               p0_pred > 0.3*FLOAT_DELTA and not np.isnan(p_real)]))
+    print(sum([row["cnt"] * row["mean"] for p0, row in df.iterrows()
+               if float(p0) > 0.3*FLOAT_DELTA and row["cnt"]>0]))
     plt.figure()
-    plt.bar(np.array(p_pred) + 0.05, y, width=0.08)
+    plt.bar(np.array(list(map(float,df.index))) + 0.05, df["mean"], width=0.08)
     plt.plot(x0, y0, color='r')
     plt.xlim(-0.2, 1)
 
 
-def main():
-    data = gen_dataset(label_type=None)
+def save_model(model, pred_period=20, is_high=True):
+    suffix = "high" if is_high else "low"
+    f_name = re.search("\.([^.]*)'", str(type(model))).group(1)
+    f_name += "_{}".format(pred_period) + suffix
+    print(f_name)
+    with open(os.path.join(os.getcwd(), f_name), "wb") as f:
+        pickle.dump(model, f)
+
+
+def load_model(model_type:str, pred_period=20, is_high=True):
+    suffix = "high" if is_high else "low"
+    f_name = model_type+"_{}".format(pred_period) + suffix
+    print(f_name)
+    with open(os.path.join(os.getcwd(), f_name), "rb") as f:
+        model = pickle.load(f)
+    return model
+
+
+def train_save(pred_period = 20,is_high = True):
+
+    data = gen_dataset(label_type=None,pred_period=pred_period)
 
     regs = [lgbm.LGBMRegressor(n_estimators=300, num_leaves=100, max_depth=8,
                                random_state=0),
@@ -170,41 +191,42 @@ def main():
     # plt.hist(y_test,bins=np.arange(-10,11)*0.1)
     y_pred_list_reg = train(data, regs, is_reg=True)
 
-    clfs = [lgbm.LGBMClassifier(n_estimators=300, scale_pos_weight=0.1,
-                                num_leaves=100, max_depth=8, random_state=0),
-            xgb.XGBClassifier(n_estimators=300, scale_pos_weight=0.1,
-                              max_depth=5, random_state=0, )]
-    (X_train, y_train), (X_test, y_test)= data["train"],data["test"]
-    y_train = label(y_train, 0.15, label_type="inc")
-    y_test = label(y_test, 0.15, label_type="inc")
-    data["train"],data["test"] = (X_train, y_train), (X_test, y_test)
-    y_pred_list_clf = train(data, clfs, is_reg=False)
-
-    X_test_full = data["full"][1]
-    inc = X_test_full[["code", "f1mv_open", "f19max_f2mv_high"]].copy()
-    inc["pct"] = inc["f19max_f2mv_high"] / inc["f1mv_open"] - 1
-    y0 = inc["pct"].mean()
-    print(y0)
-    x0 = np.arange(11) * 0.1
-    y0 = np.ones(x0.shape) * y0
-
-    y_pred_clf = y_pred_list_clf[1][2][:, 1]
-    threshold = 0.8
-    clf_pred_inc = X_test_full[y_pred_clf > threshold][
-        ["code", "f1mv_open", "f19max_f2mv_high"]]
-    clf_pred_inc["pct"] = clf_pred_inc["f19max_f2mv_high"] / clf_pred_inc[
-        "f1mv_open"] - 1
-    clf_pred_inc["y_pred"] = y_pred_clf[y_pred_clf > threshold]
-
-    pred_vs_real(inc, y_pred_clf)
-
-    y_pred_reg = y_pred_list_reg[1][2]
-    threshold = 0.3
-    reg_pred_inc = X_test_full[y_pred_reg > threshold][
-        ["code", "f1mv_open", "f19max_f2mv_high"]]
-    reg_pred_inc["pct"] = reg_pred_inc["f19max_f2mv_high"] / reg_pred_inc[
-        "f1mv_open"] - 1
-    reg_pred_inc["y_pred"] = y_pred_reg[y_pred_reg > threshold]
+    clfs=[]
+    # clfs = [lgbm.LGBMClassifier(n_estimators=300, scale_pos_weight=0.1,
+    #                             num_leaves=100, max_depth=8, random_state=0),
+    #         xgb.XGBClassifier(n_estimators=300, scale_pos_weight=0.1,
+    #                           max_depth=5, random_state=0, )]
+    # (X_train, y_train), (X_test, y_test)= data["train"],data["test"]
+    # y_train = label(y_train, 0.15, label_type="inc")
+    # y_test = label(y_test, 0.15, label_type="inc")
+    # data["train"],data["test"] = (X_train, y_train), (X_test, y_test)
+    # y_pred_list_clf = train(data, clfs, is_reg=False)
+    #
+    # X_test_full = data["full"][1]
+    # inc = X_test_full[["code", "f1mv_open", target_col]].copy()
+    # inc["pct"] = inc[target_col] / inc["f1mv_open"] - 1
+    # y0 = inc["pct"].mean()
+    # print(y0)
+    # x0 = np.arange(11) * 0.1
+    # y0 = np.ones(x0.shape) * y0
+    #
+    # y_pred_clf = y_pred_list_clf[1][2][:, 1]
+    # threshold = 0.8
+    # clf_pred_inc = X_test_full[y_pred_clf > threshold][
+    #     ["code", "f1mv_open", target_col]]
+    # clf_pred_inc["pct"] = clf_pred_inc[target_col] / clf_pred_inc[
+    #     "f1mv_open"] - 1
+    # clf_pred_inc["y_pred"] = y_pred_clf[y_pred_clf > threshold]
+    #
+    # pred_vs_real(inc, y_pred_clf)
+    #
+    # y_pred_reg = y_pred_list_reg[1][2]
+    # threshold = 0.3
+    # reg_pred_inc = X_test_full[y_pred_reg > threshold][
+    #     ["code", "f1mv_open", "f19max_f2mv_high"]]
+    # reg_pred_inc["pct"] = reg_pred_inc["f19max_f2mv_high"] / reg_pred_inc[
+    #     "f1mv_open"] - 1
+    # reg_pred_inc["y_pred"] = y_pred_reg[y_pred_reg > threshold]
     # for code, group in reg_pred_inc.groupby("code"):
     #     print(group)
 
@@ -227,33 +249,29 @@ def main():
     # plt.xlim(0, 1)
     # plt.ylim(0, 0.5)
 
-    # # save model
-    # for model in regs+clfs:
-    #     fname = re.search("\.([^.]*)'", str(type(model))).group(1)
-    #     print(fname)
-    #     with open(os.path.join(BASE_DIR, fname), \
-    #               "wb") as f:
-    #         pickle.dump(model, f)
+    # save model
+    for model in regs+clfs:
+        save_model(model,pred_period,is_high)
 
-    pred_vs_real(inc,y_pred_reg)
-
-    plt.show()
+    # pred_vs_real(inc,y_pred_reg)
+    #
+    # plt.show()
 
 
-def main2():
-    f_name = "XGBRegressor"
-    print("model:", f_name)
-    with open(os.path.join(os.getcwd(), f_name), "rb") as f:
-        model = pickle.load(f)
+def load_test(pred_period = 20,is_high = True):
+    model_type = "XGBRegressor"
+
+    model = load_model(model_type,pred_period,is_high)
 
     dataset = gen_dataset(
         lower_bound="2015-01-01",start="2018-01-01",
-                          label_type=None)
+                          label_type=None,pred_period=pred_period)
     X_test, y_test = dataset["test"]
     _, X_test_full = dataset["full"]
 
-    inc = X_test_full[["code", "f1mv_open", "f19max_f2mv_high"]].copy()
-    inc["pct"] = inc["f19max_f2mv_high"] / inc["f1mv_open"] - 1
+    target_col = get_target_col(pred_period,is_high)
+    inc = X_test_full[["code", "f1mv_open", target_col]].copy()
+    inc["pct"] = inc[target_col] / inc["f1mv_open"] - 1
 
     y_pred = model.predict(X_test)
 
@@ -263,4 +281,4 @@ def main2():
 
 
 if __name__ == '__main__':
-    main2()
+    load_test(pred_period=15)

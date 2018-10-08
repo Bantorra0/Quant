@@ -98,7 +98,7 @@ class BackTest:
 
 
 def main():
-    f_name = "XGBRegressor"
+    f_name = "XGBRegressor_20high"
     print("model:", f_name)
     with open(os.path.join(BASE_DIR, f_name), "rb") as f:
         model = pickle.load(f)
