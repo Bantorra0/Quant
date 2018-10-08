@@ -102,17 +102,15 @@ def train(data, models, is_reg=True):
         scale_pos_weight = sum(y_train == 0) / sum(y_train == 1)
 
     y_pred_list = []
-    colors = ["r", "b"]
 
-    for model, c in zip(models, colors):
+    for model in models:
         t1 = time.time()
         model.fit(X_train, y_train)
         t2 = time.time()
         if is_reg:
-            y_pred_list.append([model, t2 - t1, model.predict(X_test), c])
+            y_pred_list.append([model, t2 - t1])
         else:
-            y_pred_list.append(
-                [model, t2 - t1, model.predict_proba(X_test), c])
+            y_pred_list.append([model, t2 - t1])
 
     return y_pred_list
 
@@ -127,24 +125,30 @@ def pred_vs_real(inc:pd.DataFrame, y_pred):
     y0 = np.ones(x0.shape) * y0
 
     # prediction performance
-    y = []
-    cnt = []
-    std = []
-    p_pred = []
+    df = pd.DataFrame(columns=["p0","range","cnt","min","mean","median","max","std"])
+    df.set_index(["p0"])
     for i in range(-1,10):
         p0 = i * 0.1
         p1 = (i + 1) * 0.1
         cond = (p0 < y_pred) & (y_pred < p1)
-        p_pred.append(p0)
-        cnt.append(sum(cond))
-        y.append(inc["pct"][cond].mean())
-        std.append(inc["pct"][cond].std())
-        print("{0:.1f}-{1:.1f}:".format(p0, p1),
-              sum(cond),
-              inc["pct"][cond].min(),
-              inc["pct"][cond].mean(),
-              inc["pct"][cond].max(),
-              inc["pct"][cond].std())
+        df[p0] = ("{:.1f}-{:.1f}".format(p0,p1),
+                  sum(cond),
+                  inc["pct"][cond].min(),
+                  inc["pct"][cond].mean(),
+                  inc["pct"][cond].median(),
+                  inc["pct"][cond].max(),
+                  inc["pct"][cond].std())
+        if p0 > 0.3*FLOAT_DELTA and sum(cond)>0:
+            plt.figure()
+            plt.title(df.loc[p0,"range"])
+            plt.hist(inc["pct"][cond], bins=5)
+    print(df)
+
+    plt.figure()
+    plt.title("real-pred")
+    cond_plt = y_pred>0.2*FLOAT_DELTA
+    plt.scatter(y_pred[cond_plt],inc["pct"][cond_plt])
+
 
     # for p0_pred, c, p_real,s in zip(p_pred,cnt, y,std):
     #     print("{0:.1f}-{1:.1f}:".format(p0_pred,p0_pred+0.1),c, p_real, s)
@@ -191,26 +195,6 @@ def main():
     clf_pred_inc["pct"] = clf_pred_inc["f19max_f2mv_high"] / clf_pred_inc[
         "f1mv_open"] - 1
     clf_pred_inc["y_pred"] = y_pred_clf[y_pred_clf > threshold]
-    # for code, group in clf_pred_inc.groupby("code"):
-    #     print(group)
-
-    # y1 = []
-    # cnt1 = []
-    # for i in range(10):
-    #     p0 = i * 0.1
-    #     p1 = (i + 1) * 0.1
-    #     cond = (p0 < y_pred_clf) & (y_pred_clf < p1)
-    #     cnt1.append(sum(cond))
-    #     y1.append(inc["pct"][cond].mean())
-    # for c, p in zip(cnt1, y1):
-    #     print(c, p)
-    # print(sum([c * p for i, (c, p) in enumerate(zip(cnt1, y1)) if i > 6]))
-    # plt.figure()
-    # plt.bar(np.arange(len(y1)) * 0.1 + 0.05, y1, width=0.08)
-    # plt.plot(x0, y0, color='r')
-    # # plt.plot(x,y1,color='r')
-    # plt.xlim(0, 1)
-    # plt.ylim(0, 0.5)
 
     pred_vs_real(inc, y_pred_clf)
 
@@ -259,7 +243,7 @@ def main():
 def main2():
     f_name = "XGBRegressor"
     print("model:", f_name)
-    with open(os.path.join(BASE_DIR, f_name), "rb") as f:
+    with open(os.path.join(os.getcwd(), f_name), "rb") as f:
         model = pickle.load(f)
 
     dataset = gen_dataset(
