@@ -97,7 +97,7 @@ class BackTest:
             date = date + self.time_delta
 
 
-def main():
+def trade():
     f_name = "XGBRegressor_20high"
     print("model:", f_name)
     with open(os.path.join(BASE_DIR, f_name), "rb") as f:
@@ -108,4 +108,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    trade()

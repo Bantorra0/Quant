@@ -190,7 +190,7 @@ def collect_stock_day(pools: [str], db_type: str, update=False):
             print('Seq: ' + str(i + 1) + ' of ' + str(
                 len(pools)) + '   Code: ' + str(code))
             df = unify_df_col_nm(df)
-            print(df.columns)
+            # print(df.columns)
 
         except Exception as err:
             print(err)
@@ -214,18 +214,19 @@ def collect_stock_day(pools: [str], db_type: str, update=False):
     close_db(conn)
 
 
-def main():
+def update():
     db_type = "sqlite3"
 
     # init_table(STOCK_DAY[TABLE], db_type)
-    print(len(stck_pools()))
+    print("Stocks:",len(stck_pools()))
     collect_stock_day(stck_pools(), db_type, update=True)
 
     # init_table(INDEX_DAY[TABLE], db_type)
+    print("Indexes:",len(idx_pools()))
     collect_index_day(idx_pools(), db_type, update=True)
 
     # print(stck_pools())
 
 
 if __name__ == '__main__':
-    main()
+    update()
