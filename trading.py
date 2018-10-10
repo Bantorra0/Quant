@@ -34,14 +34,14 @@ class Trader:
         threshold_s_decline_sell = -0.08
         threshold_s_rise_sell = 0.04
 
-        indicators = day_signal[["y_l_rise", "y_s_decline", "y_s_rise"]]
+        indicators = day_signal[["code","y_l_rise", "y_s_decline", "y_s_rise"]]
+        print(indicators)
 
         sell_cond1 = (indicators["y_l_rise"]<threshold_l_rise_sell) & (indicators["y_s_rise"]<threshold_s_rise_sell)
         sell_cond2 = indicators["y_s_decline"]<threshold_s_decline_sell
         for code in account.stocks:
             if code in indicators[sell_cond1 | sell_cond2]["code"]:
                 positions[code] =0
-
 
         buy_cond = (indicators["y_l_rise"]>threshold_l_rise_buy) & (indicators["y_s_decline"]>threshold_s_decline_buy)
         for code in indicators[buy_cond]["code"]:

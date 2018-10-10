@@ -274,7 +274,7 @@ def proc_stck_d(df_stck_d, pred_period=10):
                         i in range(1, 6)]
 
         df_qfq = df[fq_cols] / df["adj_factor"].iloc[0]
-        qfq_cols = ["qfq_"+col for col in fq_cols]
+        df_qfq.columns = ["qfq_"+col for col in fq_cols]
         df_tomorrow_qfq = _move(-1, df_qfq)
 
         df_rolling_list = [(change_rate(df[cols_roll],
@@ -298,7 +298,7 @@ def proc_stck_d(df_stck_d, pred_period=10):
         df_stck_list.append(df_stck)
 
         if not cols_future:
-            cols_future = list(df_labels)
+            cols_future = list(df_labels.columns)
         # print(tmp.shape)
         # print(tmp[tmp[col_label].isnull()])
         # if code == "002217.SZ":
