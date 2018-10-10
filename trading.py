@@ -1,6 +1,6 @@
 import datetime
 from collect import stck_pools
-from constants import DATE_FORMAT,FEE_RATE,BASE_DIR
+from constants import DATE_FORMAT,FEE_RATE
 import ml_model
 import os,pickle
 
@@ -10,7 +10,6 @@ class Account:
         self.fee_rate = fee_rate
         self.cash = init_amt
         self.stocks = {}
-
 
     def day_trade(self,order):
         # TODO: add trade logic.
@@ -22,23 +21,38 @@ class Trader:
                         threshold=0.2):
         # print(day_signal)
         order = {}
+        positions = {}
+        stck_amt = 0
+        for code, num in account.stocks.items():
+            stck_amt = day_signal[code]["qfq_close"] * num
+            positions[code] = stck_amt
 
+
+        threshold_l_rise_buy = 0.4
+        threshold_l_rise_sell = 0.3
+        threshold_s_decline_buy = -0.04
+        threshold_s_decline_sell = -0.08
+        threshold_s_rise_sell = 0.04
+
+        indicators = day_signal[["y_l_rise", "y_s_decline", "y_s_rise"]]
+
+        sell_cond1 = (indicators["y_l_rise"]<threshold_l_rise_sell) & (indicators["y_s_rise"]<threshold_s_rise_sell)
+        sell_cond2 = indicators["y_s_decline"]<threshold_s_decline_sell
         for code in account.stocks:
-            if day_signal[day_signal["code"]==code]["y_pred"]<threshold:
-                order[code] == 0
+            if code in indicators[sell_cond1 | sell_cond2]["code"]:
+                positions[code] =0
 
-        buying_stcks = day_signal[day_signal["y_pred"]>threshold][["code",
-                                                               "y_pred"]]
-        print(buying_stcks)
 
-        # day_data= self.get_day_data(date)
-        # TODO: generate trade order
+        buy_cond = (indicators["y_l_rise"]>threshold_l_rise_buy) & (indicators["y_s_decline"]>threshold_s_decline_buy)
+        for code in indicators[buy_cond]["code"]:
+            positions[code] = 0.2
+
+        for code in positions:
+            pass
+
+        print(positions)
+
         return order
-
-    def get_day_data(self,date):
-        day_data = None
-        # TODO: get day data
-        return day_data
 
 
 class BackTest:
@@ -60,7 +74,7 @@ class BackTest:
         self.trader = Trader()
 
 
-    def backtest(self, model):
+    def backtest(self, models):
         self.init_account()
         self.init_trader()
 
@@ -76,11 +90,17 @@ class BackTest:
                                                 lower_bound= lower_bound,
                                                 start=self.start)
         print("df_all:",df_all.shape)
+
+        signals = df_all
+
+        fq_cols = ["open", "high", "low", "close"]
+        qfq_cols = ["qfq_"+col for col in fq_cols]
+        tomorrow_qfq_cols = ["f1mv_"+col for col in qfq_cols]
         X = ml_model.gen_X(df_all, cols_future)
-        X_full = df_all
-        y_pred = model.predict(X)
-        signals = X_full.copy()
-        signals["y_pred"] = y_pred
+        X = X[X.columns.difference(qfq_cols+tomorrow_qfq_cols)]
+        signals["y_l_rise"] = models["model_l_high"].predict(X)
+        signals["y_s_rise"] = models["model_s_high"].predict(X)
+        signals["y_s_decline"] = models["model_s_low"].predict(X)
 
         day_delta = datetime.timedelta(days=1)
 
@@ -98,13 +118,22 @@ class BackTest:
 
 
 def trade():
-    f_name = "XGBRegressor_20high"
-    print("model:", f_name)
-    with open(os.path.join(BASE_DIR, f_name), "rb") as f:
-        model = pickle.load(f)
+    f_name1 = "XGBRegressor_20high"
+    f_name2 = "XGBRegressor_5low"
+    f_name3 = "XGBRegressor_5high"
+
+    models = {}
+    print("models:", f_name1, f_name2, f_name3)
+    with open(os.path.join(os.getcwd(), f_name1), "rb") as f:
+        models["model_l_high"] = pickle.load(f)
+    with open(os.path.join(os.getcwd(), f_name2), "rb") as f:
+        models["model_s_low"] = pickle.load(f)
+    with open(os.path.join(os.getcwd(), f_name3), "rb") as f:
+        models["model_s_high"] = pickle.load(f)
+
     backtester = BackTest(start="2018-08-15")
 
-    backtester.backtest(model)
+    backtester.backtest(models)
 
 
 if __name__ == '__main__':

@@ -1,4 +1,3 @@
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
@@ -222,9 +221,9 @@ def prepare_each_stck(df_stck, qfq_type="hfq"):
         raise ValueError("qfq_type {} is not supported".format(qfq_type))
 
     df_stck = df_stck.copy()
-    qfq_cols = ["open", "high", "low", "close"]
+    fq_cols = ["open", "high", "low", "close"]
 
-    for col in qfq_cols:
+    for col in fq_cols:
         df_stck[col+"0"] = df_stck[col]
 
     # 后复权
@@ -234,11 +233,11 @@ def prepare_each_stck(df_stck, qfq_type="hfq"):
 
     # print(qfq_factor.shape)
     qfq_factor = np.array(df_stck["adj_factor"]).reshape(-1, 1) * np.ones(
-        (1, len(qfq_cols)))
-    # print(df_stck[qfq_cols].dtypes)
+        (1, len(fq_cols)))
+    # print(df_stck[fq_cols].dtypes)
     # print(qfq_factor.shape, qfq_factor.dtype)
-    # print(df_stck[qfq_cols]/qfq_factor)
-    df_stck.loc[:, qfq_cols] = df_stck[qfq_cols] * qfq_factor
+    # print(df_stck[fq_cols]/qfq_factor)
+    df_stck.loc[:, fq_cols] = df_stck[fq_cols] * qfq_factor
 
     return df_stck
 
@@ -249,6 +248,7 @@ def proc_stck_d(df_stck_d, pred_period=10):
     df_stck_list = []
     cols_move = ["open", "high", "low", "close", "amt"]
     cols_roll = ["open", "high", "low", "close", "amt"]
+    fq_cols = ["open", "high", "low", "close"]
     cols_future = None
     for code, df in df_stck_d.groupby("code"):
         df = df.sort_index(ascending=False)
@@ -272,6 +272,11 @@ def proc_stck_d(df_stck_d, pred_period=10):
         #     print(tmp)
         df_move_list = [change_rate(df[cols_move], _move(i, df, cols_move)) for
                         i in range(1, 6)]
+
+        df_qfq = df[fq_cols] / df["adj_factor"].iloc[0]
+        qfq_cols = ["qfq_"+col for col in fq_cols]
+        df_tomorrow_qfq = _move(-1, df_qfq)
+
         df_rolling_list = [(change_rate(df[cols_roll],
                                         _rolling_max(i, df, cols_roll)),
                             change_rate(df[cols_roll],
@@ -285,10 +290,10 @@ def proc_stck_d(df_stck_d, pred_period=10):
             df_roll_flat_list.extend(df_rolling_group)
 
         df_labels = pd.concat(
-            [df_tomorrow, df_label_max, df_label_min, df_label_mean1,
+            [df_tomorrow,df_tomorrow_qfq, df_label_max, df_label_min, df_label_mean1,
              df_label_mean2, df_label_mean3], axis=1, sort=False)
         df_stck = pd.concat(
-            [df] + df_move_list + df_roll_flat_list + [df_labels], axis=1,
+            [df,df_qfq] + df_move_list + df_roll_flat_list + [df_labels], axis=1,
             sort=False)
         df_stck_list.append(df_stck)
 
@@ -370,60 +375,6 @@ def prepare_data(cursor, pred_period=10, start=None):
     return df_all, cols_future
 
 
-def y_distribution(y):
-    y = y.copy().dropna()
-    # print distribution of y
-    print("before", sum(y < 0))
-    print("y<-0.5:", sum(y < -0.5))
-    for i in range(-5, 5):
-        tmp1 = ((i * 0.1) <= y)
-        tmp2 = (y < ((i + 1) * 0.1))
-        if len(tmp1) == 0 or len(tmp2) == 0:
-            tmp = [False]
-        else:
-            tmp = tmp1 & tmp2
-        print("{0:.2f}<=y<{1:.2f}:".format(i * 0.1, (i + 1) * 0.1), sum(tmp))
-    print("y>0.5", sum(y > 0.5))
-    print("after", sum(y < 0))
-    plt.figure()
-    plt.hist(y, bins=np.arange(-10, 11) * 0.1)
-
-
-def gen_y(df_all: pd.DataFrame, pred_period=10,threshold=0.1,
-          label_type=None):
-    if label_type and (label_type not in ["inc", "dec"]):
-        raise ValueError("label_type {} is not supported!".format(label_type))
-
-    y = df_all["f{}max_f2mv_high".format(pred_period - 1)] / df_all["f1mv_open"] - 1
-    y_distribution(y)
-
-    # print("--------------")
-    # print(y[y.isna() & (df_all["f1mv_high"] == df_all["f1mv_low"])])
-    y[y.notnull() & (df_all["f1mv_high"] == df_all["f1mv_low"])] = 0
-    print("过滤涨停项：", sum(df_all["f1mv_high"] == df_all["f1mv_low"]))
-
-    return label(y,threshold,label_type)
-
-
-def get_target_col(pred_period = 20,is_high = True):
-    if is_high:
-        target_col = "f{}max_f2mv_high".format(pred_period-1)
-    else:
-        target_col = "f{}min_f2mv_low".format(pred_period-1)
-    return target_col
-
-
-def label(y, threshold=0.1, label_type=None):
-    if label_type == "dec":
-        y = -y
-
-    if label_type:
-        y[y > threshold] = 1
-        y[y <= threshold] = 0
-
-    return y
-
-
 def feature_select(X, y):
     import sklearn.ensemble as ensemble
     clf = ensemble.ExtraTreesClassifier(random_state=0)
@@ -436,170 +387,162 @@ def feature_select(X, y):
     return X_new, model
 
 
-def drop_null(X, y):
-    Xy = np.concatenate((np.array(X), np.array(y).reshape(-1, 1)), axis=1)
-    Xy = pd.DataFrame(Xy, index=X.index).dropna()
-    X = Xy.iloc[:, :-1].copy()
-    y = Xy.iloc[:, -1].copy()
-    return X, y
-
-
 def main():
     db_type = "sqlite3"
-
-    conn = dbop.connect_db(db_type)
-    cursor = conn.cursor()
-
-    pred_period=20
-    df_all,cols_future = prepare_data(cursor,pred_period=pred_period,start="2011-01-01")
-
-    # test
-    # df_test = df_all[df_all["code"]=="600887.SH"]
-    # basic_cols = ["open", "high", "low", "close", "amt", "adj_factor"]
-    # derived_cols = ['change_rate_p1mv_open', 'change_rate_p1mv_high',
-    #                 'change_rate_p1mv_low', 'change_rate_p1mv_close',
-    #                 'change_rate_p1mv_amt', 'change_rate_p3mv_open',
-    #                 'change_rate_p3mv_high', 'change_rate_p3mv_low',
-    #                 'change_rate_p3mv_close', 'change_rate_p3mv_amt',
-    #                 'change_rate_p5mv_open', 'change_rate_p5mv_high',
-    #                 'change_rate_p5mv_low', 'change_rate_p5mv_close',
-    #                 'change_rate_p5mv_amt', 'change_rate_p5max_open',
-    #                 'change_rate_p5max_high', 'change_rate_p5max_low',
-    #                 'change_rate_p5max_close', 'change_rate_p5max_amt',
-    #                 'change_rate_p5min_open', 'change_rate_p5min_high',
-    #                 'change_rate_p5min_low', 'change_rate_p5min_close',
-    #                 'change_rate_p5min_amt', 'change_rate_p5mean_open',
-    #                 'change_rate_p5mean_high', 'change_rate_p5mean_low',
-    #                 'change_rate_p5mean_close', 'change_rate_p5mean_amt',
-    #                 'change_rate_p20max_open', 'change_rate_p20max_high',
-    #                 'change_rate_p20max_low', 'change_rate_p20max_close',
-    #                 'change_rate_p20max_amt', 'change_rate_p20min_open',
-    #                 'change_rate_p20min_high', 'change_rate_p20min_low',
-    #                 'change_rate_p20min_close', 'change_rate_p20min_amt',
-    #                 'change_rate_p20mean_open', 'change_rate_p20mean_high',
-    #                 'change_rate_p20mean_low', 'change_rate_p20mean_close',
-    #                 'change_rate_p20mean_amt', 'f1mv_open', 'f1mv_high',
-    #                 'f1mv_low', 'f1mv_close', 'f20max_f1mv_high',
-    #                 'sz50_open', 'sz50_high', 'sz50_low', 'sz50_close',
-    #                 'sz50_vol', 'sz50_change_rate_p1mv_open',
-    #                 'sz50_change_rate_p1mv_high',
-    #                 'sz50_change_rate_p1mv_low',
-    #                 'sz50_change_rate_p1mv_close',
-    #                 'sz50_change_rate_p1mv_vol']
     #
-    # test_cols = basic_cols + derived_cols
-    # print(test_cols)
-    # df_test[test_cols].sort_index(ascending=False).iloc[:100].to_excel(
-    #     "test_data.xlsx",header=True,index=True)
-
-
-
-
+    # conn = dbop.connect_db(db_type)
+    # cursor = conn.cursor()
+    #
+    # pred_period=20
+    # df_all,cols_future = prepare_data(cursor,pred_period=pred_period,start="2011-01-01")
+    #
     # # test
-    # df_test_list = []
-    # for code in df_all["code"].unique()[:3]:
-    #     df = df_all[df_all["code"]==code].sort_index(
-    #         ascending=False).iloc[:50]
-    #     print(df)
-    #     df_test_list.append(df)
-    # pd.concat(df_test_list).to_excel("test_data.xlsx",header=True,index=True)
+    # # df_test = df_all[df_all["code"]=="600887.SH"]
+    # # basic_cols = ["open", "high", "low", "close", "amt", "adj_factor"]
+    # # derived_cols = ['change_rate_p1mv_open', 'change_rate_p1mv_high',
+    # #                 'change_rate_p1mv_low', 'change_rate_p1mv_close',
+    # #                 'change_rate_p1mv_amt', 'change_rate_p3mv_open',
+    # #                 'change_rate_p3mv_high', 'change_rate_p3mv_low',
+    # #                 'change_rate_p3mv_close', 'change_rate_p3mv_amt',
+    # #                 'change_rate_p5mv_open', 'change_rate_p5mv_high',
+    # #                 'change_rate_p5mv_low', 'change_rate_p5mv_close',
+    # #                 'change_rate_p5mv_amt', 'change_rate_p5max_open',
+    # #                 'change_rate_p5max_high', 'change_rate_p5max_low',
+    # #                 'change_rate_p5max_close', 'change_rate_p5max_amt',
+    # #                 'change_rate_p5min_open', 'change_rate_p5min_high',
+    # #                 'change_rate_p5min_low', 'change_rate_p5min_close',
+    # #                 'change_rate_p5min_amt', 'change_rate_p5mean_open',
+    # #                 'change_rate_p5mean_high', 'change_rate_p5mean_low',
+    # #                 'change_rate_p5mean_close', 'change_rate_p5mean_amt',
+    # #                 'change_rate_p20max_open', 'change_rate_p20max_high',
+    # #                 'change_rate_p20max_low', 'change_rate_p20max_close',
+    # #                 'change_rate_p20max_amt', 'change_rate_p20min_open',
+    # #                 'change_rate_p20min_high', 'change_rate_p20min_low',
+    # #                 'change_rate_p20min_close', 'change_rate_p20min_amt',
+    # #                 'change_rate_p20mean_open', 'change_rate_p20mean_high',
+    # #                 'change_rate_p20mean_low', 'change_rate_p20mean_close',
+    # #                 'change_rate_p20mean_amt', 'f1mv_open', 'f1mv_high',
+    # #                 'f1mv_low', 'f1mv_close', 'f20max_f1mv_high',
+    # #                 'sz50_open', 'sz50_high', 'sz50_low', 'sz50_close',
+    # #                 'sz50_vol', 'sz50_change_rate_p1mv_open',
+    # #                 'sz50_change_rate_p1mv_high',
+    # #                 'sz50_change_rate_p1mv_low',
+    # #                 'sz50_change_rate_p1mv_close',
+    # #                 'sz50_change_rate_p1mv_vol']
+    # #
+    # # test_cols = basic_cols + derived_cols
+    # # print(test_cols)
+    # # df_test[test_cols].sort_index(ascending=False).iloc[:100].to_excel(
+    # #     "test_data.xlsx",header=True,index=True)
     #
     #
-    import xgboost.sklearn as xgb
-    import lightgbm.sklearn as lgbm
-    import sklearn.metrics as metrics
-    import matplotlib.pyplot as plt
-    import time
-    import sklearn.preprocessing as preproc
-
-    period = (df_all.index >= "2014-01-01")
-    df_all = df_all[period]
-
-    df_all = df_all[df_all["amt"]!=0]
-
-    y = gen_y(df_all, threshold=0.15, pred_period=pred_period)
-    print("null:",sum(y.isnull()))
-
-    features = df_all.columns.difference(cols_future+["code"])
-
-
-    X = df_all[features]
-
-
-    # X,y = drop_null(X,y)
-    X = X[y.notnull()]
-    X_full = df_all[y.notnull()]
-    print("full and X",X.shape,X_full.shape)
-    y = y.dropna()
-    print(X.shape,y.shape)
-    print("total positive", sum(y))
-
-    condition = (X.index >= "2018-01-01")
-    X_train, y_train = X[~condition], y[~condition]
-    X_test, y_test = X[condition], y[condition]
-
-    print(X_test.shape,y_test.shape)
-    print("test positive:", sum(y_test))
-
-    X_train_full = X_full.loc[condition]
-    X_test_full = X_full.loc[condition]
-
-    print(X_test_full.shape,X_test.shape)
-    print(X_test_full[(X_test_full.index == "2018-01-02") & (X_test_full["code"]=="002217.SZ")].shape)
-
-
-    # print(X_test_full["code"].iloc[np.array(y_test == 1)])
-    # print(X_test_full[X_test_full["code"]=="002217.SZ"])
-
-    # # scaler = preproc.StandardScaler()
-    # # X_train = scaler.fit_transform(X_train)
-    # # X_test = scaler.transform(X_test)
-    #
-    # # X_train,selector = feature_select(X_train,y_train)
-    # # X_test = selector.transform(X_test)
     #
     #
-    scale_pos_weight = sum(y==0)/sum(y==1)
-
-    clfs = [
-        lgbm.LGBMClassifier(n_estimators=300, scale_pos_weight=0.1,
-                            num_leaves=100, max_depth=8, random_state=0),
-        xgb.XGBClassifier(n_estimators=300, scale_pos_weight=0.1,
-                          max_depth=5,
-                          random_state=0,),
-    ]
-
-    y_prd_list = []
-    colors = ["r", "b"]
-    for clf, c in zip(clfs, colors):
-        t1 = time.time()
-        clf.fit(X_train, y_train)
-        t2 = time.time()
-        y_prd_list.append([clf, t2 - t1, clf.predict_proba(X_test), c])
-
-    for clf, t, y_prd_prob, c in y_prd_list:
-        y_prd = np.where(y_prd_prob[:, 0] < 0.25, 1, 0)
-        print(clf.classes_)
-        print(y_prd.shape, sum(y_prd))
-
-        print(X_test_full["code"].iloc[y_prd==1])
-        # print(X_test_full["code"])
-
-        print("accuracy", metrics.accuracy_score(y_test, y_prd))
-        print("precison", metrics.precision_score(y_test, y_prd))
-        print("recall", metrics.recall_score(y_test, y_prd))
-        precision, recall, _ = metrics.precision_recall_curve(y_test, y_prd_prob[:, 1])
-
-        plt.figure()
-        plt.title(clf.__class__)
-        plt.xlim(0, 1)
-        plt.ylim(0, 1)
-        plt.xlabel("recall")
-        plt.ylabel("precision")
-        plt.plot(recall, precision, color=c)
-        print(clf, t)
-
-    plt.show()
+    # # # test
+    # # df_test_list = []
+    # # for code in df_all["code"].unique()[:3]:
+    # #     df = df_all[df_all["code"]==code].sort_index(
+    # #         ascending=False).iloc[:50]
+    # #     print(df)
+    # #     df_test_list.append(df)
+    # # pd.concat(df_test_list).to_excel("test_data.xlsx",header=True,index=True)
+    # #
+    # #
+    # import xgboost.sklearn as xgb
+    # import lightgbm.sklearn as lgbm
+    # import sklearn.metrics as metrics
+    # import matplotlib.pyplot as plt
+    # import time
+    # import sklearn.preprocessing as preproc
+    #
+    # period = (df_all.index >= "2014-01-01")
+    # df_all = df_all[period]
+    #
+    # df_all = df_all[df_all["amt"]!=0]
+    #
+    # y = gen_y(df_all, threshold=0.15, pred_period=pred_period)
+    # print("null:",sum(y.isnull()))
+    #
+    # features = df_all.columns.difference(cols_future+["code"])
+    #
+    #
+    # X = df_all[features]
+    #
+    #
+    # # X,y = drop_null(X,y)
+    # X = X[y.notnull()]
+    # X_full = df_all[y.notnull()]
+    # print("full and X",X.shape,X_full.shape)
+    # y = y.dropna()
+    # print(X.shape,y.shape)
+    # print("total positive", sum(y))
+    #
+    # condition = (X.index >= "2018-01-01")
+    # X_train, y_train = X[~condition], y[~condition]
+    # X_test, y_test = X[condition], y[condition]
+    #
+    # print(X_test.shape,y_test.shape)
+    # print("test positive:", sum(y_test))
+    #
+    # X_train_full = X_full.loc[condition]
+    # X_test_full = X_full.loc[condition]
+    #
+    # print(X_test_full.shape,X_test.shape)
+    # print(X_test_full[(X_test_full.index == "2018-01-02") & (X_test_full["code"]=="002217.SZ")].shape)
+    #
+    #
+    # # print(X_test_full["code"].iloc[np.array(y_test == 1)])
+    # # print(X_test_full[X_test_full["code"]=="002217.SZ"])
+    #
+    # # # scaler = preproc.StandardScaler()
+    # # # X_train = scaler.fit_transform(X_train)
+    # # # X_test = scaler.transform(X_test)
+    # #
+    # # # X_train,selector = feature_select(X_train,y_train)
+    # # # X_test = selector.transform(X_test)
+    # #
+    # #
+    # scale_pos_weight = sum(y==0)/sum(y==1)
+    #
+    # clfs = [
+    #     lgbm.LGBMClassifier(n_estimators=300, scale_pos_weight=0.1,
+    #                         num_leaves=100, max_depth=8, random_state=0),
+    #     xgb.XGBClassifier(n_estimators=300, scale_pos_weight=0.1,
+    #                       max_depth=5,
+    #                       random_state=0,),
+    # ]
+    #
+    # y_prd_list = []
+    # colors = ["r", "b"]
+    # for clf, c in zip(clfs, colors):
+    #     t1 = time.time()
+    #     clf.fit(X_train, y_train)
+    #     t2 = time.time()
+    #     y_prd_list.append([clf, t2 - t1, clf.predict_proba(X_test), c])
+    #
+    # for clf, t, y_prd_prob, c in y_prd_list:
+    #     y_prd = np.where(y_prd_prob[:, 0] < 0.25, 1, 0)
+    #     print(clf.classes_)
+    #     print(y_prd.shape, sum(y_prd))
+    #
+    #     print(X_test_full["code"].iloc[y_prd==1])
+    #     # print(X_test_full["code"])
+    #
+    #     print("accuracy", metrics.accuracy_score(y_test, y_prd))
+    #     print("precison", metrics.precision_score(y_test, y_prd))
+    #     print("recall", metrics.recall_score(y_test, y_prd))
+    #     precision, recall, _ = metrics.precision_recall_curve(y_test, y_prd_prob[:, 1])
+    #
+    #     plt.figure()
+    #     plt.title(clf.__class__)
+    #     plt.xlim(0, 1)
+    #     plt.ylim(0, 1)
+    #     plt.xlabel("recall")
+    #     plt.ylabel("precision")
+    #     plt.plot(recall, precision, color=c)
+    #     print(clf, t)
+    #
+    # plt.show()
 
 
 if __name__ == '__main__':

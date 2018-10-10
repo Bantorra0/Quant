@@ -9,7 +9,7 @@ INDEX_DAY = {TABLE: "index_day",
 
 FEE_RATE = 3 / 10000
 
-BASE_DIR = r"C:\Users\dell-pc\Quant\Quant"
+# BASE_DIR = r"C:\Users\dell-pc\Quant\Quant"
 
 
 FLOAT_DELTA = 1+1e-7

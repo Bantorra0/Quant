@@ -9,12 +9,12 @@ import numpy as np
 import pandas as pd
 import sklearn.preprocessing as preproc
 import xgboost.sklearn as xgb
+from matplotlib import pyplot as plt
 
 import db_operations as dbop
-from data_prepare import prepare_data, gen_y, drop_null, feature_select, \
-    label, get_target_col
+from data_prepare import prepare_data, feature_select
 
-from constants import BASE_DIR,FLOAT_DELTA
+from constants import FLOAT_DELTA
 
 
 def gen_data(pred_period=20, lower_bound="2011-01-01", start="2014-01-01"):
@@ -32,18 +32,67 @@ def gen_data(pred_period=20, lower_bound="2011-01-01", start="2014-01-01"):
     return df_all, cols_future
 
 
-def gen_X(df_all: pd.DataFrame, cols_future, scaler=None, selector=None):
-    features = df_all.columns.difference(cols_future + ["code"])
-    X = df_all[features]
-    if scaler:
-        X = X.transform(X)
-    if selector:
-        X = X.transform(X)
-    return X
+def y_distribution(y):
+    y = y.copy().dropna()
+    # print distribution of y
+    print("before", sum(y < 0))
+    print("y<-0.5:", sum(y < -0.5))
+    for i in range(-5, 5):
+        tmp1 = ((i * 0.1) <= y)
+        tmp2 = (y < ((i + 1) * 0.1))
+        if len(tmp1) == 0 or len(tmp2) == 0:
+            tmp = [False]
+        else:
+            tmp = tmp1 & tmp2
+        print("{0:.2f}<=y<{1:.2f}:".format(i * 0.1, (i + 1) * 0.1), sum(tmp))
+    print("y>0.5", sum(y > 0.5))
+    print("after", sum(y < 0))
+    plt.figure()
+    plt.hist(y, bins=np.arange(-10, 11) * 0.1)
+
+
+def gen_y(df_all: pd.DataFrame, pred_period=10, threshold=0.1, is_high=True,
+          is_clf=False):
+    target_col = get_target_col(pred_period, is_high)
+    y = df_all[target_col] / df_all["f1mv_open"] - 1
+
+    y_distribution(y)
+
+    # print(y[y.isna() & (df_all["f1mv_high"] == df_all["f1mv_low"])])
+    y[y.notnull() & (df_all["f1mv_high"] == df_all["f1mv_low"])] = 0
+    print("过滤涨停项：", sum(df_all["f1mv_high"] == df_all["f1mv_low"]))
+
+    return label(y, threshold=threshold, is_high=is_high,is_clf=is_clf)
+
+
+def get_target_col(pred_period = 20,is_high = True):
+    if is_high:
+        target_col = "f{}max_f2mv_high".format(pred_period-1)
+    else:
+        target_col = "f{}min_f1mv_low".format(pred_period)
+    return target_col
+
+
+def label(y, threshold=0.1, is_high=True, is_clf=False):
+    if is_clf:
+        if not is_high:
+            y = -y
+        y[y > threshold] = 1
+        y[y <= threshold] = 0
+
+    return y
+
+
+def drop_null(X, y):
+    Xy = np.concatenate((np.array(X), np.array(y).reshape(-1, 1)), axis=1)
+    Xy = pd.DataFrame(Xy, index=X.index).dropna()
+    X = Xy.iloc[:, :-1].copy()
+    y = Xy.iloc[:, -1].copy()
+    return X, y
 
 
 def gen_dataset(pred_period=20, lower_bound="2011-01-01", start="2014-01-01",
-                test_start="2018-01-01", label_type=None, is_drop_null=False,
+                test_start="2018-01-01", is_high=True, is_clf=False, is_drop_null=False,
                 is_normalized=False, is_feature_selected=False):
     """
     Generate training and testing data to be passed to train().
@@ -55,8 +104,8 @@ def gen_dataset(pred_period=20, lower_bound="2011-01-01", start="2014-01-01",
     """
     df_all, cols_future = gen_data(pred_period, lower_bound, start)
 
-    y = gen_y(df_all, threshold=0.15, pred_period=pred_period,
-              label_type=label_type)
+    y = gen_y(df_all, threshold=0.15, pred_period=pred_period, is_high=is_high,
+              is_clf=is_clf)
     print("null:", sum(y.isnull()))
 
     features = df_all.columns.difference(cols_future + ["code"])
@@ -97,10 +146,19 @@ def gen_dataset(pred_period=20, lower_bound="2011-01-01", start="2014-01-01",
             "preproc":(scaler, selector)}
 
 
-def train(data, models, is_reg=True):
-    (X_train, y_train), (X_test, y_test)= data["train"],data["test"]
-    if not is_reg:
-        scale_pos_weight = sum(y_train == 0) / sum(y_train == 1)
+def gen_X(df_all: pd.DataFrame, cols_future, scaler=None, selector=None):
+    features = df_all.columns.difference(cols_future + ["code"])
+    X = df_all[features]
+    if scaler:
+        X = X.transform(X)
+    if selector:
+        X = X.transform(X)
+    return X
+
+
+def train(data, models, is_clf=False):
+    X_train, y_train = data["train"]
+
 
     y_pred_list = []
 
@@ -108,10 +166,8 @@ def train(data, models, is_reg=True):
         t1 = time.time()
         model.fit(X_train, y_train)
         t2 = time.time()
-        if is_reg:
-            y_pred_list.append([model, t2 - t1])
-        else:
-            y_pred_list.append([model, t2 - t1])
+        y_pred_list.append([model, t2 - t1])
+
         print("training time:", t2-t1)
 
     return y_pred_list
@@ -129,7 +185,7 @@ def pred_vs_real(inc:pd.DataFrame, y_pred):
     # prediction performance
     df = pd.DataFrame(columns=["p0","range","cnt","min","mean","median","max","std"])
     df = df.set_index(["p0"])
-    for i in range(-1,10):
+    for i in range(-5,10):
         p0 = i * 0.1
         p1 = (i + 1) * 0.1
         cond = (p0 < y_pred) & (y_pred < p1)
@@ -148,18 +204,18 @@ def pred_vs_real(inc:pd.DataFrame, y_pred):
 
     plt.figure()
     plt.title("real-pred")
-    cond_plt = y_pred>0.2*FLOAT_DELTA
+    cond_plt = y_pred<0.5*FLOAT_DELTA
     plt.scatter(y_pred[cond_plt],inc["pct"][cond_plt])
 
 
     # for p0_pred, c, p_real,s in zip(p_pred,cnt, y,std):
     #     print("{0:.1f}-{1:.1f}:".format(p0_pred,p0_pred+0.1),c, p_real, s)
     print(sum([row["cnt"] * row["mean"] for p0, row in df.iterrows()
-               if float(p0) > 0.3*FLOAT_DELTA and row["cnt"]>0]))
+               if float(p0) < 0.3*FLOAT_DELTA and row["cnt"]>0]))
     plt.figure()
     plt.bar(np.array(list(map(float,df.index))) + 0.05, df["mean"], width=0.08)
     plt.plot(x0, y0, color='r')
-    plt.xlim(-0.2, 1)
+    # plt.xlim(-0.2, 1)
 
 
 def save_model(model, pred_period=20, is_high=True):
@@ -180,92 +236,38 @@ def load_model(model_type:str, pred_period=20, is_high=True):
     return model
 
 
-def train_save(pred_period = 20,is_high = True):
+def train_save(pred_period = 20,is_high = True, is_clf=False):
 
-    data = gen_dataset(label_type=None,pred_period=pred_period)
+    data = gen_dataset(is_high=is_high,is_clf=is_clf,pred_period=pred_period)
 
-    regs = [lgbm.LGBMRegressor(n_estimators=300, num_leaves=100, max_depth=8,
-                               random_state=0),
-            xgb.XGBRegressor(n_estimators=300, max_depth=5, random_state=0)]
-    # _,(_,y_test),_ = data
-    # plt.hist(y_test,bins=np.arange(-10,11)*0.1)
-    y_pred_list_reg = train(data, regs, is_reg=True)
+    if is_clf:
+        _, y_train=data["train"]
+        scale_pos_weight = sum(y_train == 0) / sum(y_train == 1)
 
-    clfs=[]
-    # clfs = [lgbm.LGBMClassifier(n_estimators=300, scale_pos_weight=0.1,
-    #                             num_leaves=100, max_depth=8, random_state=0),
-    #         xgb.XGBClassifier(n_estimators=300, scale_pos_weight=0.1,
-    #                           max_depth=5, random_state=0, )]
-    # (X_train, y_train), (X_test, y_test)= data["train"],data["test"]
-    # y_train = label(y_train, 0.15, label_type="inc")
-    # y_test = label(y_test, 0.15, label_type="inc")
-    # data["train"],data["test"] = (X_train, y_train), (X_test, y_test)
-    # y_pred_list_clf = train(data, clfs, is_reg=False)
-    #
-    # X_test_full = data["full"][1]
-    # inc = X_test_full[["code", "f1mv_open", target_col]].copy()
-    # inc["pct"] = inc[target_col] / inc["f1mv_open"] - 1
-    # y0 = inc["pct"].mean()
-    # print(y0)
-    # x0 = np.arange(11) * 0.1
-    # y0 = np.ones(x0.shape) * y0
-    #
-    # y_pred_clf = y_pred_list_clf[1][2][:, 1]
-    # threshold = 0.8
-    # clf_pred_inc = X_test_full[y_pred_clf > threshold][
-    #     ["code", "f1mv_open", target_col]]
-    # clf_pred_inc["pct"] = clf_pred_inc[target_col] / clf_pred_inc[
-    #     "f1mv_open"] - 1
-    # clf_pred_inc["y_pred"] = y_pred_clf[y_pred_clf > threshold]
-    #
-    # pred_vs_real(inc, y_pred_clf)
-    #
-    # y_pred_reg = y_pred_list_reg[1][2]
-    # threshold = 0.3
-    # reg_pred_inc = X_test_full[y_pred_reg > threshold][
-    #     ["code", "f1mv_open", "f19max_f2mv_high"]]
-    # reg_pred_inc["pct"] = reg_pred_inc["f19max_f2mv_high"] / reg_pred_inc[
-    #     "f1mv_open"] - 1
-    # reg_pred_inc["y_pred"] = y_pred_reg[y_pred_reg > threshold]
-    # for code, group in reg_pred_inc.groupby("code"):
-    #     print(group)
-
-    # y2 = []
-    # cnt2 = []
-    # for i in range(10):
-    #     p0 = i * 0.1
-    #     p1 = (i + 1) * 0.1
-    #     cond = (p0 < y_pred_reg) & (y_pred_reg < p1)
-    #     cnt2.append(sum(cond))
-    #     y2.append(inc["pct"][cond].mean())
-    # for c, p in zip(cnt2, y2):
-    #     print(c, p)
-    # print(sum([c * p for i, (c, p) in enumerate(zip(cnt2, y2)) if
-    #            i > 2 and not np.isnan(p)]))
-    # plt.figure()
-    # plt.bar(np.arange(len(y2)) * 0.1 + 0.05, y2, width=0.08)
-    # plt.plot(x0, y0, color='r')
-    # # plt.plot(x,y2,color='r')
-    # plt.xlim(0, 1)
-    # plt.ylim(0, 0.5)
+    if not is_clf:
+        models = [lgbm.LGBMRegressor(n_estimators=300, num_leaves=100, max_depth=8,random_state=0),
+                  xgb.XGBRegressor(n_estimators=300, max_depth=5, random_state=0)]
+    else:
+        models = [lgbm.LGBMClassifier(n_estimators=300, scale_pos_weight=0.1,
+                                    num_leaves=100, max_depth=8, random_state=0),
+                xgb.XGBClassifier(n_estimators=300, scale_pos_weight=0.1,
+                                  max_depth=5, random_state=0, )]
+    y_pred_list = train(data, models, is_clf=is_clf)
 
     # save model
-    for model in regs+clfs:
+    for model in models:
         save_model(model,pred_period,is_high)
 
-    # pred_vs_real(inc,y_pred_reg)
-    #
-    # plt.show()
+    return y_pred_list
 
 
-def load_test(pred_period = 20,is_high = True):
+def load_test(pred_period = 20,is_high = True, is_clf=False):
     model_type = "XGBRegressor"
 
     model = load_model(model_type,pred_period,is_high)
 
     dataset = gen_dataset(
-        lower_bound="2015-01-01",start="2018-01-01",
-                          label_type=None,pred_period=pred_period)
+        lower_bound="2015-01-01",start="2018-01-01",pred_period=pred_period, is_high=is_high,is_clf=is_clf)
     X_test, y_test = dataset["test"]
     _, X_test_full = dataset["full"]
 
@@ -281,4 +283,8 @@ def load_test(pred_period = 20,is_high = True):
 
 
 if __name__ == '__main__':
-    load_test(pred_period=15)
+    # train_save(pred_period=5, is_high=True, is_clf=False)
+    # train_save(pred_period=5, is_high=False, is_clf=False)
+
+    # load_test(pred_period=5, is_high=False, is_clf=False)
+    load_test(pred_period=5, is_high=True, is_clf=False)
