@@ -93,11 +93,8 @@ class BackTest:
 
         signals = df_all
 
-        fq_cols = ["open", "high", "low", "close"]
-        qfq_cols = ["qfq_"+col for col in fq_cols]
-        tomorrow_qfq_cols = ["f1mv_"+col for col in qfq_cols]
+
         X = ml_model.gen_X(df_all, cols_future)
-        X = X[X.columns.difference(qfq_cols+tomorrow_qfq_cols)]
         signals["y_l_rise"] = models["model_l_high"].predict(X)
         signals["y_s_rise"] = models["model_s_high"].predict(X)
         signals["y_s_decline"] = models["model_s_low"].predict(X)

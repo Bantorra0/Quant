@@ -249,7 +249,7 @@ def proc_stck_d(df_stck_d, pred_period=10):
     cols_move = ["open", "high", "low", "close", "amt"]
     cols_roll = ["open", "high", "low", "close", "amt"]
     fq_cols = ["open", "high", "low", "close"]
-    cols_future = None
+    cols_not_in_X = None
     for code, df in df_stck_d.groupby("code"):
         df = df.sort_index(ascending=False)
         df = prepare_each_stck(df)
@@ -289,16 +289,16 @@ def proc_stck_d(df_stck_d, pred_period=10):
         for df_rolling_group in df_rolling_list:
             df_roll_flat_list.extend(df_rolling_group)
 
-        df_labels = pd.concat(
-            [df_tomorrow,df_tomorrow_qfq, df_label_max, df_label_min, df_label_mean1,
+        df_not_X = pd.concat(
+            [df_qfq,df_tomorrow,df_tomorrow_qfq, df_label_max, df_label_min, df_label_mean1,
              df_label_mean2, df_label_mean3], axis=1, sort=False)
         df_stck = pd.concat(
-            [df,df_qfq] + df_move_list + df_roll_flat_list + [df_labels], axis=1,
+            [df] + df_move_list + df_roll_flat_list + [df_not_X], axis=1,
             sort=False)
         df_stck_list.append(df_stck)
 
-        if not cols_future:
-            cols_future = list(df_labels.columns)
+        if not cols_not_in_X:
+            cols_not_in_X = list(df_not_X.columns)
         # print(tmp.shape)
         # print(tmp[tmp[col_label].isnull()])
         # if code == "002217.SZ":
@@ -313,7 +313,7 @@ def proc_stck_d(df_stck_d, pred_period=10):
         df_stck_d_all["code"][df_stck_d_all.index >= "2018-01-01"].unique()))
     print(df_stck_d_all.shape)
 
-    return df_stck_d_all, cols_future
+    return df_stck_d_all, cols_not_in_X
 
 
 def proc_idx_d(df_idx_d: pd.DataFrame):

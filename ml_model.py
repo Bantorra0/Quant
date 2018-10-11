@@ -4,7 +4,6 @@ import re
 import time
 
 import lightgbm.sklearn as lgbm
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import sklearn.preprocessing as preproc
@@ -22,14 +21,14 @@ def gen_data(pred_period=20, lower_bound="2011-01-01", start="2014-01-01"):
     conn = dbop.connect_db(db_type)
     cursor = conn.cursor()
 
-    df_all, cols_future = prepare_data(cursor, pred_period=pred_period,
+    df_all, cols_not_in_X = prepare_data(cursor, pred_period=pred_period,
                                        start=lower_bound)
 
     data_period = (df_all.index >= start)
     df_all = df_all[data_period]
 
     df_all = df_all[df_all["amt"] != 0]
-    return df_all, cols_future
+    return df_all, cols_not_in_X
 
 
 def y_distribution(y):
@@ -102,13 +101,13 @@ def gen_dataset(pred_period=20, lower_bound="2011-01-01", start="2014-01-01",
     :param is_feature_selected:
     :return:
     """
-    df_all, cols_future = gen_data(pred_period, lower_bound, start)
+    df_all, cols_not_in_X = gen_data(pred_period, lower_bound, start)
 
     y = gen_y(df_all, threshold=0.15, pred_period=pred_period, is_high=is_high,
               is_clf=is_clf)
     print("null:", sum(y.isnull()))
 
-    features = df_all.columns.difference(cols_future + ["code"])
+    features = df_all.columns.difference(cols_not_in_X + ["code"])
 
     X_full = df_all[y.notnull()]
     X = X_full[features]
@@ -146,8 +145,8 @@ def gen_dataset(pred_period=20, lower_bound="2011-01-01", start="2014-01-01",
             "preproc":(scaler, selector)}
 
 
-def gen_X(df_all: pd.DataFrame, cols_future, scaler=None, selector=None):
-    features = df_all.columns.difference(cols_future + ["code"])
+def gen_X(df_all: pd.DataFrame, cols_not_in_X, scaler=None, selector=None):
+    features = df_all.columns.difference(cols_not_in_X + ["code"])
     X = df_all[features]
     if scaler:
         X = X.transform(X)
@@ -178,44 +177,46 @@ def pred_vs_real(inc:pd.DataFrame, y_pred):
 
     # Average for all.
     y0 = inc["pct"].mean()
-    print(y0)
+    std0 = inc["pct"].std()
+    print("test data: mean={:.4f},std={:.4f}".format(y0, std0))
     x0 = np.arange(x_min,11) * 0.1
-    y0 = np.ones(x0.shape) * y0
 
     # prediction performance
     df = pd.DataFrame(columns=["p0","range","cnt","min","mean","median","max","std"])
     df = df.set_index(["p0"])
+    x_middle, x_interval = y0, std0
     for i in range(-5,10):
-        p0 = i * 0.1
-        p1 = (i + 1) * 0.1
+        p0 = x_middle + i * x_interval
+        p1 = p0 + x_interval
         cond = (p0 < y_pred) & (y_pred < p1)
-        df.loc["{:.1f}".format(p0)] = ("{:.1f}-{:.1f}".format(p0,p1),
+        df.loc[i] = ("{:.4f}-{:.4f}".format(p0,p1),
                   sum(cond),
                   inc["pct"][cond].min(),
                   inc["pct"][cond].mean(),
                   inc["pct"][cond].median(),
                   inc["pct"][cond].max(),
                   inc["pct"][cond].std())
-        if p0 > 0.3*FLOAT_DELTA and sum(cond)>0:
+        if i>2 and sum(cond)>0:
             plt.figure()
-            plt.title(df.loc["{:.1f}".format(p0), "range"])
+            plt.title(df.loc[i, "range"])
             plt.hist(inc["pct"][cond], bins=5)
     print(df)
 
     plt.figure()
     plt.title("real-pred")
-    cond_plt = y_pred<0.5*FLOAT_DELTA
+    cond_plt = [True]*len(y_pred) # All True.
     plt.scatter(y_pred[cond_plt],inc["pct"][cond_plt])
 
 
     # for p0_pred, c, p_real,s in zip(p_pred,cnt, y,std):
     #     print("{0:.1f}-{1:.1f}:".format(p0_pred,p0_pred+0.1),c, p_real, s)
-    print(sum([row["cnt"] * row["mean"] for p0, row in df.iterrows()
-               if float(p0) < 0.3*FLOAT_DELTA and row["cnt"]>0]))
+    print(sum([row["cnt"] * row["mean"] for i, row in df.iterrows()
+               if i>2 and row["cnt"]>0]))
     plt.figure()
     plt.bar(np.array(list(map(float,df.index))) + 0.05, df["mean"], width=0.08)
-    plt.plot(x0, y0, color='r')
+    plt.plot(x0, np.ones(x0.shape) * y0, color='r')
     # plt.xlim(-0.2, 1)
+    return y0,std0
 
 
 def save_model(model, pred_period=20, is_high=True):
@@ -277,7 +278,7 @@ def load_test(pred_period = 20,is_high = True, is_clf=False):
 
     y_pred = model.predict(X_test)
 
-    pred_vs_real(inc,y_pred)
+    y0,std0 = pred_vs_real(inc,y_pred)
 
     plt.show()
 
