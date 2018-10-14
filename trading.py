@@ -54,6 +54,9 @@ class Trader:
 
         return order
 
+    def tot_amt(self, account, prices):
+        pass
+
 
 class BackTest:
     def __init__(self, start="2018-01-01", end=None, benchmark='HS300',
