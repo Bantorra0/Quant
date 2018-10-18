@@ -54,8 +54,12 @@ class Trader:
 
         return order
 
-    def tot_amt(self, account, prices):
-        pass
+    @staticmethod
+    def tot_amt(account: Account, prices):
+        amt = account.cash
+        for code, cnt in account.stocks.items():
+            amt += cnt * prices[code]
+        return amt
 
 
 class BackTest:
