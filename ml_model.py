@@ -13,7 +13,7 @@ from matplotlib import pyplot as plt
 import db_operations as dbop
 from data_prepare import prepare_data, feature_select
 
-from constants import FLOAT_DELTA
+from constants import FLOAT_DELTA, MODEL_DIR
 
 
 def gen_data(pred_period=20, lower_bound="2011-01-01", start="2014-01-01"):
@@ -224,7 +224,7 @@ def save_model(model, pred_period=20, is_high=True):
     f_name = re.search("\.([^.]*)'", str(type(model))).group(1)
     f_name += "_{}".format(pred_period) + suffix
     print(f_name)
-    with open(os.path.join(os.getcwd(), f_name), "wb") as f:
+    with open(os.path.join(os.getcwd(),MODEL_DIR, f_name), "wb") as f:
         pickle.dump(model, f)
 
 
@@ -232,7 +232,7 @@ def load_model(model_type:str, pred_period=20, is_high=True):
     suffix = "high" if is_high else "low"
     f_name = model_type+"_{}".format(pred_period) + suffix
     print(f_name)
-    with open(os.path.join(os.getcwd(), f_name), "rb") as f:
+    with open(os.path.join(os.getcwd(),MODEL_DIR, f_name), "rb") as f:
         model = pickle.load(f)
     return model
 

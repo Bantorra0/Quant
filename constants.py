@@ -11,5 +11,6 @@ FEE_RATE = 3 / 10000
 
 # BASE_DIR = r"C:\Users\dell-pc\Quant\Quant"
 
+MODEL_DIR = "models"
 
 FLOAT_DELTA = 1+1e-7

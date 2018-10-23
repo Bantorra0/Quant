@@ -17,7 +17,9 @@ class Account:
 
 
 class Trader:
-    def gen_trade_order(self, day_signal, account:Account, date,
+
+    @staticmethod
+    def gen_trade_order(day_signal, account:Account, date,
                         threshold=0.2):
         # print(day_signal)
         order = {}
@@ -60,6 +62,10 @@ class Trader:
         for code, cnt in account.stocks.items():
             amt += cnt * prices[code]
         return amt
+
+    @staticmethod
+    def order_target_percent(code, percent, prices, account:Account):
+        pass
 
 
 class BackTest:
@@ -122,18 +128,21 @@ class BackTest:
 
 
 def trade():
-    f_name1 = "XGBRegressor_20high"
-    f_name2 = "XGBRegressor_5low"
-    f_name3 = "XGBRegressor_5high"
+    # f_name1 = "XGBRegressor_20high"
+    # f_name2 = "XGBRegressor_5low"
+    # f_name3 = "XGBRegressor_5high"
+    model_type = "XGBRegressor"
 
     models = {}
-    print("models:", f_name1, f_name2, f_name3)
-    with open(os.path.join(os.getcwd(), f_name1), "rb") as f:
-        models["model_l_high"] = pickle.load(f)
-    with open(os.path.join(os.getcwd(), f_name2), "rb") as f:
-        models["model_s_low"] = pickle.load(f)
-    with open(os.path.join(os.getcwd(), f_name3), "rb") as f:
-        models["model_s_high"] = pickle.load(f)
+    models["model_l_high"] = ml_model.load_model(model_type,pred_period=20,is_high=True)
+    models["model_s_low"] = ml_model.load_model(model_type,pred_period=5,is_high=False)
+    models["model_s_high"] = ml_model.load_model(model_type,pred_period=5,is_high=True)
+    # with open(os.path.join(os.getcwd(), f_name1), "rb") as f:
+    #     models["model_l_high"] = pickle.load(f)
+    # with open(os.path.join(os.getcwd(), f_name2), "rb") as f:
+    #     models["model_s_low"] = pickle.load(f)
+    # with open(os.path.join(os.getcwd(), f_name3), "rb") as f:
+    #     models["model_s_high"] = pickle.load(f)
 
     backtester = BackTest(start="2018-08-15")
 
