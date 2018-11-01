@@ -30,9 +30,9 @@ class Trader:
             positions[code] = stck_amt
 
 
-        threshold_l_rise_buy = 0.4
+        threshold_l_rise_buy = 0.5
         threshold_l_rise_sell = 0.3
-        threshold_s_decline_buy = -0.04
+        threshold_s_decline_buy = -0.03
         threshold_s_decline_sell = -0.08
         threshold_s_rise_sell = 0.04
 
@@ -59,13 +59,62 @@ class Trader:
     @staticmethod
     def tot_amt(account: Account, prices):
         amt = account.cash
-        for code, cnt in account.stocks.items():
-            amt += cnt * prices[code]
+        for code, pos in account.stocks.items():
+            amt += sum(pos.values()) * prices[code]
         return amt
 
     @staticmethod
-    def order_target_percent(code, percent, prices, account:Account):
+    def order_target_percent(code, percent, price, account:Account):
         pass
+
+    @staticmethod
+    def order(code,cnt,price,account:Account):
+        """
+        Execute order and update account.
+        Assume buying when calculating and cnt<0 indicates selling.
+        :param code:
+        :param cnt:
+        :param price:
+        :param account:
+        :return:
+        """
+        if cnt == 0:
+            return
+
+        account.cash -= cnt * price
+        if code not in account.stocks:
+            account.stocks[code] = {price: cnt}
+        elif price not in account.stocks[code]:
+            account.stocks[code][price] = cnt
+        else:
+            account.stocks[code][price] += cnt
+            if account.stocks[code][price] == 0:
+                del account.stocks[code][price]
+
+        if not account.stocks[code].values() or sum(account.stocks[code].values()) == 0:
+            del account.stocks[code]
+
+
+    @classmethod
+    def order_buy(cls,code, cnt, price, account:Account):
+        if cnt*price > account.cash:
+            raise ValueError("Cash {0} yuan is not enough for buying {1} {2} shares with price {3}!".format(account.cash, code, cnt, price))
+
+        cls.order(code,cnt,price,account)
+
+
+    @classmethod
+    def order_sell(cls,code,cnt,price,account:Account):
+        if code not in account.stocks:
+            raise ValueError("Selling {0} while not having any".format(code))
+        else:
+            long_pos = sum(account.stocks[code].values())
+            if cnt > long_pos:
+                raise ValueError("Selling {0} {1} shares while having only {2}".format(code,cnt,long_pos))
+
+        cls.order(code, -cnt, price, account)
+
+
 
 
 class BackTest:

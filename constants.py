@@ -7,7 +7,8 @@ STOCK_DAY = {TABLE: "stock_day", COLUMNS: (
 INDEX_DAY = {TABLE: "index_day",
              COLUMNS: ("code", "date", "open", "high", "low", "close", "vol")}
 
-FEE_RATE = 3 / 10000
+FEE_RATE = 2.5 / 10000
+STAMP_TAX_RATE = (0,1/1000)
 
 # BASE_DIR = r"C:\Users\dell-pc\Quant\Quant"
 
