@@ -18,8 +18,8 @@ class Account:
 
 class Trader:
 
-    @staticmethod
-    def gen_trade_order(day_signal, account:Account, date,
+    @classmethod
+    def gen_trade_order(cls,day_signal, account:Account, date,
                         threshold=0.2):
         # print(day_signal)
         order = {}
@@ -38,6 +38,13 @@ class Trader:
 
         indicators = day_signal[["code","y_l_rise", "y_s_decline", "y_s_rise"]]
         print(indicators)
+
+        # First commitment.
+        for code in  indicators[indicators["y_l_rise"]>threshold_l_rise_buy]["code"]:
+            if code in account.stocks:
+                continue
+
+
 
         sell_cond1 = (indicators["y_l_rise"]<threshold_l_rise_sell) & (indicators["y_s_rise"]<threshold_s_rise_sell)
         sell_cond2 = indicators["y_s_decline"]<threshold_s_decline_sell
@@ -63,9 +70,15 @@ class Trader:
             amt += sum(pos.values()) * prices[code]
         return amt
 
-    @staticmethod
-    def order_target_percent(code, percent, price, account:Account):
+    @classmethod
+    def order_target_percent(cls,code, percent, price, account:Account):
         pass
+
+
+    @classmethod
+    def gen_order(cls, code, percent,price, account:Account, is_buy=True):
+        pass
+
 
     @staticmethod
     def order(code,cnt,price,account:Account):
@@ -94,14 +107,12 @@ class Trader:
         if not account.stocks[code].values() or sum(account.stocks[code].values()) == 0:
             del account.stocks[code]
 
-
     @classmethod
     def order_buy(cls,code, cnt, price, account:Account):
         if cnt*price > account.cash:
             raise ValueError("Cash {0} yuan is not enough for buying {1} {2} shares with price {3}!".format(account.cash, code, cnt, price))
 
         cls.order(code,cnt,price,account)
-
 
     @classmethod
     def order_sell(cls,code,cnt,price,account:Account):
@@ -113,8 +124,6 @@ class Trader:
                 raise ValueError("Selling {0} {1} shares while having only {2}".format(code,cnt,long_pos))
 
         cls.order(code, -cnt, price, account)
-
-
 
 
 class BackTest:
