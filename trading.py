@@ -3,6 +3,7 @@ from collect import stck_pools
 from constants import DATE_FORMAT,FEE_RATE
 import ml_model
 import os,pickle
+import math
 
 
 class Account:
@@ -63,6 +64,7 @@ class Trader:
 
         return order
 
+
     @staticmethod
     def tot_amt(account: Account, prices):
         amt = account.cash
@@ -78,6 +80,11 @@ class Trader:
     @classmethod
     def gen_order(cls, code, percent,price, account:Account, is_buy=True):
         pass
+
+    @classmethod
+    def get_cnt_from_percent(cls, percent, price, account: Account, prices):
+        tot_value = cls.tot_amt(account, prices)
+        return int(tot_value * percent / 100 / price)
 
 
     @staticmethod
@@ -124,6 +131,8 @@ class Trader:
                 raise ValueError("Selling {0} {1} shares while having only {2}".format(code,cnt,long_pos))
 
         cls.order(code, -cnt, price, account)
+
+
 
 
 class BackTest:
