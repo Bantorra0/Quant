@@ -1,9 +1,9 @@
 import datetime
 from collect import stck_pools
-from constants import DATE_FORMAT,FEE_RATE
+from constants import DATE_FORMAT,FEE_RATE, BUY_FLAG,SELL_FLAG
 import ml_model
-import os,pickle
-import math
+import pandas as pd
+import matplotlib.pyplot as plt
 
 
 class Account:
@@ -11,6 +11,7 @@ class Account:
         self.fee_rate = fee_rate
         self.cash = init_amt
         self.stocks = {}
+        self.records = {}
 
     def day_trade(self,order):
         # TODO: add trade logic.
@@ -18,52 +19,152 @@ class Account:
 
 
 class Trader:
+    @classmethod
+    def trade(cls,day_signal,account:Account):
+        orders = cls.gen_orders(day_signal=day_signal,account=account)
+        transactions = cls.exe_orders(orders,day_signal=day_signal,
+                                   account=account)
+        cls.update_records(day_signal=day_signal,account=account)
+        return orders,transactions
 
     @classmethod
-    def gen_trade_order(cls,day_signal, account:Account, date,
-                        threshold=0.2):
-        # print(day_signal)
-        order = {}
-        positions = {}
-        stck_amt = 0
-        for code, num in account.stocks.items():
-            stck_amt = day_signal[code]["qfq_close"] * num
-            positions[code] = stck_amt
+    def gen_orders(cls, day_signal, account:Account):
+        orders = []
+        # Generate orders.
+        for code in day_signal["code"]:
+            if code not in account.stocks:
+                o = cls.strategy_for_stck_not_in_pos(code, account,
+                                                     day_signal)
+            else:
+                o = cls.strategy_for_stck_in_pos(code,account, day_signal)
+            if o:
+                orders.append(o)
+        return orders
+
+    @classmethod
+    def exe_orders(cls,orders,day_signal,account:Account):
+        # Execute orders.
+        prices = {code: day_signal[day_signal["code"] == code]["f1mv_qfq_open"].iloc[0]
+                  for code in day_signal["code"]}
+
+        transactions = []
+        for o in orders:
+            flag, code, price, cnt = o[:4]
+            # Update price in order to f1mv_qfq_open.
+            price = prices[code]
+            signals = day_signal[day_signal["code"] == code]
+            if flag==BUY_FLAG:
+                if signals["f1mv_qfq_low"].iloc[0] \
+                        == signals["f1mv_qfq_high"].iloc[0]:
+                    print("一字板涨停：买入失败")
+                    continue
+                price,cnt = cls.buy_by_cnt(code,cnt,price,account)
+                if price and cnt:
+                    transactions.append([day_signal.index[0],code, price,cnt])
+
+            elif flag == SELL_FLAG:
+                if signals["f1mv_qfq_low"].iloc[0] \
+                        == signals["f1mv_qfq_high"].iloc[0]:
+                    print("一字板跌停：卖出失败")
+                    continue
+                price,cnt = cls.sell_by_cnt(code,cnt,price,account)
+                if price and cnt:
+                    transactions.append([day_signal.index[0],code, price,
+                                                               -cnt])
+        return transactions
+
+    @classmethod
+    def update_records(cls,day_signal,account:Account):
+        # Update account.records.
+        for code in day_signal["code"]:
+            # Add record first if necessary after buying.
+            if code not in account.records and code in account.stocks:
+                if len(account.stocks[code].keys()) == 1:
+                    price, cnt = list(account.stocks[code].items())[0]
+                    account.records[code] = [price, -1, cnt]
+                else:
+                    raise ValueError("Inconsistency:{0} not in "
+                                     "account.records has "
+                                     "multiple transactions in "
+                                     "account.stocks".format(code))
+
+            # Delete or update records.
+            if code in account.records:
+                if code not in account.stocks\
+                        or not account.stocks[code].keys()\
+                        or sum(account.stocks[code].values()) == 0:
+                    # Delete account.records according to account.stocks.
+                    del account.records[code]
+                else:
+                    # Update remaining records.
+                    account.records[code][1] = \
+                        day_signal[day_signal["code"] == code][
+                            "f1mv_qfq_high"].iloc[0]
 
 
-        threshold_l_rise_buy = 0.5
-        threshold_l_rise_sell = 0.3
-        threshold_s_decline_buy = -0.03
-        threshold_s_decline_sell = -0.08
-        threshold_s_rise_sell = 0.04
+    @classmethod
+    def strategy_for_stck_in_pos(cls, code, account:Account,day_signal):
+        signal = day_signal[day_signal["code"] == code]
 
-        indicators = day_signal[["code","y_l_rise", "y_s_decline", "y_s_rise"]]
-        print(indicators)
+        if account.records[code][1]==-1:
+            raise ValueError("Highest price of {} is -1".format(code))
+        init_buy_price = account.records[code][0]
+        init_buy_cnt = account.records[code][2]
+        qfq_close = signal["qfq_close"].iloc[0]
+        # f1mv_qfq_open = signal["f1mv_qfq_open"].iloc[0]
 
-        # First commitment.
-        for code in  indicators[indicators["y_l_rise"]>threshold_l_rise_buy]["code"]:
-            if code in account.stocks:
-                continue
+        retracement = (account.records[code][1]-qfq_close)
+        sell_cond0 = retracement >= max(
+            (account.records[code][1]-account.records[code][0])*0.25,
+            account.records[code][1]*0.1)
 
+        sell_cond1 = (signal["y_l_rise"].iloc[0] <= 0.3) \
+                     & (signal["y_s_decline"].iloc[0] <=-0.1)
 
+        # Generate order based on various conditions.
+        if sell_cond0 or sell_cond1:
+            return cls.order_sell_by_stck_pct(code, percent=1,
+                                              price=qfq_close,account=account)
+        elif sum(account.stocks[code].values())==init_buy_cnt:
+            # Stage after buying first commitment.
+            if qfq_close/init_buy_price <= 0.95:
+                return cls.order_sell_by_stck_pct(code, percent=1,
+                                           price=qfq_close,
+                                           account=account)
+            elif qfq_close/init_buy_price >= 1.05:
+                return BUY_FLAG, code,qfq_close, init_buy_cnt
+        elif sum(account.stocks[code].values())==2*init_buy_cnt:
+            # Stage after buying second commitment.
+            if qfq_close/init_buy_price <= 1:
+                return cls.order_sell_by_stck_pct(code, percent=1,
+                                           price=qfq_close,
+                                           account=account)
+            elif qfq_close/init_buy_price >= 1.1:
+                return BUY_FLAG, code, qfq_close, init_buy_cnt
+        elif sum(account.stocks[code].values()) == 3*init_buy_cnt:
+            # Stage after buying third commitment.
+            if qfq_close/init_buy_price <= 1.034:
+                return cls.order_sell_by_stck_pct(code, percent=1,
+                                           price=qfq_close,
+                                           account=account)
+        else:
+            return None
 
-        sell_cond1 = (indicators["y_l_rise"]<threshold_l_rise_sell) & (indicators["y_s_rise"]<threshold_s_rise_sell)
-        sell_cond2 = indicators["y_s_decline"]<threshold_s_decline_sell
-        for code in account.stocks:
-            if code in indicators[sell_cond1 | sell_cond2]["code"]:
-                positions[code] =0
-
-        buy_cond = (indicators["y_l_rise"]>threshold_l_rise_buy) & (indicators["y_s_decline"]>threshold_s_decline_buy)
-        for code in indicators[buy_cond]["code"]:
-            positions[code] = 0.2
-
-        for code in positions:
-            pass
-
-        print(positions)
-
-        return order
-
+    @classmethod
+    def strategy_for_stck_not_in_pos(cls, code, account:Account,day_signal):
+        signal = day_signal[day_signal["code"]==code]
+        init_buy_cond = (signal["y_l_rise"] >= 0.5) \
+                        & (signal["y_s_decline"] >= -0.03) \
+                        & (signal["y_s_rise"]>=0.1)
+        if init_buy_cond.iloc[0]:
+            pct = 0.2
+            prices = {code:day_signal[day_signal["code"]==code][
+                "qfq_close"].iloc[0] for code in day_signal["code"]}
+            price = prices[code]
+            return cls.order_buy_pct(code, percent=pct, price=price,
+                                         account=account, prices=prices)
+        else:
+            return None
 
     @staticmethod
     def tot_amt(account: Account, prices):
@@ -73,22 +174,41 @@ class Trader:
         return amt
 
     @classmethod
-    def order_target_percent(cls,code, percent, price, account:Account):
+    def order_target_percent(cls,code, percent, price, account:Account,
+                             prices):
         pass
-
 
     @classmethod
-    def gen_order(cls, code, percent,price, account:Account, is_buy=True):
-        pass
+    def order_buy_pct(cls, code, percent, price, account:Account,
+                      prices):
+        if percent>1:
+            raise ValueError("Percent {}>100%".format(percent))
+        else:
+            cnt = cls.get_cnt_from_percent(percent,prices[code],account,
+                                           prices)
+            # price,cnt = cls.buy_by_cnt(code, cnt, price, account)
+        return BUY_FLAG,code,price,cnt
+
+    @classmethod
+    def order_sell_by_stck_pct(cls, code, percent, price, account:Account):
+        if percent>1:
+            raise ValueError("Percent {}>100%".format(percent))
+        elif percent==1:
+            cnt = int(sum(account.stocks[code].values()))
+            # cls.sell_by_cnt(code, cnt, price, account)
+        else:
+            cnt = int(sum(account.stocks[code].values())* percent / 100)*100
+            # cls.sell_by_cnt(code,cnt,price,account)
+        return SELL_FLAG,code,price,cnt
 
     @classmethod
     def get_cnt_from_percent(cls, percent, price, account: Account, prices):
         tot_value = cls.tot_amt(account, prices)
-        return int(tot_value * percent / 100 / price)
-
+        # print(tot_value,percent,price)
+        return int(tot_value * percent / 100 / price)*100
 
     @staticmethod
-    def order(code,cnt,price,account:Account):
+    def exe_single_order(code, cnt, price, account:Account):
         """
         Execute order and update account.
         Assume buying when calculating and cnt<0 indicates selling.
@@ -111,28 +231,33 @@ class Trader:
             if account.stocks[code][price] == 0:
                 del account.stocks[code][price]
 
-        if not account.stocks[code].values() or sum(account.stocks[code].values()) == 0:
+        if not account.stocks[code].keys() \
+                or sum(account.stocks[code].values()) == 0:
             del account.stocks[code]
 
     @classmethod
-    def order_buy(cls,code, cnt, price, account:Account):
-        if cnt*price > account.cash:
-            raise ValueError("Cash {0} yuan is not enough for buying {1} {2} shares with price {3}!".format(account.cash, code, cnt, price))
+    def buy_by_cnt(cls, code, cnt, price, account:Account, buy_max=False):
+        if not buy_max and cnt*price > account.cash:
+            print("Cash {0} yuan is not enough for buying {1} {2} shares with "
+              "price {3}!".format(account.cash, code, cnt, price))
+            return None,None
+        elif buy_max and cnt*price > account.cash:
+            cnt = int(account.cash/price/100)*100
 
-        cls.order(code,cnt,price,account)
+        cls.exe_single_order(code, cnt, price, account)
+        return price, cnt
 
     @classmethod
-    def order_sell(cls,code,cnt,price,account:Account):
-        if code not in account.stocks:
+    def sell_by_cnt(cls, code, cnt, price, account:Account):
+        if code not in account.stocks or not account.stocks[code].keys():
             raise ValueError("Selling {0} while not having any".format(code))
         else:
             long_pos = sum(account.stocks[code].values())
             if cnt > long_pos:
                 raise ValueError("Selling {0} {1} shares while having only {2}".format(code,cnt,long_pos))
 
-        cls.order(code, -cnt, price, account)
-
-
+        cls.exe_single_order(code, -cnt, price, account)
+        return price,cnt
 
 
 class BackTest:
@@ -149,10 +274,8 @@ class BackTest:
     def init_account(self, fee_rate=FEE_RATE):
         self.account = Account(self.capital_base, fee_rate)
 
-
     def init_trader(self):
         self.trader = Trader()
-
 
     def backtest(self, models):
         self.init_account()
@@ -173,7 +296,6 @@ class BackTest:
 
         signals = df_all
 
-
         X = ml_model.gen_X(df_all, cols_future)
         signals["y_l_rise"] = models["model_l_high"].predict(X)
         signals["y_s_rise"] = models["model_s_high"].predict(X)
@@ -181,6 +303,9 @@ class BackTest:
 
         day_delta = datetime.timedelta(days=1)
 
+        df_asset_values = pd.DataFrame(columns = ["my_model","hs300"])
+
+        orders,transactions=[],[]
         while date <= end:
             date_idx = datetime.datetime.strftime(date, DATE_FORMAT)
             if date_idx not in signals.index:
@@ -188,13 +313,32 @@ class BackTest:
                 continue
 
             day_signal = signals.loc[date_idx]
-            order = self.trader.gen_trade_order(day_signal,self.account,date)
-            self.account.day_trade(order)
+            main_cols = ["qfq_close","f1mv_qfq_open","f1mv_qfq_high",
+                         "f1mv_qfq_low"]
+            if day_signal[main_cols].isna().any().any():
+                date = date + day_delta
+                continue
 
-            date = date + self.time_delta
+            day_orders, day_transactions = self.trader.trade(
+                day_signal=day_signal,account=self.account)
+            orders.extend(day_orders)
+            transactions.extend(day_transactions)
+            prices = {code: day_signal[day_signal["code"] == code]["qfq_close"].iloc[0]
+                      for code in day_signal["code"]}
+            my_model_value = self.trader.tot_amt(account=self.account,prices=prices)
+            if len(df_asset_values.index)==0:
+                hs300_value = self.capital_base
+            else:
+                hs300_value = day_signal["hs300_close"].iloc[0]/ \
+                              signals.loc[df_asset_values.index.min(),
+                                          "hs300_close"].iloc[0] * \
+                              self.capital_base
+            df_asset_values.loc[date_idx] = [my_model_value, hs300_value]
+            date = date + day_delta
+        return df_asset_values,orders,transactions
 
 
-def trade():
+def main():
     # f_name1 = "XGBRegressor_20high"
     # f_name2 = "XGBRegressor_5low"
     # f_name3 = "XGBRegressor_5high"
@@ -211,10 +355,27 @@ def trade():
     # with open(os.path.join(os.getcwd(), f_name3), "rb") as f:
     #     models["model_s_high"] = pickle.load(f)
 
-    backtester = BackTest(start="2018-08-15")
+    backtester = BackTest(start="2018-01-01")
+    df_asset_values,orders,transactions = backtester.backtest(models)
+    for row in df_asset_values.itertuples():
+        print(row)
+    print("Transactions:",len(transactions))
+    for e in sorted(transactions,key=lambda x:(x[1],x[0])):
+        print(e)
 
-    backtester.backtest(models)
+    dates = df_asset_values.index
+    x = list(range(len(df_asset_values.index)))
+    df_dates = pd.Series(x, index=dates)
+    plt.figure()
+    line1 = plt.plot(x,df_asset_values["my_model"],'r')
+    line2 = plt.plot(x,df_asset_values["hs300"],'b')
+    # ticks = [df_dates[dates[dates>="2018-{:02d}-01".format(i)].min()] for i in
+    #           range(1,11)]
+    # print(ticks)
+    # plt.xticks(ticks=ticks)
+    plt.legend([line1,line2],["my_model","hs300"],loc="upper right")
+    plt.show()
 
 
 if __name__ == '__main__':
-    trade()
+    main()

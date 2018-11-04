@@ -15,3 +15,6 @@ STAMP_TAX_RATE = (0,1/1000)
 MODEL_DIR = "models"
 
 FLOAT_DELTA = 1+1e-7
+
+BUY_FLAG = 1
+SELL_FLAG = -1

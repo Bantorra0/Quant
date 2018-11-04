@@ -120,6 +120,7 @@ def insert_to_db(row, db_type: str, table_name, columns):
 def collect_index_day(pools: [str], db_type: str, update=False):
     conn = connect_db(db_type)
     cursor = conn.cursor()
+    download_failure, write_failure = 0,0
     for i, code in enumerate(pools):
         try:
             start = "2000-01-01"
@@ -142,6 +143,7 @@ def collect_index_day(pools: [str], db_type: str, update=False):
             print(df.shape)
 
         except Exception as err:
+            download_failure+=1
             print(err)
             print('No DATA Code: ' + str(i))
             continue
@@ -153,16 +155,21 @@ def collect_index_day(pools: [str], db_type: str, update=False):
                     tuple(row[list(INDEX_DAY[COLUMNS])]))
                 conn.commit()
             except Exception as err:
+                write_failure +=1
                 print(err)
 
                 continue
     close_db(conn)
+    print("-"*10,
+        "\nDownload failure:{0}\nWrite failure:{1}\n".format(download_failure,
+                                                write_failure))
 
 
 def collect_stock_day(pools: [str], db_type: str, update=False):
     pro = _init_api(TOKEN)
     conn = connect_db(db_type)
     cursor = conn.cursor()
+    download_failure, write_failure = 0,0
     for i, code in enumerate(pools):
         try:
             start = "20000101"
@@ -193,6 +200,7 @@ def collect_stock_day(pools: [str], db_type: str, update=False):
             # print(df.columns)
 
         except Exception as err:
+            download_failure+=1
             print(err)
             print('No DATA Code: ' + str(i))
             continue
@@ -209,9 +217,13 @@ def collect_stock_day(pools: [str], db_type: str, update=False):
                 conn.commit()
 
             except Exception as err:
+                write_failure +=1
                 print("error:",err)
                 continue
     close_db(conn)
+    print("-"*10,
+        "\nDownload failure:{0}\nWrite failure:{1}\n".format(download_failure,
+                                                write_failure))
 
 
 def update():

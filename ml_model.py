@@ -246,8 +246,11 @@ def train_save(pred_period = 20,is_high = True, is_clf=False):
         scale_pos_weight = sum(y_train == 0) / sum(y_train == 1)
 
     if not is_clf:
-        models = [lgbm.LGBMRegressor(n_estimators=300, num_leaves=100, max_depth=8,random_state=0),
-                  xgb.XGBRegressor(n_estimators=300, max_depth=5, random_state=0)]
+        models = [lgbm.LGBMRegressor(n_estimators=300, num_leaves=100,
+                                     max_depth=8,random_state=0,
+                                     min_child_weight=5),
+                  xgb.XGBRegressor(n_estimators=300, max_depth=5,
+                                   random_state=0, min_child_weight=5)]
     else:
         models = [lgbm.LGBMClassifier(n_estimators=300, scale_pos_weight=0.1,
                                     num_leaves=100, max_depth=8, random_state=0),
