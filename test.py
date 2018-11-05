@@ -1,6 +1,6 @@
 from collect import _init_api
 from constants import TOKEN
-from df_operations import natural_outer_join
+from df_operations import natural_join
 import tushare as ts
 import pandas as pd
 import datetime

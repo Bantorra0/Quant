@@ -22,8 +22,8 @@ def str_to_none_decorator(f):
     return decorator
 
 
-def natural_outer_join(df1:pd.DataFrame, df2:pd.DataFrame):
+def natural_join(df1:pd.DataFrame, df2:pd.DataFrame, how="inner"):
     on_cols = list(set(df1.columns) & set(df2.columns))
-    return df1.merge(df2,on=on_cols, how="outer")
+    return df1.merge(df2,on=on_cols, how=how)
 
 

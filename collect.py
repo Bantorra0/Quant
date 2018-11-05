@@ -6,7 +6,7 @@ import tushare as ts
 
 from constants import TOKEN, STOCK_DAY, INDEX_DAY,TABLE,COLUMNS
 from db_operations import connect_db, _parse_config, close_db
-from df_operations import natural_outer_join
+from df_operations import natural_join
 
 
 
@@ -192,7 +192,7 @@ def collect_stock_day(pools: [str], db_type: str, update=False):
                 adj_factor = adj_factor[adj_factor["trade_date"]>=start]
                 print("adj:",adj_factor.shape)
 
-            df = natural_outer_join(daily, adj_factor)
+            df = natural_join(daily, adj_factor, how="outer")
             # 打印进度
             print('Seq: ' + str(i + 1) + ' of ' + str(
                 len(pools)) + '   Code: ' + str(code))
