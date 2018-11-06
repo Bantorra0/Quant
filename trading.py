@@ -31,6 +31,20 @@ class Trader:
         return orders,transactions
 
     @classmethod
+    def gen_trading_plan(cls,day_signal,account:Account):
+        plan = []
+        # Generate plan.
+        for code in day_signal["code"]:
+            if code not in account.stocks:
+                o = cls.strategy_for_stck_not_in_pos(code, account,
+                                                     day_signal)
+            else:
+                o = cls.strategy_for_stck_in_pos(code, account, day_signal)
+            if o:
+                plan.append(o)
+        return plan
+
+    @classmethod
     def gen_orders(cls, day_signal, account:Account):
         orders = []
         # Generate orders.
@@ -56,24 +70,22 @@ class Trader:
             # Update price in order to f1mv_qfq_open.
             price = prices[code]
             signals = day_signal[day_signal["code"] == code]
+            result=None
             if flag==BUY_FLAG:
                 if signals["f1mv_qfq_low"].iloc[0] \
                         == signals["f1mv_qfq_high"].iloc[0]:
                     print("一字板涨停：买入失败")
                     continue
-                price,cnt = cls.buy_by_cnt(code,cnt,price,account)
-                if price and cnt:
-                    transactions.append([day_signal.index[0],code, price,cnt])
-
+                result = cls.buy_by_cnt(code,cnt,price,account)
             elif flag == SELL_FLAG:
                 if signals["f1mv_qfq_low"].iloc[0] \
                         == signals["f1mv_qfq_high"].iloc[0]:
                     print("一字板跌停：卖出失败")
                     continue
-                price,cnt = cls.sell_by_cnt(code,cnt,price,account)
-                if price and cnt:
-                    transactions.append([day_signal.index[0],code, price,
-                                                               -cnt])
+                result = cls.sell_by_cnt(code,cnt,price,account)
+
+            if result:
+                transactions.append([day_signal.index[0]]+list(result[1:]))
         return transactions
 
     @classmethod
@@ -153,6 +165,53 @@ class Trader:
             return None
 
     @classmethod
+    def plan_for_stck_in_pos(cls, code, account: Account, day_signal):
+        signal = day_signal[day_signal["code"] == code]
+
+        if account.records[code][1] == -1:
+            raise ValueError("Highest price of {} is -1".format(code))
+        init_buy_price = account.records[code][0]
+        init_buy_cnt = account.records[code][2]
+        qfq_close = signal["qfq_close"].iloc[0]
+        # f1mv_qfq_open = signal["f1mv_qfq_open"].iloc[0]
+
+        retracement = (account.records[code][1] - qfq_close)
+        sell_cond0 = retracement >= max(
+            (account.records[code][1] - account.records[code][0]) * 0.25,
+            account.records[code][1] * 0.1)
+
+        sell_cond1 = (signal["y_l_rise"].iloc[0] <= 0.3) \
+                     & (signal["y_s_decline"].iloc[0] <= -0.1)
+
+        # Generate order based on various conditions.
+        plan = []
+        if sell_cond0 or sell_cond1:
+            plan.append(cls.order_sell_by_stck_pct(code, percent=1,
+                                              price="open", account=account))
+        elif sum(account.stocks[code].values()) == init_buy_cnt:
+            # Stage after buying first commitment.
+            return cls.order_sell_by_stck_pct(code, percent=1,
+                                                  price=init_buy_price*0.95,
+                                                  account=account)
+            return BUY_FLAG, code, qfq_close, init_buy_cnt
+        elif sum(account.stocks[code].values()) == 2 * init_buy_cnt:
+            # Stage after buying second commitment.
+            if qfq_close / init_buy_price <= 1:
+                return cls.order_sell_by_stck_pct(code, percent=1,
+                                                  price=qfq_close,
+                                                  account=account)
+            elif qfq_close / init_buy_price >= 1.1:
+                return BUY_FLAG, code, qfq_close, init_buy_cnt
+        elif sum(account.stocks[code].values()) == 3 * init_buy_cnt:
+            # Stage after buying third commitment.
+            if qfq_close / init_buy_price <= 1.034:
+                return cls.order_sell_by_stck_pct(code, percent=1,
+                                                  price=qfq_close,
+                                                  account=account)
+        else:
+            return None
+
+    @classmethod
     def strategy_for_stck_not_in_pos(cls, code, account:Account,day_signal):
         signal = day_signal[day_signal["code"]==code]
         init_buy_cond = (signal["y_l_rise"] >= 0.5) \
@@ -165,6 +224,22 @@ class Trader:
             price = prices[code]
             return cls.order_buy_pct(code, percent=pct, price=price,
                                          account=account, prices=prices)
+        else:
+            return None
+
+    @classmethod
+    def plan_for_stck_not_in_pos(cls, code, account: Account, day_signal):
+        signal = day_signal[day_signal["code"] == code]
+        init_buy_cond = (signal["y_l_rise"] >= 0.5) \
+                        & (signal["y_s_decline"] >= -0.03) \
+                        & (signal["y_s_rise"] >= 0.1)
+        if init_buy_cond.iloc[0]:
+            pct = 0.2
+            prices = {code: day_signal[day_signal["code"] == code][
+                "qfq_close"].iloc[0] for code in day_signal["code"]}
+            price = prices[code]
+            return cls.order_buy_pct(code, percent=pct, price=price,
+                                     account=account, prices=prices)
         else:
             return None
 
@@ -201,7 +276,7 @@ class Trader:
         else:
             cnt = int(sum(account.stocks[code].values())* percent / 100)*100
             # cls.sell_by_cnt(code,cnt,price,account)
-        return SELL_FLAG,code,price,cnt
+        return SELL_FLAG, code, price, -cnt
 
     @classmethod
     def get_cnt_from_percent(cls, percent, price, account: Account, prices):
@@ -239,7 +314,11 @@ class Trader:
 
     @classmethod
     def buy_by_cnt(cls, code, cnt, price, account:Account, buy_max=False):
-        if not buy_max and cnt*price > account.cash:
+        if cnt<0:
+            raise ValueError("Buying cnt {}<0".format(cnt))
+        elif cnt==0:
+            return None
+        elif not buy_max and cnt*price > account.cash:
             print("Cash {0} yuan is not enough for buying {1} {2} shares with "
               "price {3}!".format(account.cash, code, cnt, price))
             return None,None
@@ -247,19 +326,24 @@ class Trader:
             cnt = int(account.cash/price/100)*100
 
         cls.exe_single_order(code, cnt, price, account)
-        return price, cnt
+        return BUY_FLAG,code,price, cnt
 
     @classmethod
     def sell_by_cnt(cls, code, cnt, price, account:Account):
-        if code not in account.stocks or not account.stocks[code].keys():
+        if cnt>0:
+            raise ValueError("Selling cnt {}>0".format(cnt))
+        elif cnt==0:
+            return None
+        elif code not in account.stocks or not account.stocks[code].keys():
             raise ValueError("Selling {0} while not having any".format(code))
         else:
+            cnt = abs(cnt)
             long_pos = sum(account.stocks[code].values())
             if cnt > long_pos:
                 raise ValueError("Selling {0} {1} shares while having only {2}".format(code,cnt,long_pos))
 
-        cls.exe_single_order(code, -cnt, price, account)
-        return price,cnt
+            cls.exe_single_order(code, -cnt, price, account)
+            return SELL_FLAG,code,price,-cnt
 
 
 class BackTest:

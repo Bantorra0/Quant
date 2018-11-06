@@ -38,7 +38,7 @@ class TraderTestCase(unittest.TestCase):
         #       the price should be del from stocks[code]'s key.
         orders_sell = [("600345", 300, 26.5), ("002345", 300, 12.2),("002345", 100, 12.5), ("600229", 600, 9.72), ("600229", 100, 9.32)]
         for code, cnt, price in orders_sell:
-            trader.sell_by_cnt(code, cnt, price, account)
+            trader.sell_by_cnt(code, -cnt, price, account)
             amt += cnt * price
         pos = {"002345":{11.2:500,12.2:-300,12.5:-100},"600229":{9.62:1200,9.72:-600}}
         self.assertEqual(pos,account.stocks)
@@ -47,7 +47,7 @@ class TraderTestCase(unittest.TestCase):
         # Include a case that total amount of buy and sell is 0, the code should be del from stocks.
         orders_sell = [("600229", 600, 9.52)]
         for code, cnt, price in orders_sell:
-            trader.sell_by_cnt(code, cnt, price, account)
+            trader.sell_by_cnt(code, -cnt, price, account)
             amt += cnt * price
         pos = {"002345":{11.2:500,12.2:-300,12.5:-100}}
         self.assertEqual(pos,account.stocks)
@@ -76,7 +76,7 @@ class TraderTestCase(unittest.TestCase):
                        ("002345", 100, 12.5), ("600229", 600, 9.72),
                        ("600229", 100, 9.32)]
         for code, cnt, price in orders_sell:
-            trader.sell_by_cnt(code, cnt, price, account)
+            trader.sell_by_cnt(code, -cnt, price, account)
             amt += cnt * price
         pos = {"002345": {11.2: 500, 12.2: -300, 12.5: -100},
                "600229": {9.62: 1200, 9.72: -600}}
@@ -90,7 +90,7 @@ class TraderTestCase(unittest.TestCase):
         # Include a case that total amount of buy and sell is 0, the code should be del from stocks.
         orders_sell = [("600229", 600, 9.52)]
         for code, cnt, price in orders_sell:
-            trader.sell_by_cnt(code, cnt, price, account)
+            trader.sell_by_cnt(code, -cnt, price, account)
             amt += cnt * price
         current_pos = {"002345": 100}
         prices = {"600345": 25.5, "002345": 12.3, "600229": 9.7}
@@ -191,21 +191,21 @@ class TraderTestCase(unittest.TestCase):
                                                     day_signal0)
                 if o:
                     orders.append(o)
-        expected_orders = [(trading.SELL_FLAG,codes[0],prices0[codes[0]],20000),
+        expected_orders = [(trading.SELL_FLAG,codes[0],prices0[codes[0]],-20000),
                            (trading.SELL_FLAG, codes[1], prices0[codes[1]],
-                            40000),
+                            -40000),
                            (trading.SELL_FLAG, codes[2], prices0[codes[2]],
-                            60000),
+                            -60000),
                            (trading.SELL_FLAG, codes[3], prices0[codes[3]],
-                           60000),
+                           -60000),
                            (trading.SELL_FLAG, codes[4], prices0[codes[4]],
-                           60000),
+                           -60000),
                            (trading.BUY_FLAG, codes[5], prices0[codes[5]],
                             20000),
                            (trading.BUY_FLAG, codes[6], prices0[codes[6]],
                             20000),
                            (trading.SELL_FLAG, codes[7], prices0[codes[7]],
-                           60000),
+                           -60000),
                            ]
         self.assertEqual(expected_orders,orders)
 
@@ -245,10 +245,10 @@ class TraderTestCase(unittest.TestCase):
         orders = trader.gen_orders(day_signal0,account)
         expected_orders = [
             (trading.BUY_FLAG, codes[0], prices0[codes[0]], int(622.8)*100),
-            (trading.SELL_FLAG, codes[4], prices0[codes[4]], 60000),
+            (trading.SELL_FLAG, codes[4], prices0[codes[4]], -60000),
             (trading.BUY_FLAG, codes[5], prices0[codes[5]], 20000),
             (trading.BUY_FLAG, codes[6], prices0[codes[6]], 20000),
-            (trading.SELL_FLAG, codes[7], prices0[codes[7]], 60000),
+            (trading.SELL_FLAG, codes[7], prices0[codes[7]], -60000),
         ]
         self.assertEqual(expected_orders,orders)
 
