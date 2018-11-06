@@ -137,7 +137,7 @@ class TraderTestCase(unittest.TestCase):
                 if o:
                     orders.append(o)
         expected_orders = [
-            (trading.BUY_FLAG, codes[0], prices0[codes[0]], 20000)]
+            [trading.BUY_FLAG, codes[0], prices0[codes[0]], 20000]]
         self.assertEqual(expected_orders, orders)
 
     def test_strategy_for_stck_in_pos(self):
@@ -191,21 +191,21 @@ class TraderTestCase(unittest.TestCase):
                                                     day_signal0)
                 if o:
                     orders.append(o)
-        expected_orders = [(trading.SELL_FLAG,codes[0],prices0[codes[0]],-20000),
-                           (trading.SELL_FLAG, codes[1], prices0[codes[1]],
-                            -40000),
-                           (trading.SELL_FLAG, codes[2], prices0[codes[2]],
-                            -60000),
-                           (trading.SELL_FLAG, codes[3], prices0[codes[3]],
-                           -60000),
-                           (trading.SELL_FLAG, codes[4], prices0[codes[4]],
-                           -60000),
-                           (trading.BUY_FLAG, codes[5], prices0[codes[5]],
-                            20000),
-                           (trading.BUY_FLAG, codes[6], prices0[codes[6]],
-                            20000),
-                           (trading.SELL_FLAG, codes[7], prices0[codes[7]],
-                           -60000),
+        expected_orders = [[trading.SELL_FLAG,codes[0],prices0[codes[0]],-20000],
+                           [trading.SELL_FLAG, codes[1], prices0[codes[1]],
+                            -40000],
+                           [trading.SELL_FLAG, codes[2], prices0[codes[2]],
+                            -60000],
+                           [trading.SELL_FLAG, codes[3], prices0[codes[3]],
+                           -60000],
+                           [trading.SELL_FLAG, codes[4], prices0[codes[4]],
+                           -60000],
+                           [trading.BUY_FLAG, codes[5], prices0[codes[5]],
+                            20000],
+                           [trading.BUY_FLAG, codes[6], prices0[codes[6]],
+                            20000],
+                           [trading.SELL_FLAG, codes[7], prices0[codes[7]],
+                           -60000],
                            ]
         self.assertEqual(expected_orders,orders)
 
@@ -244,11 +244,11 @@ class TraderTestCase(unittest.TestCase):
 
         orders = trader.gen_orders(day_signal0,account)
         expected_orders = [
-            (trading.BUY_FLAG, codes[0], prices0[codes[0]], int(622.8)*100),
-            (trading.SELL_FLAG, codes[4], prices0[codes[4]], -60000),
-            (trading.BUY_FLAG, codes[5], prices0[codes[5]], 20000),
-            (trading.BUY_FLAG, codes[6], prices0[codes[6]], 20000),
-            (trading.SELL_FLAG, codes[7], prices0[codes[7]], -60000),
+            [trading.BUY_FLAG, codes[0], prices0[codes[0]], int(622.8) * 100],
+            [trading.SELL_FLAG, codes[4], prices0[codes[4]], -60000],
+            [trading.BUY_FLAG, codes[5], prices0[codes[5]], 20000],
+            [trading.BUY_FLAG, codes[6], prices0[codes[6]], 20000],
+            [trading.SELL_FLAG, codes[7], prices0[codes[7]], -60000],
         ]
         self.assertEqual(expected_orders,orders)
 
@@ -287,8 +287,8 @@ class TraderTestCase(unittest.TestCase):
         day_signal0.index = [date_idx]*len(day_signal0)
 
         orders = trader.gen_orders(day_signal0,account)
-        transactions = trader.exe_orders(orders=orders,day_signal=day_signal0,
-                           account=account)
+        transactions = trader.exe_orders_next_morning(orders=orders, day_signal=day_signal0,
+                                                      account=account)
 
         expected_stocks = {codes[0]:{1.01:62200},
                            codes[5]:{1:20000,1.053:20000},
@@ -340,9 +340,9 @@ class TraderTestCase(unittest.TestCase):
                                            "f1mv_qfq_open","f1mv_qfq_high",
                                            "f1mv_qfq_low"
                                        ])], account)
-        trader.exe_orders(orders=orders,
-                          day_signal=day_signal0,
-                          account=account)
+        trader.exe_orders_next_morning(orders=orders,
+                                       day_signal=day_signal0,
+                                       account=account)
         trader.update_records(day_signal=day_signal0[
                               day_signal0.columns.difference([
                                   "f1mv_qfq_open","f1mv_qfq_low"])],account=account)
@@ -373,7 +373,7 @@ class TraderTestCase(unittest.TestCase):
             [codes[0], 1, 1.1,1.1,1.1, 0.6, 0.1, -0.03],
             [codes[1], 1, 0.9,0.9,0.9, 0.49, 0.12, -0.02],
         ], columns=columns)
-        trader.exe_orders(orders,day_signal=day_signals,account=account)
+        trader.exe_orders_next_morning(orders, day_signal=day_signals, account=account)
         expected_stocks = {codes[1]:{1:20000}}
         self.assertEqual(expected_stocks,account.stocks)
 

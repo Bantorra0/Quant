@@ -223,6 +223,7 @@ def prepare_each_stck(df_stck, qfq_type="hfq"):
     df_stck = df_stck.copy()
     fq_cols = ["open", "high", "low", "close"]
 
+    # 原始数据
     for col in fq_cols:
         df_stck[col+"0"] = df_stck[col]
 
