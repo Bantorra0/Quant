@@ -188,12 +188,13 @@ class Trader:
         if sell_cond0 or sell_cond1:
             plan.append(cls.order_sell_by_stck_pct(code, percent=1,
                                               price="open", account=account))
+            return plan
         elif sum(account.stocks[code].values()) == init_buy_cnt:
             # Stage after buying first commitment.
-            return cls.order_sell_by_stck_pct(code, percent=1,
+            plan.append(cls.order_sell_by_stck_pct(code, percent=1,
                                                   price=init_buy_price*0.95,
-                                                  account=account)
-            return BUY_FLAG, code, qfq_close, init_buy_cnt
+                                                  account=account))
+            plan.append([BUY_FLAG, code, init_buy_price*1.05, init_buy_cnt])
         elif sum(account.stocks[code].values()) == 2 * init_buy_cnt:
             # Stage after buying second commitment.
             if qfq_close / init_buy_price <= 1:
