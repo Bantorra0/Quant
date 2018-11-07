@@ -18,7 +18,7 @@ def close_db(conn):
     conn.close()
 
 
-def _parse_config(path):
+def parse_config(path):
     with open(path) as f:
         split_symbol = "----"
         config_str = "".join(f.readlines())
@@ -30,7 +30,7 @@ def _parse_config(path):
     return configs
 
 
-def parse_config(path):
+def parse_config1(path):
     with open(path) as f:
         split_symbol = "-"*4
         config_str = "".join(f.readlines()).strip(split_symbol)

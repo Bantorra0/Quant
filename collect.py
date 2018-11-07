@@ -5,9 +5,8 @@ import pandas as pd
 import tushare as ts
 
 from constants import TOKEN, STOCK_DAY, INDEX_DAY,TABLE,COLUMNS
-from db_operations import connect_db, _parse_config, close_db
+import db_operations as dbop
 from df_operations import natural_join
-
 
 
 def stck_pools():
@@ -39,7 +38,7 @@ def stck_pools():
                            columns=["symbol"]).set_index("symbol")
     stcks = stcks.set_index("symbol")
 
-    pools = list(stcks.join(symbols, how="inner")["code"])
+    pools = stcks.join(symbols, how="inner")["code"]
 
     stcks_5g = ['600487.SH', '601138.SH', '002217.SZ', '600522.SH',
                 '002913.SZ', '002402.SZ', '600345.SH', '300292.SZ',
@@ -70,10 +69,10 @@ def _init_api(token=TOKEN):
 
 
 def init_table(table_name, db_type):
-    conn = connect_db(db_type)
+    conn = dbop.connect_db(db_type)
     cursor = conn.cursor()
 
-    configs = _parse_config(path="database\\config\\{}".format(table_name))
+    configs = dbop.parse_config(path="database\\config\\{}".format(table_name))
     sql_drop = "drop table {}".format(table_name)
     sql_create = configs["create"]
     print(sql_create)
@@ -82,7 +81,7 @@ def init_table(table_name, db_type):
     except Exception as e:
         pass
     cursor.execute(sql_create)
-    close_db(conn)
+    dbop.close_db(conn)
 
 
 def _get_col_names(cursor):
@@ -110,7 +109,7 @@ def unify_df_col_nm(df: pd.DataFrame, copy=False):
 
 
 def insert_to_db(row, db_type: str, table_name, columns):
-    conn = connect_db(db_type)
+    conn = dbop.connect_db(db_type)
     cursor = conn.cursor()
     cursor.execute(_sql_insert(db_type, table_name, columns),
                    list(row[columns]))
@@ -118,7 +117,7 @@ def insert_to_db(row, db_type: str, table_name, columns):
 
 
 def collect_index_day(pools: [str], db_type: str, update=False):
-    conn = connect_db(db_type)
+    conn = dbop.connect_db(db_type)
     cursor = conn.cursor()
     download_failure, write_failure = 0,0
     for i, code in enumerate(pools):
@@ -159,7 +158,7 @@ def collect_index_day(pools: [str], db_type: str, update=False):
                 print(err)
 
                 continue
-    close_db(conn)
+    dbop.close_db(conn)
     print("-"*10,
         "\nDownload failure:{0}\nWrite failure:{1}\n".format(download_failure,
                                                 write_failure))
@@ -167,7 +166,7 @@ def collect_index_day(pools: [str], db_type: str, update=False):
 
 def collect_stock_day(pools: [str], db_type: str, update=False):
     pro = _init_api(TOKEN)
-    conn = connect_db(db_type)
+    conn = dbop.connect_db(db_type)
     cursor = conn.cursor()
     download_failure, write_failure = 0,0
     for i, code in enumerate(pools):
@@ -220,7 +219,7 @@ def collect_stock_day(pools: [str], db_type: str, update=False):
                 write_failure +=1
                 print("error:",err)
                 continue
-    close_db(conn)
+    dbop.close_db(conn)
     print("-"*10,
         "\nDownload failure:{0}\nWrite failure:{1}\n".format(download_failure,
                                                 write_failure))

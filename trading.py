@@ -57,8 +57,8 @@ class Trader:
     @classmethod
     def gen_orders_from_plan(cls,plan,day_signal, account:Account):
         orders = []
-        for p in plan:
-            for flag, code, price,cnt in p:
+        for stock_plan in plan:
+            for flag, code, price,cnt in stock_plan:
                 if price == "open":
                     price = day_signal[day_signal["code"]==code][
                         "f1mv_qfq_open"].iloc[0]
@@ -288,7 +288,7 @@ class Trader:
                         & (signal["y_s_decline"] >= -0.03) \
                         & (signal["y_s_rise"]>=0.1)
         if init_buy_cond.iloc[0]:
-            pct = 0.1
+            pct = 0.15
             prices = {code:day_signal[day_signal["code"]==code][
                 "qfq_close"].iloc[0] for code in day_signal["code"]}
             price = prices[code]
@@ -304,7 +304,7 @@ class Trader:
                         & (signal["y_s_decline"] >= -0.03) \
                         & (signal["y_s_rise"] >= 0.1)
         if init_buy_cond.iloc[0]:
-            pct = 0.1
+            pct = 0.15
             prices = {code: day_signal[day_signal["code"] == code][
                 "qfq_close"].iloc[0] for code in day_signal["code"]}
             price = prices[code]
