@@ -20,10 +20,10 @@
 ### 单日交易完整流程：采用每个交易日收盘后生成次日的交易计划，次日根据行情执行该交易计划的模式
 - 收盘后，读取模型并利用当日及之前数据进行预测，返回信号 (df):df_signal
 - 根据当日数据与模型信号，生成次日交易计划    (df_signal):plan
-    - 下一个交易日内，根据日内行情与交易计划，在开盘、盘中、尾盘执行交易   (df_signal, account):transaction
-        - 具体执行时，先(统一)生成交易委托   (df_signal):orders
-        - 然后根据交易委托，完成交易(更新账户)       (orders,df_signal,account):transactions
-    - 根据执行的交易，更新账户相关信息        (transactions,account):null
+- 下一个交易日内，根据日内行情与交易计划，在开盘、盘中、尾盘执行交易   (df_signal, account):transaction
+    - 具体执行时，先(统一)生成交易委托   (df_signal):orders
+    - 然后根据交易委托，完成交易(更新账户)       (orders,df_signal,account):transactions
+- 根据执行的交易，更新账户相关信息        (transactions,account):null
 
 
 ### 回测流程：

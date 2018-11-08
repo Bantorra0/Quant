@@ -14,10 +14,6 @@ class Account:
         self.stocks = {}
         self.records = {}
 
-    def day_trade(self,order):
-        # TODO: add trade logic.
-        pass
-
 
 class Trader:
     @classmethod

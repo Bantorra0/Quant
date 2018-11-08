@@ -1,7 +1,7 @@
 import sqlite3
 import pandas as pd
 import pymysql
-
+from constants import STOCK_DAY,INDEX_DAY,TABLE,COLUMNS
 
 def connect_db(db_type:str):
     if db_type== "mysql":
@@ -67,22 +67,64 @@ def _sql_insert(db_type: str, table_name: str, cols: [str]):
         raise ValueError("{} not supported".format(db_type))
 
 
-def write2db(df:pd.DataFrame, table, cols, db_type="sqlite3"):
-    conn = connect_db(db_type)
+def get_latest_date(table,code, db_type:str):
+    conn = connect_db(db_type=db_type)
+    cursor = conn.cursor()
+    cursor.execute(
+        "select date from {0} where code='{1}'".format(table, code))
+    rs = cursor.fetchall()
+    close_db(conn)
+    if len(rs) > 0:
+        return sorted(rs, reverse=True)[0][0]
+    else:
+        return None
+
+
+def get_trading_dates(db_type:str, cursor=None):
+    # Get all trading dates from stock index table.
+    if not cursor:
+        conn = connect_db(db_type)
+        cursor = conn.cursor()
+
+    cursor.execute("select * from {0}".format(INDEX_DAY[TABLE]))
+    df_idx_day = pd.DataFrame(cursor.fetchall())
+    df_idx_day.columns = cols_from_cur(cursor)
+    dates = sorted(df_idx_day["date"].unique())
+    return dates
+
+
+def write2db(df:pd.DataFrame, table, cols, db_type="sqlite3",
+             conn=None, close=True):
+    if not conn:
+        conn = connect_db(db_type)
     cursor = conn.cursor()
     write_failure = 0
     for _, row in df.iterrows():
+        code, date = row["code"],row["date"]
+        # Try to delete the row first if exists.
+        try:
+            cursor.execute(("delete from {0} where code='{1}' "
+                            "and date='{2}'").format(table, code,date))
+        except Exception as e:
+            pass
+
         try:
             # Row is a series and only accepts indexes of type list to get values.
             # It fails if given tuple indexes, that's why list(cols) is used.
             # tuple(row[list(cols)]) is used to prevent type error in method cursor.execute(sql, paras)
             cursor.execute(
                 _sql_insert(db_type, table_name=table, cols=cols),tuple(row[list(cols)]))
-            conn.commit()
         except Exception as err:
+            # Failure should not happen, because the original row is deleted.
+            # However, if it does, print and count it.
             write_failure += 1
             print(err)
             continue
+    if close:
+        close_db(conn)
+    else:
+        conn.commit()
+    return conn
 
 
 if __name__ == '__main__':

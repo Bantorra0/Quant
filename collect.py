@@ -6,8 +6,8 @@ import tushare as ts
 
 from constants import TOKEN, STOCK_DAY, INDEX_DAY,TABLE,COLUMNS
 import db_operations as dbop
-from db_operations import _sql_insert
-from df_operations import natural_join
+import df_operations as dfop
+import data_cleaning as dc
 
 
 def stck_pools():
@@ -102,89 +102,34 @@ def unify_df_col_nm(df: pd.DataFrame, copy=False):
 def insert_to_db(row, db_type: str, table_name, columns):
     conn = dbop.connect_db(db_type)
     cursor = conn.cursor()
-    cursor.execute(_sql_insert(db_type, table_name, columns),
+    cursor.execute(dbop._sql_insert(db_type, table_name, columns),
                    list(row[columns]))
     conn.commit()
 
 
-def collect_index_day(pools: [str], db_type: str, update=False,start = "20000101"):
-    conn = dbop.connect_db(db_type)
-    cursor = conn.cursor()
+def download_index_day(pools: [str], db_type:str, update=False,
+                       start ="2000-01-01"):
     download_failure, write_failure = 0,0
     for i, code in enumerate(pools):
         try:
+            # Set start to the newest date in table if update is true.
             if update:
-                cursor.execute("select date from {0} where code='{1}'".format(
-                    INDEX_DAY[TABLE],code))
-                rs = cursor.fetchall()
-                # print(rs)
-                if len(rs)>0:
-                    start = sorted(rs,reverse=True)[0][0]
-                    cursor.execute(("delete from {0} where code='{1}' "
-                                   "and date='{2}'").format(INDEX_DAY[TABLE], code, start))
+                latest_date = dbop.get_latest_date(INDEX_DAY[TABLE],code,db_type)
+                if latest_date:
+                    start = latest_date
 
             print("start:",start)
+
             df = ts.get_k_data(code=code, start=start)
-            # 打印进度
-            print('Seq: ' + str(i + 1) + ' of ' + str(
-                len(pools)) + '   Code: ' + str(code))
+
+            # Unify column names.
             df.columns = unify_col_names(df.columns)
             print(df.shape)
 
-        except Exception as err:
-            download_failure+=1
-            print(err)
-            print('No DATA Code: ' + str(i))
-            continue
-
-        for _, row in df.iterrows():
-            try:
-                cursor.execute(
-                    _sql_insert(db_type, INDEX_DAY[TABLE], INDEX_DAY[COLUMNS]),
-                    tuple(row[list(INDEX_DAY[COLUMNS])]))
-                conn.commit()
-            except Exception as err:
-                write_failure +=1
-                print(err)
-                continue
-    dbop.close_db(conn)
-    print("-"*10,
-        "\nDownload failure:{0}\nWrite failure:{1}\n".format(download_failure,
-                                                write_failure))
-
-
-def collect_stock_day(pools: [str], db_type: str, update=False, start="20000101"):
-    pro = _init_api(TOKEN)
-    conn = dbop.connect_db(db_type)
-    cursor = conn.cursor()
-    download_failure, write_failure = 0,0
-    for i, code in enumerate(pools):
-        try:
-            if update:
-                cursor.execute("select date from {0} where code='{1}'".format(
-                    STOCK_DAY[TABLE],code))
-                rs = cursor.fetchall()
-                if len(rs)>0:
-                    start = sorted(rs,reverse=True)[0][0]
-                    cursor.execute(("delete from {0} where code='{1}' "
-                                   "and date='{2}'").format(STOCK_DAY[TABLE],
-                                                            code, start))
-                    start = str(start).replace("-","")
-
-            print("start:",start)
-            daily = pro.daily(ts_code=code, start_date=start)
-            adj_factor = pro.adj_factor(ts_code=code)
-
-            if update:
-                adj_factor = adj_factor[adj_factor["trade_date"]>=start]
-                print("adj:",adj_factor.shape)
-
-            df = natural_join(daily, adj_factor, how="outer")
+            # Print progress.
             # 打印进度
             print('Seq: ' + str(i + 1) + ' of ' + str(
                 len(pools)) + '   Code: ' + str(code))
-            df = unify_df_col_nm(df)
-            # print(df.columns)
 
         except Exception as err:
             download_failure+=1
@@ -192,37 +137,105 @@ def collect_stock_day(pools: [str], db_type: str, update=False, start="20000101"
             print('No DATA Code: ' + str(i))
             continue
 
-        for _, row in df.iterrows():
-            try:
-                row["date"] = (datetime.datetime.strptime(row["date"],
-                                                          "%Y%m%d")).strftime(
-                    '%Y-%m-%d')
+        yield df
 
-                cursor.execute(
-                    _sql_insert(db_type, STOCK_DAY[TABLE], STOCK_DAY[COLUMNS]),
-                    tuple(row[list(STOCK_DAY[COLUMNS])]))
-                conn.commit()
-
-            except Exception as err:
-                write_failure +=1
-                print("error:",err)
-                continue
-    dbop.close_db(conn)
     print("-"*10,
         "\nDownload failure:{0}\nWrite failure:{1}\n".format(download_failure,
                                                 write_failure))
+
+
+def download_stock_day(pools: [str], db_type:str, update=False,
+                       start="2000-01-01"):
+    pro = _init_api(TOKEN)
+    download_failure, write_failure = 0,0
+    for i, code in enumerate(pools):
+        try:
+            # Set start to the newest date in table if update is true.
+            if update:
+                latest_date = dbop.get_latest_date(STOCK_DAY[TABLE],code,db_type)
+                if latest_date:
+                    start = latest_date
+
+            print("start:",start)
+
+            # Download daily data and adj_factor(复权因子).
+            # pro.daily accepts start_date with format "YYYYmmdd".
+            start = str(start).replace("-", "")
+            daily = pro.daily(ts_code=code, start_date=start)
+            adj_factor = pro.adj_factor(ts_code=code)
+            if start:
+                adj_factor = adj_factor[adj_factor["trade_date"] >= start]
+                print("adj:",adj_factor.shape)
+            # Combine both into one dataframe.
+            df = dfop.natural_join(daily, adj_factor, how="outer")
+
+            # Unify column names.
+            df = unify_df_col_nm(df)
+
+            # Unify date format from "YYYYmmdd" to "YYYY-mm-dd".
+            df["date"] = df["date"].apply(
+                lambda d:datetime.datetime.strptime(d,"%Y%m%d").strftime(
+                    '%Y-%m-%d'))
+            print(df.shape)
+
+            # Print progress.
+            # 打印进度。
+            print('Seq: ' + str(i + 1) + ' of ' + str(
+                len(pools)) + '   Code: ' + str(code))
+
+        except Exception as err:
+            download_failure += 1
+            print(err)
+            print('No DATA Code: ' + str(i))
+            continue
+
+        yield df
+
+    print("-"*10,
+        "\nDownload failure:{0}\nWrite failure:{1}\n".format(download_failure,
+                                                write_failure))
+
+
+def collect_stock_day(pools: [str], db_type: str, update=False,
+                      start="2000-01-01"):
+    conn = dbop.connect_db(db_type)
+    dates = dbop.get_trading_dates(db_type=db_type)
+    dates = pd.Series(dates)
+    dates = dates[dates>=start]
+
+    for df_single_stock_day in download_stock_day(pools=pools,db_type=db_type,
+                                      update=update, start=start):
+        df_single_stock_day = dc.fillna_stock_day(df_single_stock_day,
+                                                  dates=list(dates))
+        conn = dbop.write2db(df_single_stock_day,table=STOCK_DAY[TABLE],
+                      cols=STOCK_DAY[COLUMNS],conn=conn, close=False)
+        print()
+    dbop.close_db(conn)
+
+
+def collect_index_day(pools: [str], db_type: str, update=False,
+                      start="2000-01-01"):
+    conn = dbop.connect_db(db_type)
+
+    for df_single_index_day in download_index_day(pools=pools,db_type=db_type,
+                                      update=update, start=start):
+        # TODO: fillna_index_day, similar to the above.
+        conn = dbop.write2db(df_single_index_day,table=INDEX_DAY[TABLE],
+                      cols=INDEX_DAY[COLUMNS],conn=conn, close=False)
+        print()
+    dbop.close_db(conn)
 
 
 def update():
     db_type = "sqlite3"
 
     # init_table(STOCK_DAY[TABLE], db_type)
-    # print("Stocks:",len(stck_pools()))
-    # collect_stock_day(stck_pools(), db_type, update=True)
+    print("Stocks:",len(stck_pools()))
+    collect_stock_day(stck_pools(), db_type, update=False,start="2018-11-01")
 
     # init_table(INDEX_DAY[TABLE], db_type)
     print("Indexes:",len(idx_pools()))
-    collect_index_day(idx_pools(), db_type, update=False)
+    collect_index_day(idx_pools(), db_type, update=False,start="2018-11-01")
 
     # print(stck_pools())
 
