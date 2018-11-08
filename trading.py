@@ -61,18 +61,18 @@ class Trader:
             for flag, code, price,cnt in stock_plan:
                 if price == "open":
                     price = day_signal[day_signal["code"]==code][
-                        "f1mv_qfq_open"].iloc[0]
+                        "qfq_open"].iloc[0]
                     orders.append([flag, code, price,cnt])
                     break
                 else:
                     f1mv_qfq_high =  day_signal[day_signal["code"]==code][
-                        "f1mv_qfq_high"].iloc[0]
+                        "qfq_high"].iloc[0]
                     f1mv_qfq_low = day_signal[day_signal["code"] == code][
-                        "f1mv_qfq_low"].iloc[0]
+                        "qfq_low"].iloc[0]
                     f1mv_qfq_close = day_signal[day_signal["code"] == code][
-                        "f1mv_qfq_close"].iloc[0]
+                        "qfq_close"].iloc[0]
                     qfq_close = day_signal[day_signal["code"] == code][
-                        "f1mv_qfq_close"].iloc[0]
+                        "qfq_close"].iloc[0]
 
                     if flag==BUY_FLAG and f1mv_qfq_high > price:
                         if round(f1mv_qfq_close, 1) == round(qfq_close * 1.1,
@@ -114,14 +114,14 @@ class Trader:
             signals = day_signal[day_signal["code"] == code]
             result=None
             if flag==BUY_FLAG:
-                if signals["f1mv_qfq_low"].iloc[0] \
-                        == signals["f1mv_qfq_high"].iloc[0]:
+                if signals["qfq_low"].iloc[0] \
+                        == signals["qfq_high"].iloc[0]:
                     print("一字板涨停：买入失败")
                     continue
                 result = cls.buy_by_cnt(code,cnt,price,account)
             elif flag == SELL_FLAG:
-                if signals["f1mv_qfq_low"].iloc[0] \
-                        == signals["f1mv_qfq_high"].iloc[0]:
+                if signals["qfq_low"].iloc[0] \
+                        == signals["qfq_high"].iloc[0]:
                     print("一字板跌停：卖出失败")
                     continue
                 result = cls.sell_by_cnt(code,cnt,price,account)
@@ -186,7 +186,7 @@ class Trader:
                     # Update remaining records.
                     account.records[code][1] = \
                         day_signal[day_signal["code"] == code][
-                            "f1mv_qfq_high"].iloc[0]
+                            "qfq_high"].iloc[0]
 
     @classmethod
     def strategy_for_stck_in_pos(cls, code, account:Account,day_signal):
@@ -284,7 +284,7 @@ class Trader:
     @classmethod
     def strategy_for_stck_not_in_pos(cls, code, account:Account,day_signal):
         signal = day_signal[day_signal["code"]==code]
-        init_buy_cond = (signal["y_l_rise"] >= 0.5) \
+        init_buy_cond = (signal["y_l_rise"] >= 0.55) \
                         & (signal["y_s_decline"] >= -0.03) \
                         & (signal["y_s_rise"]>=0.1)
         if init_buy_cond.iloc[0]:
@@ -300,7 +300,7 @@ class Trader:
     @classmethod
     def plan_for_stck_not_in_pos(cls, code, account: Account, day_signal):
         signal = day_signal[day_signal["code"] == code]
-        init_buy_cond = (signal["y_l_rise"] >= 0.5) \
+        init_buy_cond = (signal["y_l_rise"] >= 0.55) \
                         & (signal["y_s_decline"] >= -0.03) \
                         & (signal["y_s_rise"] >= 0.1)
         if init_buy_cond.iloc[0]:
@@ -462,52 +462,61 @@ class BackTest:
         df_asset_values = pd.DataFrame(columns = ["my_model","hs300"])
 
         orders,transactions, stocks=[],[],{}
-        day_orders, day_transactions,pos=[],[],{}
+        day_plan, day_orders, day_transactions,pos=[],[],[],{}
         while date <= end:
             date_idx = datetime.datetime.strftime(date, DATE_FORMAT)
+            # If next day is not a trading date, continue.
             if date_idx not in signals.index:
                 date = date + day_delta
                 continue
 
             day_signal = signals.loc[date_idx]
-            main_cols = ["qfq_close","f1mv_qfq_open","f1mv_qfq_high",
-                         "f1mv_qfq_low"]
+            main_cols = ["qfq_open", "f1mv_qfq_high", "qfq_low", "qfq_close"]
 
+            # Skip the trading date when there is null in data.
+            # May be removed in future, because it is not reasonable.
+            if day_signal[main_cols].isna().any().any():
+                date = date + day_delta
+                continue
+
+            # Execute the trading plan made on previous trading day,
+            # including generating and executing orders, updating account information.
+            day_orders = self.trader.gen_orders_from_plan(day_plan,day_signal=day_signal,account=self.account)
+            day_transactions = self.trader.exe_orders(day_orders, day_signal=day_signal, account=self.account)
+            self.trader.update_records(day_signal=day_signal,account=self.account)
+
+            # Save all orders and transactions after adding dates to them.
+            if day_orders:
+                day_orders = [[date_idx, o[1], o[2], o[3]] for o in day_orders]
+                orders.extend(day_orders)
+            if day_transactions:
+                # v.copy() is necessary, because v is also a dict and will be modified when backtest goes on.
+                pos = {code: (day_signal[day_signal["code"] == code][
+                                  "qfq_close"].iloc[0], v.copy())
+                       for code, v in self.account.stocks.items()}
+                stocks[date_idx] = pos
+                day_transactions = [[date_idx, t[1], t[2], t[3]] for t in
+                                    day_transactions]
+                transactions.extend(day_transactions)
+
+            # Calculate the total asset amount of my model and baseline on current trading date,
+            # based on qfq closing price.
             prices = {
                 code: day_signal[day_signal["code"] == code][
                     "qfq_close"].iloc[0] for code in day_signal["code"]}
             my_model_value = self.trader.tot_amt(account=self.account,
                                                  prices=prices)
             if len(df_asset_values.index) == 0:
-                hs300_value = self.capital_base
+                baseline_value = self.capital_base
             else:
-                hs300_value = day_signal["hs300_close"].iloc[0] / signals.loc[
+                baseline_value = day_signal["hs300_close"].iloc[0] / signals.loc[
                     df_asset_values.index.min(), "hs300_close"].iloc[
                     0] * self.capital_base
-            df_asset_values.loc[date_idx] = [my_model_value, hs300_value]
+            df_asset_values.loc[date_idx] = [my_model_value, baseline_value]
 
-            # Increment one day on dates of orders, transactions and stock pos
-            # each day before saving, because we always make commitments
-            # at the beginning of next trading day with open price.
-            day_orders = [[date_idx, o[1], o[2], o[3]] for o in day_orders]
-            day_transactions = [[date_idx, t[1], t[2], t[3]] for t in
-                                day_transactions]
-            orders.extend(day_orders)
-            transactions.extend(day_transactions)
-            if day_transactions:
-                stocks[date_idx] = pos
 
-            if day_signal[main_cols].isna().any().any():
-                date = date + day_delta
-                continue
-
-            day_orders, day_transactions = self.trader.trade_with_plan(
-                day_signal=day_signal,account=self.account)
-            if day_transactions:
-                stocks_snapshot = self.account.stocks.copy()
-                pos = {code:(day_signal[day_signal["code"]==code][
-                                 "f1mv_qfq_close"].iloc[0],v)
-                       for code,v in stocks_snapshot.items()}
+            # Make a plan for the next trading day.
+            day_plan = self.trader.gen_trading_plan(day_signal=day_signal,account=self.account)
 
             date = date + day_delta
         return df_asset_values,orders,transactions,stocks
@@ -523,17 +532,11 @@ def main():
     models["model_l_high"] = ml_model.load_model(model_type,pred_period=20,is_high=True)
     models["model_s_low"] = ml_model.load_model(model_type,pred_period=5,is_high=False)
     models["model_s_high"] = ml_model.load_model(model_type,pred_period=5,is_high=True)
-    # with open(os.path.join(os.getcwd(), f_name1), "rb") as f:
-    #     models["model_l_high"] = pickle.load(f)
-    # with open(os.path.join(os.getcwd(), f_name2), "rb") as f:
-    #     models["model_s_low"] = pickle.load(f)
-    # with open(os.path.join(os.getcwd(), f_name3), "rb") as f:
-    #     models["model_s_high"] = pickle.load(f)
 
-    backtester = BackTest(start="2018-01-01")
+    backtester = BackTest(start="2018-09-01")
     df_asset_values,orders,transactions,stocks = backtester.backtest(models)
-    for row in df_asset_values.itertuples():
-        print(row)
+    for date,row in df_asset_values.iterrows():
+        print(date,dict(row))
     print("Transactions:",len(transactions))
     for e in sorted(transactions,key=lambda x:(x[1],x[0])):
         print(e)

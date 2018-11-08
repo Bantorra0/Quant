@@ -6,6 +6,7 @@ import tushare as ts
 
 from constants import TOKEN, STOCK_DAY, INDEX_DAY,TABLE,COLUMNS
 import db_operations as dbop
+from db_operations import _sql_insert
 from df_operations import natural_join
 
 
@@ -50,16 +51,6 @@ def stck_pools():
 
 def idx_pools():
     return ["sh", "sz", "hs300", "sz50", "cyb"]
-
-
-def _sql_insert(db: str, table_name: str, cols: [str]):
-    placeholders = {"mysql": "%s", "sqlite3": "?"}
-    if db in placeholders:
-        sql_insert = "INSERT INTO {} ".format(table_name) + "({})".format(
-            ",".join(cols)) + "VALUES ({})"
-        return sql_insert.format(",".join([placeholders[db]] * len(cols)))
-    else:
-        raise ValueError("{} not supported".format(db))
 
 
 def _init_api(token=TOKEN):
@@ -116,13 +107,12 @@ def insert_to_db(row, db_type: str, table_name, columns):
     conn.commit()
 
 
-def collect_index_day(pools: [str], db_type: str, update=False):
+def collect_index_day(pools: [str], db_type: str, update=False,start = "20000101"):
     conn = dbop.connect_db(db_type)
     cursor = conn.cursor()
     download_failure, write_failure = 0,0
     for i, code in enumerate(pools):
         try:
-            start = "2000-01-01"
             if update:
                 cursor.execute("select date from {0} where code='{1}'".format(
                     INDEX_DAY[TABLE],code))
@@ -156,7 +146,6 @@ def collect_index_day(pools: [str], db_type: str, update=False):
             except Exception as err:
                 write_failure +=1
                 print(err)
-
                 continue
     dbop.close_db(conn)
     print("-"*10,
@@ -164,14 +153,13 @@ def collect_index_day(pools: [str], db_type: str, update=False):
                                                 write_failure))
 
 
-def collect_stock_day(pools: [str], db_type: str, update=False):
+def collect_stock_day(pools: [str], db_type: str, update=False, start="20000101"):
     pro = _init_api(TOKEN)
     conn = dbop.connect_db(db_type)
     cursor = conn.cursor()
     download_failure, write_failure = 0,0
     for i, code in enumerate(pools):
         try:
-            start = "20000101"
             if update:
                 cursor.execute("select date from {0} where code='{1}'".format(
                     STOCK_DAY[TABLE],code))
@@ -229,12 +217,12 @@ def update():
     db_type = "sqlite3"
 
     # init_table(STOCK_DAY[TABLE], db_type)
-    print("Stocks:",len(stck_pools()))
-    collect_stock_day(stck_pools(), db_type, update=True)
+    # print("Stocks:",len(stck_pools()))
+    # collect_stock_day(stck_pools(), db_type, update=True)
 
     # init_table(INDEX_DAY[TABLE], db_type)
     print("Indexes:",len(idx_pools()))
-    collect_index_day(idx_pools(), db_type, update=True)
+    collect_index_day(idx_pools(), db_type, update=False)
 
     # print(stck_pools())
 
