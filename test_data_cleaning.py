@@ -108,6 +108,50 @@ class DataCleaningTestCase(unittest.TestCase):
                                            columns=columns)
         self.assertEqual(True, (expected_df_changed == df_changed).all().all())
 
+    def test_fillna_stock_day(self):
+        dates = ["2018-10-{:02d}".format(i) for i in range(1, 14)]
+        columns = ["date", "code", "open", "high", "low", "close", "vol", "amt", "adj_factor"]
+
+        # Integrated test.
+        rows = [
+            # 002217.SZ
+            ["2018-10-01", "002217.SZ", 5.1, 5.2, 5.0, 5.05, 1000, 5100, 5.1],
+            ["2018-10-02", "002217.SZ", 5.1, 5.2, 5.0, 5.05, 1000, 5100, None],
+            ["2018-10-03", "002217.SZ", 5.1, 5.2, 5.0, 5.05, 1000, 5100, 5.1],
+            ["2018-10-04", "002217.SZ", 5.1, 5.2, 5.0, 5.05, 1000, 5100, None],
+            ["2018-10-05", "002217.SZ", None, None, None, None, None, None, 5.1],
+            ["2018-10-06", "002217.SZ", 5.2, 5.3, 5.1, 5.15, 1100, 5500, 5.2],
+            ["2018-10-07", "002217.SZ", None, None, None, None, None, None, None],
+            # 002345.SZ
+            ["2018-10-01", "002345.SZ", 5.1, 5.2, None, 5.05, 1000, 5100, 5.1],
+            ["2018-10-02", "002345.SZ", 5.1, 5.2, 5.0, 5.05, 1000, 5100, 5.1],
+            ["2018-10-03", "002345.SZ", 5.1, 5.2, 5.0, 5.05, None, 5100, 5.1],
+            ["2018-10-04", "002345.SZ", 5.1, 5.2, 5.0, 5.05, 1000, 5100, 6],
+            ["2018-10-05", "002345.SZ", None, None, None, None, None, None, 6],
+            ["2018-10-06", "002345.SZ", 5.2, 5.3, 5.1, 5.15, 1100, 5500, None],
+            ["2018-10-07", "002345.SZ", None, None, None, None, None, None, None],
+        ]
+        changed_rows = [
+            # 002217.SZ
+            ["2018-10-04", "002217.SZ", 5.1, 5.2, 5.0, 5.05, 1000, 5100, 5.1],
+            ["2018-10-05", "002217.SZ", 5.05, 5.05, 5.05, 5.05, 0, 0, 5.1],
+            ["2018-10-07", "002217.SZ", 5.15, 5.15, 5.15, 5.15, 0, 0, 5.2],
+            ["2018-10-08", "002217.SZ", 5.15, 5.15, 5.15, 5.15, 0, 0, 5.2],
+            # 002345.SZ
+            ["2018-10-05", "002345.SZ", 5.05, 5.05, 5.05, 5.05, 0, 0, 6],
+            ["2018-10-06", "002345.SZ", 5.2, 5.3, 5.1, 5.15, 1100, 5500, 6],
+            ["2018-10-07", "002345.SZ", 5.15, 5.15, 5.15, 5.15, 0, 0, 6],
+            ["2018-10-08", "002345.SZ", 5.15, 5.15, 5.15, 5.15, 0, 0, 6],
+        ]
+        df_stock_day = pd.DataFrame(rows, columns=columns)
+        df_changed = pd.concat(dc.fillna_stock_day(df_stock_day=df_stock_day, dates=dates[2:8]),sort=False).set_index(["date","code"]).sort_index()
+        expected_df_changed = pd.DataFrame(changed_rows,
+                                           columns=columns).set_index(["date","code"]).sort_index()
+        print(expected_df_changed[(expected_df_changed!=df_changed).any(1)])
+        print(df_changed[(expected_df_changed!=df_changed).any(1)])
+
+        self.assertEqual(True, (expected_df_changed == df_changed).all().all())
+
 
 if __name__ == '__main__':
     unittest.main()

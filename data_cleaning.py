@@ -74,20 +74,23 @@ def fillna_single_stock_day(df_single_stock:pd.DataFrame, dates:[str]):
     return df_changed.reset_index()
 
 
-def fillna_stock_day(db_type="sqlite3", conn=None, start=None):
+def fillna_stock_day(df_stock_day:pd.DataFrame=None,dates = None,start=None,db_type="sqlite3", conn=None):
     # Connect database if no connect object is passed.
-    if not conn:
-        conn = dbop.connect_db(db_type)
-    cursor = conn.cursor()
+    if dates is None or df_stock_day is None:
+        if not conn:
+            conn = dbop.connect_db(db_type)
+        cursor = conn.cursor()
 
-    # Read table stock_day.
-    cursor.execute("select * from {0}".format(STOCK_DAY[TABLE]))
-    df_stock_day = pd.DataFrame(cursor.fetchall())
-    df_stock_day.columns = dbop.cols_from_cur(cursor)
-    print("\n",df_stock_day.shape)
+        if df_stock_day is None:
+            # Read table stock_day.
+            cursor.execute("select * from {0}".format(STOCK_DAY[TABLE]))
+            df_stock_day = pd.DataFrame(cursor.fetchall())
+            df_stock_day.columns = dbop.cols_from_cur(cursor)
+            print("\n",df_stock_day.shape)
 
-    # Get all trading dates.
-    dates = dbop.get_trading_dates(cursor=cursor)
+        # Get all trading dates.
+        if dates is None:
+            dates = dbop.get_trading_dates(cursor=cursor)
 
     if start:
         df_stock_day = df_stock_day[df_stock_day.index>=start]

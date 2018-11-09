@@ -57,13 +57,13 @@ dates = sorted(df_idx_day["date"].unique())
 #     else:
 #         print(df_changed.shape,"\n")
 #         dbop.write2db(df_changed,STOCK_DAY[TABLE],STOCK_DAY[COLUMNS])
-
-for r in cursor.execute("select * from {0} where code = '002217.SZ' and "
-                        "date>='{"
-                        "1}'".format(STOCK_DAY[
-                                                                    TABLE],
-                                                                "2018-10-15")).fetchall():
-    print(r)
+#
+# for r in cursor.execute("select * from {0} where code = '002217.SZ' and "
+#                         "date>='{"
+#                         "1}'".format(STOCK_DAY[
+#                                                                     TABLE],
+#                                                                 "2018-10-15")).fetchall():
+#     print(r)
 
 
 # for df in collect.download_index_day(collect.idx_pools(), db_type,
@@ -72,3 +72,53 @@ for r in cursor.execute("select * from {0} where code = '002217.SZ' and "
 # for df in collect.download_stock_day(collect.stck_pools(), db_type,
 #                                      update=True):
 #     print(df)
+
+
+dates = ["2018-10-{:02d}".format(i) for i in range(1, 14)]
+columns = ["date", "code", "open", "high", "low", "close", "vol", "amt", "adj_factor"]
+
+# Integrated test.
+rows = [
+    # 002217.SZ
+    ["2018-10-01", "002217.SZ", 5.1, 5.2, 5.0, 5.05, 1000, 5100, 5.1],
+    ["2018-10-02", "002217.SZ", 5.1, 5.2, 5.0, 5.05, 1000, 5100, None],
+    ["2018-10-03", "002217.SZ", 5.1, 5.2, 5.0, 5.05, 1000, 5100, 5.1],
+    ["2018-10-04", "002217.SZ", 5.1, 5.2, 5.0, 5.05, 1000, 5100, None],
+    ["2018-10-05", "002217.SZ", None, None, None, None, None, None, 5.1],
+    ["2018-10-06", "002217.SZ", 5.2, 5.3, 5.1, 5.15, 1100, 5500, 5.2],
+    ["2018-10-07", "002217.SZ", None, None, None, None, None, None, None],
+    # 002345.SZ
+    ["2018-10-01", "002345.SZ", 5.1, 5.2, None, 5.05, 1000, 5100, 5.1],
+    ["2018-10-02", "002345.SZ", 5.1, 5.2, 5.0, 5.05, 1000, 5100, 5.1],
+    ["2018-10-03", "002345.SZ", 5.1, 5.2, 5.0, 5.05, None, 5100, 5.1],
+    ["2018-10-04", "002345.SZ", 5.1, 5.2, 5.0, 5.05, 1000, 5100, 6],
+    ["2018-10-05", "002345.SZ", None, None, None, None, None, None, 6],
+    ["2018-10-06", "002345.SZ", 5.2, 5.3, 5.1, 5.15, 1100, 5500, None],
+    ["2018-10-07", "002345.SZ", None, None, None, None, None, None, None],
+]
+changed_rows = [
+    # 002217.SZ
+    ["2018-10-04", "002217.SZ", 5.1, 5.2, 5.0, 5.05, 1000, 5100, 5.1],
+    ["2018-10-05", "002217.SZ", 5.05, 5.05, 5.05, 5.05, 0, 0, 5.1],
+    ["2018-10-07", "002217.SZ", 5.15, 5.15, 5.15, 5.15, 0, 0, 5.2],
+    ["2018-10-08", "002217.SZ", 5.15, 5.15, 5.15, 5.15, 0, 0, 5.2],
+    # 002345.SZ
+    ["2018-10-05", "002345.SZ", 5.05, 5.05, 5.05, 5.05, 0, 0, 6],
+    ["2018-10-06", "002345.SZ", 5.2, 5.3, 5.1, 5.15, 1100, 5500, 6],
+    ["2018-10-07", "002345.SZ", 5.15, 5.15, 5.15, 5.15, 0, 0, 6],
+    ["2018-10-08", "002345.SZ", 5.15, 5.15, 5.15, 5.15, 0, 0, 6],
+]
+df_stock_day = pd.DataFrame(rows, columns=columns)
+df_changed = pd.concat(dc.fillna_stock_day(df_stock_day=df_stock_day, dates=dates[2:8]),sort=False).sort_values(["date","code"])
+expected_df_changed = pd.DataFrame(changed_rows,
+                                   columns=columns).sort_values(["date","code"])
+print(len(df_changed),len(expected_df_changed))
+for i in range(len(df_changed)):
+    if dict(df_changed.iloc[i]) != dict(expected_df_changed.iloc[i]):
+        print(dict(df_changed.iloc[i]))
+        print(dict(expected_df_changed.iloc[i]))
+        print()
+
+print(df_changed.columns == expected_df_changed.columns)
+print(df_changed.index == expected_df_changed.index)
+print(df_changed==expected_df_changed)
