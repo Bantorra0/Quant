@@ -55,29 +55,33 @@ class Trader:
         orders = []
         for stock_plan in plan:
             for flag, code, price,cnt in stock_plan:
+                # 成交量为0，停牌中。
+                if day_signal["vol"] == 0:
+                    break
+
                 if price == "open":
                     price = day_signal[day_signal["code"]==code][
                         "qfq_open"].iloc[0]
                     orders.append([flag, code, price,cnt])
                     break
                 else:
-                    f1mv_qfq_high =  day_signal[day_signal["code"]==code][
+                    qfq_high =  day_signal[day_signal["code"]==code][
                         "qfq_high"].iloc[0]
-                    f1mv_qfq_low = day_signal[day_signal["code"] == code][
+                    qfq_low = day_signal[day_signal["code"] == code][
                         "qfq_low"].iloc[0]
                     f1mv_qfq_close = day_signal[day_signal["code"] == code][
                         "qfq_close"].iloc[0]
                     qfq_close = day_signal[day_signal["code"] == code][
                         "qfq_close"].iloc[0]
 
-                    if flag==BUY_FLAG and f1mv_qfq_high > price:
+                    if flag==BUY_FLAG and qfq_high > price:
                         if round(f1mv_qfq_close, 1) == round(qfq_close * 1.1,
                                                              1):
                             print("收盘涨停板，加仓失败！")
                         else:
                             orders.append([flag,code,f1mv_qfq_close,cnt])
                         break
-                    elif flag==SELL_FLAG and f1mv_qfq_low < price:
+                    elif flag==SELL_FLAG and qfq_low < price:
                         if round(f1mv_qfq_close, 1) == round(qfq_close * 0.9,
                                                              1):
                             print("收盘跌停板，平仓失败")

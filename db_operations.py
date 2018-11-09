@@ -3,6 +3,7 @@ import pandas as pd
 import pymysql
 from constants import STOCK_DAY,INDEX_DAY,TABLE,COLUMNS
 
+
 def connect_db(db_type:str):
     if db_type== "mysql":
         return pymysql.connect(host='127.0.0.1', user='root', passwd='Bantorra',
@@ -80,7 +81,7 @@ def get_latest_date(table,code, db_type:str):
         return None
 
 
-def get_trading_dates(db_type:str, cursor=None):
+def get_trading_dates(db_type="sqlite3", cursor=None):
     # Get all trading dates from stock index table.
     if not cursor:
         conn = connect_db(db_type)
@@ -98,6 +99,7 @@ def write2db(df:pd.DataFrame, table, cols, db_type="sqlite3",
     if not conn:
         conn = connect_db(db_type)
     cursor = conn.cursor()
+
     write_failure = 0
     for _, row in df.iterrows():
         code, date = row["code"],row["date"]

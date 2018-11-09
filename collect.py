@@ -109,7 +109,7 @@ def insert_to_db(row, db_type: str, table_name, columns):
 
 def download_index_day(pools: [str], db_type:str, update=False,
                        start ="2000-01-01"):
-    download_failure, write_failure = 0,0
+    download_failure = 0
     for i, code in enumerate(pools):
         try:
             # Set start to the newest date in table if update is true.
@@ -139,15 +139,13 @@ def download_index_day(pools: [str], db_type:str, update=False,
 
         yield df
 
-    print("-"*10,
-        "\nDownload failure:{0}\nWrite failure:{1}\n".format(download_failure,
-                                                write_failure))
+    print("-"*10,"\nDownload failure:{0}".format(download_failure))
 
 
 def download_stock_day(pools: [str], db_type:str, update=False,
                        start="2000-01-01"):
     pro = _init_api(TOKEN)
-    download_failure, write_failure = 0,0
+    download_failure = 0
     for i, code in enumerate(pools):
         try:
             # Set start to the newest date in table if update is true.
@@ -181,7 +179,7 @@ def download_stock_day(pools: [str], db_type:str, update=False,
             # Print progress.
             # 打印进度。
             print('Seq: ' + str(i + 1) + ' of ' + str(
-                len(pools)) + '   Code: ' + str(code))
+                len(pools)) + '   Code: ' + str(code)+"\n")
 
         except Exception as err:
             download_failure += 1
@@ -191,26 +189,19 @@ def download_stock_day(pools: [str], db_type:str, update=False,
 
         yield df
 
-    print("-"*10,
-        "\nDownload failure:{0}\nWrite failure:{1}\n".format(download_failure,
-                                                write_failure))
+    print("-"*10,"\nDownload failure:{0}".format(download_failure))
 
 
 def collect_stock_day(pools: [str], db_type: str, update=False,
                       start="2000-01-01"):
     conn = dbop.connect_db(db_type)
-    dates = dbop.get_trading_dates(db_type=db_type)
-    dates = pd.Series(dates)
-    dates = dates[dates>=start]
 
     for df_single_stock_day in download_stock_day(pools=pools,db_type=db_type,
                                       update=update, start=start):
-        df_single_stock_day = dc.fillna_stock_day(df_single_stock_day,
-                                                  dates=list(dates))
+
         conn = dbop.write2db(df_single_stock_day,table=STOCK_DAY[TABLE],
                       cols=STOCK_DAY[COLUMNS],conn=conn, close=False)
-        print()
-    dbop.close_db(conn)
+    dc.fillna_stock_day(conn=conn)
 
 
 def collect_index_day(pools: [str], db_type: str, update=False,
@@ -236,8 +227,6 @@ def update():
     # init_table(INDEX_DAY[TABLE], db_type)
     print("Indexes:",len(idx_pools()))
     collect_index_day(idx_pools(), db_type, update=False,start="2018-11-01")
-
-    # print(stck_pools())
 
 
 if __name__ == '__main__':
