@@ -220,13 +220,13 @@ def collect_index_day(pools: [str], db_type: str, update=False,
 def update():
     db_type = "sqlite3"
 
-    # init_table(STOCK_DAY[TABLE], db_type)
+    # # init_table(INDEX_DAY[TABLE], db_type)
+    print("Indexes:", len(idx_pools()))
+    collect_index_day(idx_pools(), db_type, update=True)
+    #
+    # # init_table(STOCK_DAY[TABLE], db_type)
     print("Stocks:",len(stck_pools()))
-    collect_stock_day(stck_pools(), db_type, update=False,start="2018-11-01")
-
-    # init_table(INDEX_DAY[TABLE], db_type)
-    print("Indexes:",len(idx_pools()))
-    collect_index_day(idx_pools(), db_type, update=False,start="2018-11-01")
+    collect_stock_day(stck_pools(), db_type, update=True)
 
 
 if __name__ == '__main__':

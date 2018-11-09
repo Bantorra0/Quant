@@ -54,39 +54,39 @@ class Trader:
     def gen_orders_from_plan(cls,plan,day_signal, account:Account):
         orders = []
         for stock_plan in plan:
+            if stock_plan:
+                code = stock_plan[0][1]
+                stock_signal = day_signal[day_signal["code"]==code]
+                # 成交量为0，停牌中，
+                # 或者一字涨跌停板，无法进行交易。
+                if stock_signal["amt"].iloc[0] == 0 or\
+                    stock_signal["qfq_high"].iloc[0]==stock_signal[
+                    "qfq_low"].iloc[0]:
+                    continue
             for flag, code, price,cnt in stock_plan:
-                # 成交量为0，停牌中。
-                if day_signal["vol"] == 0:
-                    break
-
                 if price == "open":
-                    price = day_signal[day_signal["code"]==code][
-                        "qfq_open"].iloc[0]
+                    price = stock_signal["qfq_open"].iloc[0]
                     orders.append([flag, code, price,cnt])
                     break
                 else:
-                    qfq_high =  day_signal[day_signal["code"]==code][
-                        "qfq_high"].iloc[0]
-                    qfq_low = day_signal[day_signal["code"] == code][
-                        "qfq_low"].iloc[0]
-                    f1mv_qfq_close = day_signal[day_signal["code"] == code][
-                        "qfq_close"].iloc[0]
-                    qfq_close = day_signal[day_signal["code"] == code][
-                        "qfq_close"].iloc[0]
+                    qfq_high =  stock_signal["qfq_high"].iloc[0]
+                    qfq_low = stock_signal["qfq_low"].iloc[0]
+                    qfq_close = stock_signal["qfq_close"].iloc[0]
 
                     if flag==BUY_FLAG and qfq_high > price:
-                        if round(f1mv_qfq_close, 1) == round(qfq_close * 1.1,
-                                                             1):
+                        if abs(stock_signal[
+                                   "change_rate_p1mv_close"].iloc[
+                                   0])>0.089:
                             print("收盘涨停板，加仓失败！")
                         else:
-                            orders.append([flag,code,f1mv_qfq_close,cnt])
+                            orders.append([flag,code,qfq_close,cnt])
                         break
                     elif flag==SELL_FLAG and qfq_low < price:
-                        if round(f1mv_qfq_close, 1) == round(qfq_close * 0.9,
-                                                             1):
+                        if abs(stock_signal[
+                                   "change_rate_p1mv_close"].iloc[0])>0.107:
                             print("收盘跌停板，平仓失败")
                         else:
-                            orders.append([flag, code, f1mv_qfq_close, cnt])
+                            orders.append([flag, code, qfq_close, cnt])
                         break
         return orders
 
@@ -111,17 +111,17 @@ class Trader:
         for o in orders:
             flag, code, price, cnt = o[:4]
             # Update price in order to f1mv_qfq_open.
-            signals = day_signal[day_signal["code"] == code]
+            stock_signal = day_signal[day_signal["code"] == code]
             result=None
             if flag==BUY_FLAG:
-                if signals["qfq_low"].iloc[0] \
-                        == signals["qfq_high"].iloc[0]:
+                if stock_signal["qfq_low"].iloc[0] \
+                        == stock_signal["qfq_high"].iloc[0]:
                     print("一字板涨停：买入失败")
                     continue
                 result = cls.buy_by_cnt(code,cnt,price,account)
             elif flag == SELL_FLAG:
-                if signals["qfq_low"].iloc[0] \
-                        == signals["qfq_high"].iloc[0]:
+                if stock_signal["qfq_low"].iloc[0] \
+                        == stock_signal["qfq_high"].iloc[0]:
                     print("一字板跌停：卖出失败")
                     continue
                 result = cls.sell_by_cnt(code,cnt,price,account)
@@ -141,17 +141,17 @@ class Trader:
             flag, code, price, cnt = o[:4]
             # Update price in order to f1mv_qfq_open.
             price = prices[code]
-            signals = day_signal[day_signal["code"] == code]
+            stock_signal = day_signal[day_signal["code"] == code]
             result=None
             if flag==BUY_FLAG:
-                if signals["f1mv_qfq_low"].iloc[0] \
-                        == signals["f1mv_qfq_high"].iloc[0]:
+                if stock_signal["f1mv_qfq_low"].iloc[0] \
+                        == stock_signal["f1mv_qfq_high"].iloc[0]:
                     print("一字板涨停：买入失败")
                     continue
                 result = cls.buy_by_cnt(code,cnt,price,account)
             elif flag == SELL_FLAG:
-                if signals["f1mv_qfq_low"].iloc[0] \
-                        == signals["f1mv_qfq_high"].iloc[0]:
+                if stock_signal["f1mv_qfq_low"].iloc[0] \
+                        == stock_signal["f1mv_qfq_high"].iloc[0]:
                     print("一字板跌停：卖出失败")
                     continue
                 result = cls.sell_by_cnt(code,cnt,price,account)
@@ -288,7 +288,7 @@ class Trader:
                         & (signal["y_s_decline"] >= -0.03) \
                         & (signal["y_s_rise"]>=0.1)
         if init_buy_cond.iloc[0]:
-            pct = 0.15
+            pct = 0.2
             prices = {code:day_signal[day_signal["code"]==code][
                 "qfq_close"].iloc[0] for code in day_signal["code"]}
             price = prices[code]
@@ -304,7 +304,7 @@ class Trader:
                         & (signal["y_s_decline"] >= -0.03) \
                         & (signal["y_s_rise"] >= 0.1)
         if init_buy_cond.iloc[0]:
-            pct = 0.15
+            pct = 0.2
             prices = {code: day_signal[day_signal["code"] == code][
                 "qfq_close"].iloc[0] for code in day_signal["code"]}
             price = prices[code]
@@ -407,13 +407,11 @@ class Trader:
         elif code not in account.stocks or not account.stocks[code].keys():
             raise ValueError("Selling {0} while not having any".format(code))
         else:
-            cnt = abs(cnt)
             long_pos = sum(account.stocks[code].values())
-            if cnt > long_pos:
-                raise ValueError("Selling {0} {1} shares while having only {2}".format(code,cnt,long_pos))
-
-            cls.exe_single_order(code, -cnt, price, account)
-            return [SELL_FLAG,code,price,-cnt]
+            if abs(cnt) > long_pos:
+                raise ValueError("Selling {0} {1} shares while having only {2}".format(code,abs(cnt),long_pos))
+            cls.exe_single_order(code, cnt, price, account)
+            return [SELL_FLAG,code,price,cnt]
 
 
 class BackTest:
@@ -471,7 +469,7 @@ class BackTest:
                 continue
 
             day_signal = signals.loc[date_idx]
-            main_cols = ["qfq_open", "f1mv_qfq_high", "qfq_low", "qfq_close"]
+            main_cols = ["qfq_open", "qfq_high", "qfq_low", "qfq_close"]
 
             # Skip the trading date when there is null in data.
             # May be removed in future, because it is not reasonable.
@@ -533,7 +531,7 @@ def main():
     models["model_s_low"] = ml_model.load_model(model_type,pred_period=5,is_high=False)
     models["model_s_high"] = ml_model.load_model(model_type,pred_period=5,is_high=True)
 
-    backtester = BackTest(start="2018-09-01")
+    backtester = BackTest(start="2018-01-01")
     df_asset_values,orders,transactions,stocks = backtester.backtest(models)
     for date,row in df_asset_values.iterrows():
         print(date,dict(row))

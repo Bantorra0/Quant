@@ -27,7 +27,6 @@ def gen_data(pred_period=20, lower_bound="2011-01-01", start="2014-01-01"):
     data_period = (df_all.index >= start)
     df_all = df_all[data_period]
 
-    df_all = df_all[df_all["amt"] != 0]
     return df_all, cols_not_in_X
 
 

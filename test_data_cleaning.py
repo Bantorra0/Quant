@@ -108,6 +108,7 @@ class DataCleaningTestCase(unittest.TestCase):
                                            columns=columns)
         self.assertEqual(True, (expected_df_changed == df_changed).all().all())
 
+
     def test_fillna_stock_day(self):
         dates = ["2018-10-{:02d}".format(i) for i in range(1, 14)]
         columns = ["date", "code", "open", "high", "low", "close", "vol", "amt", "adj_factor"]
@@ -147,9 +148,6 @@ class DataCleaningTestCase(unittest.TestCase):
         df_changed = pd.concat(dc.fillna_stock_day(df_stock_day=df_stock_day, dates=dates[2:8]),sort=False).set_index(["date","code"]).sort_index()
         expected_df_changed = pd.DataFrame(changed_rows,
                                            columns=columns).set_index(["date","code"]).sort_index()
-        print(expected_df_changed[(expected_df_changed!=df_changed).any(1)])
-        print(df_changed[(expected_df_changed!=df_changed).any(1)])
-
         self.assertEqual(True, (expected_df_changed == df_changed).all().all())
 
 

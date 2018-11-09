@@ -107,5 +107,6 @@ def fillna_stock_day(df_stock_day:pd.DataFrame=None,dates = None,start=None,db_t
         else:
             change_list.append(df_changed)
             print(df_changed.shape,"\n")
-            dbop.write2db(df_changed,STOCK_DAY[TABLE],STOCK_DAY[COLUMNS],conn=conn)
+            dbop.write2db(df_changed,STOCK_DAY[TABLE],STOCK_DAY[COLUMNS],
+                          conn=conn, close=False)
     return change_list
