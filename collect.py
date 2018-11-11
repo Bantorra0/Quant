@@ -139,7 +139,7 @@ def download_index_day(pools: [str], db_type:str, update=False,
 
         yield df
 
-    print("-"*10,"\nDownload failure:{0}".format(download_failure))
+    print("-"*10,"\nDownload failure:{0}\n".format(download_failure))
 
 
 def download_stock_day(pools: [str], db_type:str, update=False,
@@ -189,7 +189,7 @@ def download_stock_day(pools: [str], db_type:str, update=False,
 
         yield df
 
-    print("-"*10,"\nDownload failure:{0}".format(download_failure))
+    print("-"*10,"\nDownload failure:{0}\n".format(download_failure))
 
 
 def collect_stock_day(pools: [str], db_type: str, update=False,

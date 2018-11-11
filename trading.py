@@ -114,16 +114,16 @@ class Trader:
             stock_signal = day_signal[day_signal["code"] == code]
             result=None
             if flag==BUY_FLAG:
-                if stock_signal["qfq_low"].iloc[0] \
-                        == stock_signal["qfq_high"].iloc[0]:
-                    print("一字板涨停：买入失败")
-                    continue
+                # if stock_signal["qfq_low"].iloc[0] \
+                #         == stock_signal["qfq_high"].iloc[0]:
+                #     print("一字板涨停：买入失败")
+                #     continue
                 result = cls.buy_by_cnt(code,cnt,price,account)
             elif flag == SELL_FLAG:
-                if stock_signal["qfq_low"].iloc[0] \
-                        == stock_signal["qfq_high"].iloc[0]:
-                    print("一字板跌停：卖出失败")
-                    continue
+                # if stock_signal["qfq_low"].iloc[0] \
+                #         == stock_signal["qfq_high"].iloc[0]:
+                #     print("一字板跌停：卖出失败")
+                #     continue
                 result = cls.sell_by_cnt(code,cnt,price,account)
 
             if result:
