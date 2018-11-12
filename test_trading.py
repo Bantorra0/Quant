@@ -42,7 +42,6 @@ class TraderTestCase(unittest.TestCase):
         self.assertEqual(expected_account.records, account.records)
 
 
-
     def test_buy_by_cnt(self):
         trader = self.trader
         amt = 100000
@@ -50,7 +49,7 @@ class TraderTestCase(unittest.TestCase):
 
         orders = [("600345",300,24.5),("002345",500,11.2),("600229",1200,9.62),("600229",100,9.32)]
         for code,cnt,price in orders:
-            trader.buy_by_cnt(code, cnt, price, account)
+            trader.buy_by_cnt(code, price, cnt,account)
             amt -= cnt * price
             self.assertEqual(amt, account.cash)
 
@@ -64,7 +63,7 @@ class TraderTestCase(unittest.TestCase):
 
         orders_buy = [("600345", 300, 24.5), ("002345", 500, 11.2), ("600229", 1200, 9.62), ("600229", 100, 9.32)]
         for code, cnt, price in orders_buy:
-            trader.buy_by_cnt(code, cnt, price, account)
+            trader.buy_by_cnt(code, price,cnt, account)
             amt -= cnt * price
 
         # Include a case that buys 600345 once and sells all, the code should be del from stocks's key.
@@ -95,7 +94,7 @@ class TraderTestCase(unittest.TestCase):
         orders_buy = [("600345", 300, 24.5), ("002345", 500, 11.2),
                       ("600229", 1200, 9.62), ("600229", 100, 9.32)]
         for code, cnt, price in orders_buy:
-            trader.buy_by_cnt(code, cnt, price, account)
+            trader.buy_by_cnt(code, price, cnt,account)
             amt -= cnt * price
         current_pos = {"600345":300, "002345":500,"600229":1300}
         prices = {"600345":25, "002345":12.1,"600229":9.5}

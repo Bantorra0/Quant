@@ -111,20 +111,11 @@ class Trader:
         for o in orders:
             flag, code, price, cnt = o[:4]
             # Update price in order to f1mv_qfq_open.
-            stock_signal = day_signal[day_signal["code"] == code]
             result=None
             if flag==BUY_FLAG:
-                # if stock_signal["qfq_low"].iloc[0] \
-                #         == stock_signal["qfq_high"].iloc[0]:
-                #     print("一字板涨停：买入失败")
-                #     continue
-                result = cls.buy_by_cnt(code,cnt,price,account)
+                result = cls.buy_by_cnt(code,price,cnt,account)
             elif flag == SELL_FLAG:
-                # if stock_signal["qfq_low"].iloc[0] \
-                #         == stock_signal["qfq_high"].iloc[0]:
-                #     print("一字板跌停：卖出失败")
-                #     continue
-                result = cls.sell_by_cnt(code,cnt,price,account)
+                result = cls.sell_by_cnt(code,price,cnt,account)
 
             if result:
                 transactions.append([day_signal.index[0]]+list(result[1:]))
@@ -148,7 +139,7 @@ class Trader:
                         == stock_signal["f1mv_qfq_high"].iloc[0]:
                     print("一字板涨停：买入失败")
                     continue
-                result = cls.buy_by_cnt(code,cnt,price,account)
+                result = cls.buy_by_cnt(code,price,cnt,account)
             elif flag == SELL_FLAG:
                 if stock_signal["f1mv_qfq_low"].iloc[0] \
                         == stock_signal["f1mv_qfq_high"].iloc[0]:
@@ -384,7 +375,7 @@ class Trader:
             del account.stocks[code]
 
     @classmethod
-    def buy_by_cnt(cls, code, cnt, price, account:Account, buy_max=False):
+    def buy_by_cnt(cls, code, price, cnt, account:Account, buy_max=False):
         if cnt<0:
             raise ValueError("Buying cnt {}<0".format(cnt))
         elif cnt==0:
@@ -396,11 +387,11 @@ class Trader:
         elif buy_max and cnt*price > account.cash:
             cnt = int(account.cash/price/100)*100
 
-        cls.exe_single_order(code, cnt, price, account)
+        cls.exe_single_order(code, price,cnt, account)
         return [BUY_FLAG,code,price, cnt]
 
     @classmethod
-    def sell_by_cnt(cls, code, cnt, price, account:Account):
+    def sell_by_cnt(cls, code, price, cnt,account:Account):
         if cnt>0:
             raise ValueError("Selling cnt {}>0".format(cnt))
         elif cnt==0:
@@ -411,7 +402,7 @@ class Trader:
             long_pos = sum(account.stocks[code].values())
             if abs(cnt) > long_pos:
                 raise ValueError("Selling {0} {1} shares while having only {2}".format(code,abs(cnt),long_pos))
-            cls.exe_single_order(code, cnt, price, account)
+            cls.exe_single_order(code, price, cnt,account)
             return [SELL_FLAG,code,price,cnt]
 
 
