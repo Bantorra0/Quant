@@ -355,7 +355,7 @@ class Trader:
         return int(tot_value * percent / 100 / price)*100
 
     @staticmethod
-    def exe_single_order(code, cnt, price, account:Account):
+    def exe_single_order(code, price, cnt, account:Account):
         """
         Execute order and update account.
         Assume buying when calculating and cnt<0 indicates selling.
@@ -378,6 +378,7 @@ class Trader:
             if account.stocks[code][price] == 0:
                 del account.stocks[code][price]
 
+        # Delete a stock key when holding shares of the stock is 0.
         if not account.stocks[code].keys() \
                 or sum(account.stocks[code].values()) == 0:
             del account.stocks[code]

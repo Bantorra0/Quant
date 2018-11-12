@@ -9,6 +9,40 @@ class TraderTestCase(unittest.TestCase):
     def setUp(self):
         self.trader = trading.Trader()
 
+    def test_exe_single_order(self):
+        trader = self.trader
+        amt = 100000
+        account = trading.Account(init_amt=amt)
+
+        # Case that cnt=0.
+        order = ["600345",1.5,0]
+        trader.exe_single_order(*order,account=account)
+        expected_account = trading.Account(init_amt=amt)
+        expected_cash = amt
+        self.assertEqual(expected_cash,account.cash)
+        self.assertEqual(expected_account.stocks, account.stocks)
+        self.assertEqual(expected_account.records, account.records)
+
+        # Case that the buying stock is not in account.stocks.
+        order = ["600345", 1.5, 10000]
+        trader.exe_single_order(*order, account=account)
+        expected_account = trading.Account(init_amt=amt)
+        expected_cash = amt- order[1]*order[2]
+        self.assertEqual(expected_cash, account.cash)
+        self.assertEqual(expected_account.stocks, account.stocks)
+        self.assertEqual(expected_account.records, account.records)
+
+        # Case that the buying or selling stock is in account.stocks.keys(), but price not in stocks[code].keys()
+        order = ["600345", 1.6, 10000]
+        trader.exe_single_order(*order, account=account)
+        expected_account = trading.Account(init_amt=amt)
+        expected_cash = amt - order[1] * order[2]
+        self.assertEqual(expected_cash, account.cash)
+        self.assertEqual(expected_account.stocks, account.stocks)
+        self.assertEqual(expected_account.records, account.records)
+
+
+
     def test_buy_by_cnt(self):
         trader = self.trader
         amt = 100000
