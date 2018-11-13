@@ -1,9 +1,10 @@
+import copy
 import unittest
 
 import pandas as pd
+
 import constants as const
 import trading
-import copy
 
 
 class TraderTestCase(unittest.TestCase):
@@ -240,9 +241,29 @@ class TraderTestCase(unittest.TestCase):
                 plans.append(p)
         self.assertEqual(expected_plans,plans)
 
-
     def test_order_sell_by_stck_pct(self):
-        pass
+        trader = self.trader
+        amt = 100000
+        account = trading.Account(init_amt=amt)
+
+        codes = "600345", "600229", "002345"
+        stocks = {"600345": {24.5: 300}, "002345": {11.2: 500},
+                  "600229": {9.62: 1200, 9.32: 100}}
+        account.stocks = stocks
+
+        # Case that percent>100%.
+        self.assertRaises(ValueError,trader.order_sell_by_stck_pct,
+                          *(codes[0],1.1,25,account))
+
+        # Case that percent = 100%.
+        order = trader.order_sell_by_stck_pct(codes[0],1,25,account)
+        expected_order = [const.SELL_FLAG, codes[0],25,-300]
+        self.assertEqual(expected_order,order)
+
+        # Normal case,
+        order = trader.order_sell_by_stck_pct(codes[1], 0.5, 9.5, account)
+        expected_order = [const.SELL_FLAG, codes[1], 9.5, -600]
+        self.assertEqual(expected_order, order)
 
 
     def test_plan_for_stck_in_pos(self):
@@ -264,7 +285,7 @@ class TraderTestCase(unittest.TestCase):
         account.records = {codes[0]:[1,-1,20000]}
         self.assertRaises(ValueError, trader.plan_for_stck_in_pos,*(codes[0],account,day_signal0))
 
-        # Case that the stock decline significantly.
+        # Case that the stock decline significantly, over 10% from the peak.
         account.records = {codes[0]:[1,1.5,20000]}
         account.stocks = {codes[0]:{1:20000}}
         day_signal0 = pd.DataFrame([[codes[0], 1.34, 0.6, 0.11, -0.01]],
@@ -273,14 +294,194 @@ class TraderTestCase(unittest.TestCase):
         plan = trader.plan_for_stck_in_pos(codes[0],account,day_signal0)
         self.assertEqual(expected_plan,plan)
 
-        # Case that the stock decline significantly.
-        account.records = {codes[0]: [1, 2, 20000]}
-        account.stocks = {codes[0]: {1: 20000}}
-        day_signal0 = pd.DataFrame([[codes[0], 1.74, 0.6, 0.11, -0.01]],
+        # Case that the stock decline significantly, over 25% rise lost.
+        account.records = {codes[1]: [1, 2, 20000]}
+        account.stocks = {codes[1]: {1: 20000}}
+        day_signal0 = pd.DataFrame([[codes[1], 1.74, 0.6, 0.11, -0.01]],
                                    columns=columns)
-        expected_plan = [[const.SELL_FLAG, codes[0], "open", -20000]]
-        plan = trader.plan_for_stck_in_pos(codes[0], account, day_signal0)
+        expected_plan = [[const.SELL_FLAG, codes[1], "open", -20000]]
+        plan = trader.plan_for_stck_in_pos(codes[1], account, day_signal0)
         self.assertEqual(expected_plan, plan)
+
+        # Case after first commitment.
+        account.records = {codes[2]: [1, 1.04, 20000]}
+        account.stocks = {codes[2]: {1: 20000}}
+        day_signal0 = pd.DataFrame([[codes[2], 1.03, 0.6, 0.11, -0.01]],
+                                   columns=columns)
+        expected_plan = [[const.SELL_FLAG,codes[2], 0.95,-20000],
+                         [const.BUY_FLAG, codes[2],1.05,20000]]
+        plan = trader.plan_for_stck_in_pos(codes[2],account,day_signal0)
+        self.assertEqual(expected_plan,plan)
+
+        # Case after second long commitment.
+        account.records = {codes[3]: [3.5, 3.7, 20000]}
+        account.stocks = {codes[3]: {3.5: 20000, 3.68:20000}}
+        day_signal0 = pd.DataFrame([[codes[3], 3.69, 0.6, 0.11, -0.01]],
+                                   columns=columns)
+        expected_plan = [[const.SELL_FLAG, codes[3],3.5 , -40000],
+                         [const.BUY_FLAG, codes[3], 3.85, 20000]]
+        plan = trader.plan_for_stck_in_pos(codes[3], account, day_signal0)
+        self.assertEqual(expected_plan, plan)
+
+        # Case after third long commitment.
+        account.records = {codes[4]: [3.5, 3.9, 20000]}
+        account.stocks = {codes[4]: {3.5: 20000, 3.68: 20000, 3.88:20000}}
+        day_signal0 = pd.DataFrame([[codes[4], 3.66, 0.6, 0.11, -0.01]],
+                                   columns=columns)
+        expected_plan = [[const.SELL_FLAG, codes[4], 3.63, -60000]]
+        plan = trader.plan_for_stck_in_pos(codes[4], account, day_signal0)
+        self.assertEqual(expected_plan, plan)
+
+
+    def test_gen_trading_plan(self):
+        trader = self.trader
+        amt = 100000
+        account = trading.Account(init_amt=amt)
+
+        columns = ["code", "qfq_close", "y_l_rise", "y_s_rise", "y_s_decline"]
+        codes = "600345", "600229", "002345", "002236", "002217", "300345", "603799"
+
+        # Integrated test.
+        account.records = {codes[0]: [1, 1.5, 20000],
+                           codes[1]: [1, 2, 20000],
+                           codes[2]: [1, 1.04, 20000],
+                           codes[3]: [3.5, 3.7, 20000],
+                           codes[4]: [3.5, 3.9, 20000]}
+
+        account.stocks = {codes[0]: {1: 20000},
+                          codes[1]: {1: 20000},
+                          codes[2]: {1: 20000},
+                          codes[3]: {3.5: 20000, 3.68: 20000},
+                          codes[4]: {3.5: 20000, 3.68: 20000, 3.88: 20000}}
+
+        day_signal0 = pd.DataFrame([[codes[0], 1.34, 0.6, 0.11, -0.01],
+            [codes[1], 1.74, 0.6, 0.11, -0.01],
+            [codes[2], 1.03, 0.6, 0.11, -0.01],
+            [codes[3], 3.69, 0.6, 0.11, -0.01],
+            [codes[4], 3.66, 0.6, 0.11, -0.01]], columns=columns)
+
+        expected_plan = [[[const.SELL_FLAG, codes[0], "open", -20000]],
+            [[const.SELL_FLAG, codes[1], "open", -20000]],
+            [[const.SELL_FLAG, codes[2], 0.95, -20000],
+             [const.BUY_FLAG, codes[2], 1.05, 20000]],
+            [[const.SELL_FLAG, codes[3], 3.5, -40000],
+             [const.BUY_FLAG, codes[3], 3.85, 20000]],
+            [[const.SELL_FLAG, codes[4], 3.63, -60000]]]
+
+        plan = trader.gen_trading_plan(day_signal0,account)
+        self.assertEqual(expected_plan, plan)
+
+    def test_gen_orders_from_plan(self):
+        trader = self.trader
+        amt = 100000
+
+        columns = ["code", "qfq_open","qfq_high","qfq_low","qfq_close","amt","change_rate_p1mv_close"]
+        codes = "600345", "600229", "002345", "002236", "002217", "300345", \
+                "603799","600703"
+
+        plan = [[[const.SELL_FLAG, codes[0], 1.35, -20000],
+                 [const.BUY_FLAG, codes[0], 1.35, -20000]],
+                [[const.SELL_FLAG, codes[1], 1.74, -20000],
+                 [const.BUY_FLAG, codes[1], 1.69, -20000]],
+                [[const.SELL_FLAG, codes[2], 0.95, -20000],
+                 [const.BUY_FLAG, codes[2], 1.05, 20000]],
+                [[const.SELL_FLAG, codes[3], 3.5, -40000],
+                 [const.BUY_FLAG, codes[3], 3.85, 20000]],
+                [[const.SELL_FLAG, codes[4], 3.63, -60000]],
+                [[const.SELL_FLAG, codes[5], 3.5, -40000],
+                 [const.BUY_FLAG, codes[5], 3.85, 20000]],
+                [[const.SELL_FLAG, codes[6], "open", -40000],
+                 [const.BUY_FLAG, codes[6], 3.85, 20000]],
+                [[const.SELL_FLAG, codes[7], 3.6, -40000],
+                 [const.BUY_FLAG, codes[7], "open", 20000]],
+                ]
+
+        day_signal0 = pd.DataFrame([[codes[0], 1.34, 1.39,1.33,1.35,0,0.05],
+                                    [codes[1], 1.74, 1.74, 1.74, 1.74, 100,0.05],
+                                    [codes[2], 1.03, 1.02, 1.09, 1.09, 1000,
+                                     -0.09],
+                                    [codes[3], 3.6, 3.6,3.4,3.4,2000,0.108],
+                                    [codes[4], 3.66, 3.67,3.59,3.60, 2600,
+                                     0.03],
+                                    [codes[5], 3.8, 3.89, 3.79, 3.87, 3600,
+                                     -0.05],
+                                    [codes[6], 3.8, 3.89, 3.79, 3.87, 3600,
+                                     0.05],
+                                    [codes[7], 3.78, 3.89, 3.79, 3.87, 3600,
+                                     -0.05],
+                                    []
+                                    ],
+                                   columns=columns)
+
+        # Case that trading amount = 0.
+        orders = trader.gen_orders_from_plan([plan[0]],day_signal0.iloc[[0]])
+        expected_orders = []
+        self.assertEqual(expected_orders,orders)
+
+        # Case that trading qfq_high= qfq_low.
+        orders = trader.gen_orders_from_plan([plan[1]], day_signal0.iloc[[1]])
+        expected_orders = []
+        self.assertEqual(expected_orders, orders)
+
+        # Case of normal selling at qfq_open.
+        orders = trader.gen_orders_from_plan([plan[6]], day_signal0.iloc[[6]])
+        expected_orders = [[const.SELL_FLAG, codes[6], 3.8, -40000]]
+        self.assertEqual(expected_orders, orders)
+
+        # Case of normal selling at qfq_open.
+        orders = trader.gen_orders_from_plan([plan[7]], day_signal0.iloc[[7]])
+        expected_orders = [[const.BUY_FLAG, codes[7], 3.78, 20000]]
+        self.assertEqual(expected_orders, orders)
+
+        # Case that buying fails due to reaching rise limit.
+        orders = trader.gen_orders_from_plan([plan[2]], day_signal0.iloc[[2]])
+        expected_orders = []
+        self.assertEqual(expected_orders, orders)
+
+        # Case that selling fails due to reaching decline limit.
+        orders = trader.gen_orders_from_plan([plan[3]], day_signal0.iloc[[3]])
+        expected_orders = []
+        self.assertEqual(expected_orders, orders)
+
+        # Case of normal selling.
+        orders = trader.gen_orders_from_plan([plan[4]], day_signal0.iloc[[4]])
+        expected_orders = [[const.SELL_FLAG,codes[4],3.60,-60000]]
+        self.assertEqual(expected_orders, orders)
+
+        # Case of normal buying.
+        orders = trader.gen_orders_from_plan([plan[5]], day_signal0.iloc[[5]])
+        expected_orders = [[const.BUY_FLAG, codes[5], 3.87, 20000]]
+        self.assertEqual(expected_orders, orders)
+
+
+        # Integrated testcase.
+        orders = trader.gen_orders_from_plan(plan,day_signal0)
+        expected_orders = [[const.SELL_FLAG,codes[4],3.60,-60000],
+                           [const.BUY_FLAG, codes[5], 3.87, 20000],
+                           [const.SELL_FLAG, codes[6], 3.8, -40000],
+                           [const.BUY_FLAG, codes[7], 3.78, 20000]]
+        self.assertEqual(expected_orders, orders)
+
+    def test_exe_orders(self):
+        trader = self.trader
+        amt = 100000
+        account = trading.Account(init_amt=amt)
+
+        columns = ["code", "qfq_open", "qfq_high", "qfq_low", "qfq_close",
+                   "amt", "change_rate_p1mv_close"]
+        codes = "600345", "600229", "002345", "002236", "002217", "300345", "603799", "600703"
+
+        orders = [[const.SELL_FLAG,codes[4],3.60,-60000],
+                           [const.BUY_FLAG, codes[5], 3.87, 20000],
+                           [const.SELL_FLAG, codes[6], 3.8, -40000],
+                           [const.BUY_FLAG, codes[7], 3.78, 20000]]
+
+
+
+
+
+
+
 
         #
         # # Try to cover all cases in if clause with order same as source codes.
@@ -713,7 +914,6 @@ class TraderTestCase(unittest.TestCase):
     #                         codes[6]: [1, 1.102, 20000]}
     #     self.assertEqual(expected_stocks,account.stocks)
     #     self.assertEqual(expected_records, account.records)
-
 
 if __name__ == '__main__':
     unittest.main()
