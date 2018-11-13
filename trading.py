@@ -16,6 +16,78 @@ class Account:
 
 
 class Trader:
+    @staticmethod
+    def exe_single_order(code, price, cnt, account: Account):
+        """
+        Execute order and update account.
+        Assume buying when calculating and cnt<0 indicates selling.
+        :param code:
+        :param cnt:
+        :param price:
+        :param account:
+        :return:
+        """
+        if cnt == 0:
+            return
+
+        account.cash -= cnt * price
+        if code not in account.stocks:
+            account.stocks[code] = {price: cnt}
+        elif price not in account.stocks[code]:
+            account.stocks[code][price] = cnt
+        else:
+            account.stocks[code][price] += cnt
+            if account.stocks[code][price] == 0:
+                del account.stocks[code][price]
+
+        # Delete a stock key when holding shares of the stock is 0.
+        if not account.stocks[code].keys() \
+                or sum(account.stocks[code].values()) == 0:
+            del account.stocks[code]
+
+    @classmethod
+    def buy_by_cnt(cls, code, price, cnt, account: Account, buy_max=False):
+        if cnt < 0:
+            raise ValueError("Buying cnt {}<0".format(cnt))
+        elif cnt == 0:
+            return None
+        elif not buy_max and cnt * price > account.cash:
+            print("Cash {0} yuan is not enough for buying {1} {2} shares with "
+                  "price {3}!".format(account.cash, code, cnt, price))
+            return None
+        elif buy_max and cnt * price > account.cash:
+            cnt = int(account.cash / price / 100) * 100
+
+        cls.exe_single_order(code, price, cnt, account)
+        return [BUY_FLAG, code, price, cnt]
+
+    @classmethod
+    def sell_by_cnt(cls, code, price, cnt, account: Account):
+        if cnt > 0:
+            raise ValueError("Selling cnt {}>0".format(cnt))
+        elif cnt == 0:
+            return None
+        elif code not in account.stocks or not account.stocks[code].keys():
+            raise ValueError("Selling {0} while not having any".format(code))
+        else:
+            long_pos = sum(account.stocks[code].values())
+            if abs(cnt) > long_pos:
+                raise ValueError("Selling {0} {1} shares while having only {2}".format(code, abs(cnt), long_pos))
+            cls.exe_single_order(code, price, cnt, account)
+            return [SELL_FLAG, code, price, cnt]
+
+    @staticmethod
+    def tot_amt(account: Account, prices):
+        amt = account.cash
+        for code, pos in account.stocks.items():
+            amt += sum(pos.values()) * prices[code]
+        return amt
+
+    @classmethod
+    def get_cnt_from_percent(cls, percent, price, account: Account, prices):
+        tot_value = cls.tot_amt(account, prices)
+        return int(tot_value * percent / 100 / price) * 100
+
     @classmethod
     def trade(cls,day_signal,account:Account):
         orders = cls.gen_orders(day_signal=day_signal,account=account)
@@ -236,7 +308,6 @@ class Trader:
         init_buy_price = account.records[code][0]
         init_buy_cnt = account.records[code][2]
         qfq_close = signal["qfq_close"].iloc[0]
-        # f1mv_qfq_open = signal["f1mv_qfq_open"].iloc[0]
 
         retracement = (account.records[code][1] - qfq_close)
         sell_cond0 = retracement >= max(
@@ -283,33 +354,29 @@ class Trader:
             prices = {code:day_signal[day_signal["code"]==code][
                 "qfq_close"].iloc[0] for code in day_signal["code"]}
             price = prices[code]
-            return cls.order_buy_pct(code, percent=pct, price=price,
-                                         account=account, prices=prices)
+            return [cls.order_buy_pct(code, percent=pct, price=price,
+                                         account=account, prices=prices)]
         else:
             return None
 
     @classmethod
     def plan_for_stck_not_in_pos(cls, code, account: Account, day_signal):
-        signal = day_signal[day_signal["code"] == code]
-        init_buy_cond = (signal["y_l_rise"] >= 0.55) \
-                        & (signal["y_s_decline"] >= -0.03) \
-                        & (signal["y_s_rise"] >= 0.1)
+        stock_signal = day_signal[day_signal["code"] == code]
+        init_buy_cond = (stock_signal["y_l_rise"] >= 0.55) \
+                        & (stock_signal["y_s_decline"] >= -0.03) \
+                        & (stock_signal["y_s_rise"] >= 0.1)
         if init_buy_cond.iloc[0]:
             pct = 0.2
             prices = {code: day_signal[day_signal["code"] == code][
                 "qfq_close"].iloc[0] for code in day_signal["code"]}
-            price = prices[code]
-            return [cls.order_buy_pct(code, percent=pct, price=price,
-                                     account=account, prices=prices)]
+
+            p = cls.order_buy_pct(code, percent=pct, price=prices[code],
+                                     account=account, prices=prices)
+            p[2]="open"
+            return [p]
         else:
             return None
 
-    @staticmethod
-    def tot_amt(account: Account, prices):
-        amt = account.cash
-        for code, pos in account.stocks.items():
-            amt += sum(pos.values()) * prices[code]
-        return amt
 
     @classmethod
     def order_target_percent(cls,code, percent, price, account:Account,
@@ -322,9 +389,8 @@ class Trader:
         if percent>1:
             raise ValueError("Percent {}>100%".format(percent))
         else:
-            cnt = cls.get_cnt_from_percent(percent,prices[code],account,
+            cnt = cls.get_cnt_from_percent(percent,price,account,
                                            prices)
-            # price,cnt = cls.buy_by_cnt(code, cnt, price, account)
         return [BUY_FLAG,code,price,cnt]
 
     @classmethod
@@ -339,71 +405,9 @@ class Trader:
             # cls.sell_by_cnt(code,cnt,price,account)
         return [SELL_FLAG, code, price, -cnt]
 
-    @classmethod
-    def get_cnt_from_percent(cls, percent, price, account: Account, prices):
-        tot_value = cls.tot_amt(account, prices)
-        # print(tot_value,percent,price)
-        return int(tot_value * percent / 100 / price)*100
 
-    @staticmethod
-    def exe_single_order(code, price, cnt, account:Account):
-        """
-        Execute order and update account.
-        Assume buying when calculating and cnt<0 indicates selling.
-        :param code:
-        :param cnt:
-        :param price:
-        :param account:
-        :return:
-        """
-        if cnt == 0:
-            return
 
-        account.cash -= cnt * price
-        if code not in account.stocks:
-            account.stocks[code] = {price: cnt}
-        elif price not in account.stocks[code]:
-            account.stocks[code][price] = cnt
-        else:
-            account.stocks[code][price] += cnt
-            if account.stocks[code][price] == 0:
-                del account.stocks[code][price]
 
-        # Delete a stock key when holding shares of the stock is 0.
-        if not account.stocks[code].keys() \
-                or sum(account.stocks[code].values()) == 0:
-            del account.stocks[code]
-
-    @classmethod
-    def buy_by_cnt(cls, code, price, cnt, account:Account, buy_max=False):
-        if cnt<0:
-            raise ValueError("Buying cnt {}<0".format(cnt))
-        elif cnt==0:
-            return None
-        elif not buy_max and cnt*price > account.cash:
-            print("Cash {0} yuan is not enough for buying {1} {2} shares with "
-              "price {3}!".format(account.cash, code, cnt, price))
-            return None
-        elif buy_max and cnt*price > account.cash:
-            cnt = int(account.cash/price/100)*100
-
-        cls.exe_single_order(code, price,cnt, account)
-        return [BUY_FLAG,code,price, cnt]
-
-    @classmethod
-    def sell_by_cnt(cls, code, price, cnt,account:Account):
-        if cnt>0:
-            raise ValueError("Selling cnt {}>0".format(cnt))
-        elif cnt==0:
-            return None
-        elif code not in account.stocks or not account.stocks[code].keys():
-            raise ValueError("Selling {0} while not having any".format(code))
-        else:
-            long_pos = sum(account.stocks[code].values())
-            if abs(cnt) > long_pos:
-                raise ValueError("Selling {0} {1} shares while having only {2}".format(code,abs(cnt),long_pos))
-            cls.exe_single_order(code, price, cnt,account)
-            return [SELL_FLAG,code,price,cnt]
 
 
 class BackTest:

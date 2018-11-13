@@ -198,9 +198,9 @@ def collect_stock_day(pools: [str], db_type: str, update=False,
 
     for df_single_stock_day in download_stock_day(pools=pools,db_type=db_type,
                                       update=update, start=start):
-
         conn = dbop.write2db(df_single_stock_day,table=STOCK_DAY[TABLE],
                       cols=STOCK_DAY[COLUMNS],conn=conn, close=False)
+        print()
     dc.fillna_stock_day(conn=conn)
 
 
@@ -210,7 +210,6 @@ def collect_index_day(pools: [str], db_type: str, update=False,
 
     for df_single_index_day in download_index_day(pools=pools,db_type=db_type,
                                       update=update, start=start):
-        # TODO: fillna_index_day, similar to the above.
         conn = dbop.write2db(df_single_index_day,table=INDEX_DAY[TABLE],
                       cols=INDEX_DAY[COLUMNS],conn=conn, close=False)
         print()
