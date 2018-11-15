@@ -137,3 +137,13 @@ if __name__ == '__main__':
         print(row)
 
 
+def create_df(cursor, table_name, start=None):
+    if start:
+        sql_select = "select * from {0} where date>='{1}'".format(table_name,
+                                                                start)
+    else:
+        sql_select = "select * from {0}".format(table_name)
+    cursor.execute(sql_select)
+    df = pd.DataFrame(cursor.fetchall())
+    df.columns = dbop.cols_from_cur(cursor)
+    return df

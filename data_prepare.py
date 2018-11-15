@@ -51,8 +51,8 @@ def _move(days, df: pd.DataFrame, cols=None, prefix=True):
         return df_mv
 
 
-def _rolling(rolling_type, days, df: pd.DataFrame, cols, move=0,
-             has_prefix=True):
+def rolling(rolling_type, days, df: pd.DataFrame, cols, move=0,
+            has_prefix=True):
     _check_int(days)
     cols = _make_iterable(cols)
 
@@ -96,8 +96,7 @@ def _rolling_max(days, df: pd.DataFrame, cols, move=0, has_prefix=True):
     if move != 0:
         # print("--------",move)
         # print(df_rolling[df["code"] == "600887.SH"]["high"].iloc[:30])
-        df_rolling = _move(move,
-                           df_rolling)  # print(df_rolling[df["code"] == "600887.SH"]["f1mv_high"].iloc[:30])
+        df_rolling = _move(move,df_rolling)  # print(df_rolling[df["code"] == "600887.SH"]["f1mv_high"].iloc[:30])
     n = len(df_rolling)
     idxes = df_rolling.index
     if days > 0:
@@ -129,7 +128,7 @@ def _rolling_min(days, df: pd.DataFrame, cols, move=0, has_prefix=True):
         # print("--------",move)
         # print(df_rolling[df["code"] == "600887.SH"]["high"].iloc[:30])
         df_rolling = _move(move,
-                           df_rolling)  # print(df_rolling[df["code"] == "600887.SH"]["f1mv_high"].iloc[:30])
+                          df_rolling)  # print(df_rolling[df["code"] == "600887.SH"]["f1mv_high"].iloc[:30])
     n = len(df_rolling)
     idxes = df_rolling.index
     if days > 0:
@@ -190,18 +189,6 @@ def change_rate(df1: pd.DataFrame, df2: pd.DataFrame, cols1=None, cols2=None):
     df3 = (df2 - df1) / df1
     df3 = _prefix("change_rate", df3)
     return df3
-
-
-def create_df(cursor, table_name, start=None):
-    if start:
-        sql_select = "select * from {0} where date>='{1}'".format(table_name,
-                                                                start)
-    else:
-        sql_select = "select * from {0}".format(table_name)
-    cursor.execute(sql_select)
-    df = pd.DataFrame(cursor.fetchall())
-    df.columns = dbop.cols_from_cur(cursor)
-    return df
 
 
 def prepare_stck_d(df_stck_d):
@@ -357,9 +344,9 @@ def prepare_data(cursor, pred_period=10, start=None):
     stock_day, index_day = constants.STOCK_DAY[clct.TABLE], constants.INDEX_DAY[
         clct.TABLE]
     print("start:",start)
-    df_stck_d = create_df(cursor, stock_day, start)
+    df_stck_d = dbop.create_df(cursor, stock_day, start)
     print("min_date",min(df_stck_d.date))
-    df_idx_d = create_df(cursor, index_day, start)
+    df_idx_d = dbop.create_df(cursor, index_day, start)
 
     df_stck_d_all, cols_future = proc_stck_d(df_stck_d,
                                              pred_period=pred_period)
