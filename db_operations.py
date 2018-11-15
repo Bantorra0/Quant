@@ -145,5 +145,5 @@ def create_df(cursor, table_name, start=None):
         sql_select = "select * from {0}".format(table_name)
     cursor.execute(sql_select)
     df = pd.DataFrame(cursor.fetchall())
-    df.columns = dbop.cols_from_cur(cursor)
+    df.columns = cols_from_cur(cursor)
     return df
