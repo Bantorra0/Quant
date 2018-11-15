@@ -580,3 +580,40 @@
     #     df_test_list.append(df)
     # pd.concat(df_test_list).to_excel("test_data.xlsx",header=True,index=True)
     # pass
+
+
+
+# def rolling(rolling_type, days, df: pd.DataFrame, cols, move=0,
+#             has_prefix=True):
+#     _check_int(days)
+#     cols = _make_iterable(cols)
+#
+#     period = abs(days)
+#     if rolling_type == "max":
+#         df_rolling = df[cols].rolling(window=abs(days)).max()
+#     elif rolling_type == "min":
+#         df_rolling = df[cols].rolling(window=abs(days)).min()
+#     elif rolling_type == "mean":
+#         df_rolling = df[cols].rolling(window=abs(days)).max()
+#     else:
+#         raise ValueError(
+#             "rolling_type='{}' is not supported.".format(rolling_type))
+#
+#     if move != 0:
+#         df_rolling = _move(move, df_rolling)
+#     n = len(df_rolling)
+#     idxes = df_rolling.index
+#     if days > 0:
+#         pre = "f" + str(abs(days)) + rolling_type
+#         df_rolling = df_rolling.iloc[period - 1:n]
+#         df_rolling.index = idxes[period - 1:n]
+#     else:
+#         pre = "p" + str(abs(days)) + rolling_type
+#         df_rolling = df_rolling.iloc[period - 1:n]
+#         if n - period + 1 >= 0:
+#             df_rolling.index = idxes[:n - period + 1]
+#
+#     if has_prefix:
+#         return _prefix(pre, df_rolling)
+#     else:
+#         return df_rolling

@@ -51,9 +51,11 @@ def _move(days, df: pd.DataFrame, cols=None, prefix=True):
         return df_mv
 
 
-def rolling(rolling_type, days, df: pd.DataFrame, cols, move=0,
-            has_prefix=True):
+def rolling(rolling_type, days, df: pd.DataFrame, cols=None,
+            prefix=True):
     _check_int(days)
+    if cols is None:
+        cols = df.columns
     cols = _make_iterable(cols)
 
     period = abs(days)
@@ -62,13 +64,11 @@ def rolling(rolling_type, days, df: pd.DataFrame, cols, move=0,
     elif rolling_type == "min":
         df_rolling = df[cols].rolling(window=abs(days)).min()
     elif rolling_type == "mean":
-        df_rolling = df[cols].rolling(window=abs(days)).max()
+        df_rolling = df[cols].rolling(window=abs(days)).mean()
     else:
         raise ValueError(
             "rolling_type='{}' is not supported.".format(rolling_type))
 
-    if move != 0:
-        df_rolling = _move(move, df_rolling)
     n = len(df_rolling)
     idxes = df_rolling.index
     if days > 0:
@@ -81,7 +81,7 @@ def rolling(rolling_type, days, df: pd.DataFrame, cols, move=0,
         if n - period + 1 >= 0:
             df_rolling.index = idxes[:n - period + 1]
 
-    if has_prefix:
+    if prefix:
         return _prefix(pre, df_rolling)
     else:
         return df_rolling
