@@ -60,7 +60,10 @@ def gen_y(df_all: pd.DataFrame, pred_period=10, threshold=0.1, is_high=True,
     y[y.notnull() & (df_all["f1mv_high"] == df_all["f1mv_low"])] = 0
     print("过滤涨停项：", sum(df_all["f1mv_high"] == df_all["f1mv_low"]))
 
-    return label(y, threshold=threshold, is_high=is_high,is_clf=is_clf)
+    if is_clf:
+        return label(y, threshold=threshold, is_high=is_high)
+    else:
+        return y
 
 
 def get_target_col(pred_period = 20,is_high = True):
@@ -71,13 +74,11 @@ def get_target_col(pred_period = 20,is_high = True):
     return target_col
 
 
-def label(y, threshold=0.1, is_high=True, is_clf=False):
-    if is_clf:
-        if not is_high:
-            y = -y
-        y[y > threshold] = 1
-        y[y <= threshold] = 0
-
+def label(y, threshold=0.1, is_high=True):
+    if not is_high:
+        y = -y
+    y[y > threshold] = 1
+    y[y <= threshold] = 0
     return y
 
 
@@ -157,18 +158,17 @@ def gen_X(df_all: pd.DataFrame, cols_not_in_X, scaler=None, selector=None):
 def train(data, models, is_clf=False):
     X_train, y_train = data["train"]
 
-
-    y_pred_list = []
+    models_time = []
 
     for model in models:
         t1 = time.time()
         model.fit(X_train, y_train)
         t2 = time.time()
-        y_pred_list.append([model, t2 - t1])
+        models_time.append([model, t2 - t1])
 
         print("training time:", t2-t1)
 
-    return y_pred_list
+    return models_time
 
 
 def pred_vs_real(inc:pd.DataFrame, y_pred):
