@@ -1,11 +1,13 @@
-import datetime
 from collect import stck_pools
 from constants import DATE_FORMAT,FEE_RATE, BUY_FLAG,SELL_FLAG
 import ml_model
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import datetime
 import time
+import xgboost as xgb
+import lightgbm as lgbm
 
 
 class Account:
@@ -112,11 +114,11 @@ class Trader:
     @classmethod
     def plan_for_stck_not_in_pos(cls, code, account: Account, day_signal):
         stock_signal = day_signal[day_signal["code"] == code]
-        init_buy_cond = (stock_signal["y_l_rise"] >= 0.45) \
-                        & (stock_signal["y_s_decline"] >= -0.03) \
-                        & (stock_signal["y_s_rise"] >= 0.1)
+        init_buy_cond = (stock_signal["y_l_rise"] >= 0.2) \
+                        & (stock_signal["y_s_decline"] >= -0.04) \
+                        & (stock_signal["y_s_rise"] >= 0.06)
         if init_buy_cond.iloc[0]:
-            pct = 0.2
+            pct = 0.15
             prices = {code: day_signal[day_signal["code"] == code][
                 "qfq_close"].iloc[0] for code in day_signal["code"]}
 
@@ -138,9 +140,10 @@ class Trader:
         qfq_close = stock_signal["qfq_close"].iloc[0]
 
         retracement = (account.records[code][1] - qfq_close)
-        sell_cond0 = retracement >= max(
-            (account.records[code][1] - account.records[code][0]) * 0.25,
-            account.records[code][1] * 0.1)
+        sell_cond0 = (retracement >= max(
+            (account.records[code][1] - account.records[code][0]) * 0.3,
+            account.records[code][1] * 0.15))
+        # sell_cond0 = (retracement >= account.records[code][1] * 0.1)
 
         sell_cond1 = (stock_signal["y_l_rise"].iloc[0] <= 0.3) \
                      & (stock_signal["y_s_decline"].iloc[0] <= -0.1)
@@ -181,10 +184,10 @@ class Trader:
         return plan
 
     @classmethod
-    def gen_trading_plan(cls,day_signal,account:Account):
+    def gen_trading_plan(cls,day_signal:pd.DataFrame,account:Account):
         plan = []
         # Generate plan.
-        for code in day_signal["code"]:
+        for code in day_signal.sort_values(by="y_l_rise",ascending=False)["code"]:
             if code not in account.stocks:
                 p = cls.plan_for_stck_not_in_pos(code, account, day_signal)
             else:
@@ -278,9 +281,11 @@ class Trader:
                     del account.records[code]
                 else:
                     # Update remaining records.
-                    account.records[code][1] = \
-                        day_signal[day_signal["code"] == code][
-                            "qfq_high"].iloc[0]
+                    qfq_close = day_signal[day_signal["code"] == code][
+                        "qfq_high"].iloc[0]
+                    if qfq_close > account.records[code][1]:
+                        account.records[code][1] = qfq_close
+
 
     @classmethod
     def order_target_percent(cls,code, percent, price, account:Account,
@@ -434,7 +439,6 @@ class BackTest:
 
         X = ml_model.gen_X(df_all, cols_future)
 
-
         day_delta = datetime.timedelta(days=1)
 
         df_asset_values = pd.DataFrame(columns = ["my_model",self.benchmark])
@@ -450,9 +454,12 @@ class BackTest:
 
             day_signal = df_all.loc[date_idx].copy()
             X_day_slice = X.loc[date_idx]
-            day_signal["y_l_rise"] = models["model_l_high"].predict(X_day_slice)
-            day_signal["y_s_rise"] = models["model_s_high"].predict(X_day_slice)
-            day_signal["y_s_decline"] = models["model_s_low"].predict(X_day_slice)
+            day_signal["y_l_rise"] = models["model_l_high"].predict(
+                X_day_slice)
+            day_signal["y_s_rise"] = models["model_s_high"].predict(
+                X_day_slice)
+            day_signal["y_s_decline"] = models["model_s_low"].predict(
+                X_day_slice)
             main_cols = ["qfq_open", "qfq_high", "qfq_low", "qfq_close"]
 
             # Skip the trading date when there is null in data.
@@ -513,7 +520,8 @@ class BackTest:
         end = datetime.datetime.strptime(self.end,DATE_FORMAT)
 
         training_bound = datetime.datetime.strptime(self.start,
-                                                 DATE_FORMAT) - 730 * self.time_delta
+                                                 DATE_FORMAT) - 1825 * \
+                         self.time_delta
         training_bound = datetime.datetime.strftime(training_bound, DATE_FORMAT)
 
         lower_bound = datetime.datetime.strptime(training_bound,
@@ -531,6 +539,7 @@ class BackTest:
         trading_date_idxes = df_all.index.unique().sort_values(ascending=False)
 
         X = ml_model.gen_X(df_all, cols_future)
+        df_backtest =df_all[df_all.index>=self.start]
         paras = [("y_l_rise",{"pred_period":20,"is_high":True,"is_clf":False},df_all),
                  ("y_s_rise",{"pred_period":5,"is_high":True,"is_clf":False},df_all2),
                  ("y_s_decline",{"pred_period":5,"is_high":False,"is_clf":False},df_all2),]
@@ -558,18 +567,15 @@ class BackTest:
 
             day_signal = df_all.loc[date_idx].copy()
             main_cols = ["qfq_open", "qfq_high", "qfq_low", "qfq_close"]
-
-            # Skip the trading date when there is null in data.
-            # May be removed in future, because it is not reasonable.
-            if day_signal[main_cols].isna().any().any():
-                date = date + day_delta
-                continue
+            day_signal = day_signal[(day_signal[main_cols].notnull()).all(
+                axis=1)]
 
             if cnt%update_frequency == 0:
                 print("count:",cnt)
                 t=time.time()
                 for ycol in Y.columns:
-                    train_date_idx = trading_date_idxes[trading_date_idxes<=date_idx][cnt:]
+                    train_date_idx = trading_date_idxes[
+                                         trading_date_idxes<=date_idx][cnt:-25]
                     X_train = X.loc[train_date_idx]
                     y_train = Y.loc[train_date_idx,ycol]
                     print(train_date_idx.shape, X_train.shape, y_train.shape)
@@ -580,6 +586,8 @@ class BackTest:
             day_signal["y_l_rise"] = models["model_l_high"].predict(X_day_slice)
             day_signal["y_s_rise"] = models["model_s_high"].predict(X_day_slice)
             day_signal["y_s_decline"] = models["model_s_low"].predict(X_day_slice)
+            print(day_signal["y_l_rise"].max(), day_signal["y_s_rise"].max(),
+                  day_signal["y_s_decline"].min())
 
             # Execute the trading plan made on previous trading day,
             # including generating and executing orders, updating account information.
@@ -608,12 +616,29 @@ class BackTest:
                     "qfq_close"].iloc[0] for code in day_signal["code"]}
             my_model_value = self.trader.tot_amt(account=self.account,
                                                  prices=prices)
-            if len(df_asset_values.index) == 0:
+            if len(df_asset_values)==0:
                 baseline_value = self.capital_base
             else:
                 baseline_value = day_signal[self.benchmark+"_close"].iloc[0] / df_all.loc[
                     df_asset_values.index.min(), self.benchmark+"_close"].iloc[
                     0] * self.capital_base
+                # baseline_val_list = []
+                # for code in day_signal["code"]:
+                #     day_stock_signal = day_signal[day_signal["code"]==code]
+                #     df_backtest_stock = df_backtest[df_backtest["code"]==code]
+                #     start_idx = df_backtest_stock[
+                #         "qfq_close"].first_valid_index()
+                #     if start_idx < date_idx:
+                #         current_qfq_close = day_stock_signal["qfq_close"]
+                #         start_qfq_close = df_backtest_stock.loc[start_idx,
+                #                                            "qfq_close"]
+                #         stock_relative_value = current_qfq_close/start_qfq_close\
+                #                            * df_asset_values.loc[start_idx,
+                #                                                  self.benchmark]
+                #         baseline_val_list.append(stock_relative_value)
+                # baseline_value = np.mean(baseline_val_list) if \
+                #     baseline_val_list else df_asset_values[
+                #     self.benchmark].iloc[-1]
             df_asset_values.loc[date_idx] = [my_model_value, baseline_value]
             print(date_idx, dict(df_asset_values.loc[date_idx]))
 
@@ -632,11 +657,31 @@ def main():
     model_type = "XGBRegressor"
 
     models = {}
-    models["model_l_high"] = ml_model.load_model(model_type,pred_period=20,is_high=True)
-    models["model_s_low"] = ml_model.load_model(model_type,pred_period=5,is_high=False)
-    models["model_s_high"] = ml_model.load_model(model_type,pred_period=5,is_high=True)
+    # models["model_l_high"] = ml_model.load_model(model_type,pred_period=20,is_high=True)
+    # models["model_s_low"] = ml_model.load_model(model_type,pred_period=5,is_high=False)
+    # models["model_s_high"] = ml_model.load_model(model_type,pred_period=5,is_high=True)
 
-    backtester = BackTest(start="2017-01-01")
+    models["model_l_high"] = lgbm.LGBMRegressor(n_estimators=100,
+                                                num_leaves=128, max_depth=10,
+                       random_state=0, min_child_weight=5)
+    models["model_s_low"] = lgbm.LGBMRegressor(n_estimators=100,
+                                               num_leaves=128, max_depth=10,
+                       random_state=0, min_child_weight=5)
+    models["model_s_high"] = lgbm.LGBMRegressor(n_estimators=100,
+                                                num_leaves=128, max_depth=10,
+                       random_state=0, min_child_weight=5)
+
+    # models["model_l_high"] = xgb.XGBRegressor(n_estimators=100,max_depth=8,
+    #                                             random_state=0,
+    #                                             min_child_weight=5)
+    # models["model_s_low"] = xgb.XGBRegressor(n_estimators=100,max_depth=6,
+    #                                            random_state=0,
+    #                                            min_child_weight=5)
+    # models["model_s_high"] = xgb.XGBRegressor(n_estimators=100,max_depth=6,
+    #                                             random_state=0,
+    #                                             min_child_weight=5)
+
+    backtester = BackTest(start="2014-01-01")
     df_asset_values,orders,transactions,stocks = backtester.backtest_with_updating_model(models)
     # for date,row in df_asset_values.iterrows():
     #     print(date,dict(row))
