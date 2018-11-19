@@ -140,6 +140,7 @@ def download_index_day(pools: [str], db_type:str, update=False,
         yield df
 
     print("-"*10,"\nDownload failure:{0}\n".format(download_failure))
+    yield download_failure
 
 
 def download_stock_day(pools: [str], db_type:str, update=False,
@@ -190,45 +191,66 @@ def download_stock_day(pools: [str], db_type:str, update=False,
         yield df
 
     print("-"*10,"\nDownload failure:{0}\n".format(download_failure))
+    yield download_failure
 
 
 def collect_stock_day(pools: [str], db_type: str, update=False,
                       start="2000-01-01"):
     conn = dbop.connect_db(db_type)
-
+    download_failure,write_failure=0,0
     for df_single_stock_day in download_stock_day(pools=pools,db_type=db_type,
                                       update=update, start=start):
-        conn = dbop.write2db(df_single_stock_day,table=STOCK_DAY[TABLE],
+        if type(df_single_stock_day)!=int:
+            conn,failure = dbop.write2db(df_single_stock_day,table=STOCK_DAY[
+                TABLE],
                       cols=STOCK_DAY[COLUMNS],conn=conn, close=False)
+            write_failure +=failure
+        else:
+            download_failure = df_single_stock_day
         print()
     dbop.close_db(conn)
+    return download_failure,write_failure
 
 
 def collect_index_day(pools: [str], db_type: str, update=False,
                       start="2000-01-01"):
     conn = dbop.connect_db(db_type)
-
+    download_failure,write_failure = 0,0
     for df_single_index_day in download_index_day(pools=pools,db_type=db_type,
                                       update=update, start=start):
-        conn = dbop.write2db(df_single_index_day,table=INDEX_DAY[TABLE],
+        if type(df_single_index_day)!=int:
+            conn, failure = dbop.write2db(df_single_index_day,
+                                            table=INDEX_DAY[TABLE],
                       cols=INDEX_DAY[COLUMNS],conn=conn, close=False)
+            write_failure += failure
+        else:
+            download_failure = df_single_index_day
         print()
     dbop.close_db(conn)
+    return download_failure,write_failure
 
 
 def update():
     db_type = "sqlite3"
 
     # # init_table(INDEX_DAY[TABLE], db_type)
-    print("Indexes:", len(idx_pools()))
-    collect_index_day(idx_pools(), db_type, update=True)
-    #
     # # init_table(STOCK_DAY[TABLE], db_type)
-    print("Stocks:",len(stck_pools()))
-    collect_stock_day(stck_pools(), db_type, update=True)
 
+    download_failure = 1
+    write_failure = 0
+    while download_failure>0 or write_failure>0:
+        print("Indexes:", len(idx_pools()))
+        download_failure1,write_failure1 = collect_index_day(idx_pools(),
+                                                           db_type,
+                                              update=True)
+        print("Stocks:",len(stck_pools()))
+        download_failure2, write_failure2 = collect_stock_day(stck_pools(),
+                                                              db_type,
+                                             update=True)
+        download_failure = download_failure1+download_failure2
+        write_failure = write_failure1+write_failure2
+    dc.fillna_stock_day(db_type=db_type)
 
 
 if __name__ == '__main__':
     update()
-    dc.fillna_stock_day(db_type=db_type)

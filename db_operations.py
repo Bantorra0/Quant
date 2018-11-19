@@ -127,7 +127,7 @@ def write2db(df:pd.DataFrame, table, cols, db_type="sqlite3",
     else:
         conn.commit()
     print("-"*10,"\nWrite failure:{0}\n".format(write_failure))
-    return conn
+    return conn,write_failure
 
 
 if __name__ == '__main__':
