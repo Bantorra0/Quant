@@ -201,7 +201,7 @@ def collect_stock_day(pools: [str], db_type: str, update=False,
         conn = dbop.write2db(df_single_stock_day,table=STOCK_DAY[TABLE],
                       cols=STOCK_DAY[COLUMNS],conn=conn, close=False)
         print()
-    dc.fillna_stock_day(conn=conn)
+    dbop.close_db(conn)
 
 
 def collect_index_day(pools: [str], db_type: str, update=False,
@@ -228,5 +228,7 @@ def update():
     collect_stock_day(stck_pools(), db_type, update=True)
 
 
+
 if __name__ == '__main__':
     update()
+    dc.fillna_stock_day(db_type=db_type)
