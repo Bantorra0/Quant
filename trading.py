@@ -672,17 +672,17 @@ def main():
     #                                             num_leaves=128, max_depth=10,
     #                    random_state=0, min_child_weight=5)
 
-    models["model_l_high"] = xgb.XGBRegressor(n_estimators=100,max_depth=8,
+    models["model_l_high"] = xgb.XGBRegressor(n_estimators=5,max_depth=8,
                                                 random_state=0,
                                                 min_child_weight=5)
-    models["model_s_low"] = xgb.XGBRegressor(n_estimators=100,max_depth=8,
+    models["model_s_low"] = xgb.XGBRegressor(n_estimators=5,max_depth=8,
                                                random_state=0,
                                                min_child_weight=5)
-    models["model_s_high"] = xgb.XGBRegressor(n_estimators=100,max_depth=8,
+    models["model_s_high"] = xgb.XGBRegressor(n_estimators=5,max_depth=8,
                                                 random_state=0,
                                                 min_child_weight=5)
 
-    backtester = BackTest(start="2014-01-01")
+    backtester = BackTest(start="2018-01-01")
     df_asset_values,orders,transactions,stocks = backtester.backtest_with_updating_model(models)
     # for date,row in df_asset_values.iterrows():
     #     print(date,dict(row))
@@ -693,14 +693,27 @@ def main():
         print(k,v)
 
     dates = df_asset_values.index
-    plt.figure()
-    plt.plot(dates, df_asset_values["my_model"], 'r')
-    plt.plot(dates, df_asset_values["hs300"], 'b')
-    # ticks = [dates[dates >= "2018-{:02d}-01".format(i)].min() for i in
-    #          range(1, 12) if (dates >= "2018-{:02d}-01".format(i)).any()]
-    # labels = [datetime.datetime.strptime(t, "%Y-%m-%d").strftime("%m%d") for
-    #           t in ticks]
-    # plt.xticks(ticks, labels)
+    figs,axes = plt.subplots()
+    for col in df_asset_values.columns:
+        axes.plot(dates, df_asset_values[col],label=col)
+    axes.legend(loc="upper left")
+
+    df_asset_values = df_asset_values.sort_index()
+    prev = None
+    seasons = ["01","04","07","10"]
+    ticks = [df_asset_values.index[0]]
+    labels = [df_asset_values.index[0][2:4]+df_asset_values.index[0][5:7]]
+    for date_idx in df_asset_values.index[1:]:
+        if date_idx[5:7] in seasons and date_idx[5:7]!=prev:
+            ticks.append(date_idx)
+            if date_idx[5:7]=="01":
+                labels.append(date_idx[2:4]+date_idx[5:7])
+            else:
+                labels.append(date_idx[5:7])
+            prev = date_idx[5:7]
+    ticks.append(df_asset_values.index[-1])
+    labels.append([df_asset_values.index[-1][2:4] + df_asset_values.index[-1][5:7]])
+    plt.xticks(ticks, labels)
     plt.show()
 
 
