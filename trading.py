@@ -672,13 +672,13 @@ def main():
     #                                             num_leaves=128, max_depth=10,
     #                    random_state=0, min_child_weight=5)
 
-    models["model_l_high"] = xgb.XGBRegressor(n_estimators=5,max_depth=8,
+    models["model_l_high"] = xgb.XGBRegressor(n_estimators=10,max_depth=8,
                                                 random_state=0,
                                                 min_child_weight=5)
-    models["model_s_low"] = xgb.XGBRegressor(n_estimators=5,max_depth=8,
+    models["model_s_low"] = xgb.XGBRegressor(n_estimators=10,max_depth=8,
                                                random_state=0,
                                                min_child_weight=5)
-    models["model_s_high"] = xgb.XGBRegressor(n_estimators=5,max_depth=8,
+    models["model_s_high"] = xgb.XGBRegressor(n_estimators=10,max_depth=8,
                                                 random_state=0,
                                                 min_child_weight=5)
 
@@ -699,20 +699,18 @@ def main():
     axes.legend(loc="upper left")
 
     df_asset_values = df_asset_values.sort_index()
-    prev = None
+    prev = df_asset_values.index[0][5:7]
     seasons = ["01","04","07","10"]
     ticks = [df_asset_values.index[0]]
-    labels = [df_asset_values.index[0][2:4]+df_asset_values.index[0][5:7]]
     for date_idx in df_asset_values.index[1:]:
         if date_idx[5:7] in seasons and date_idx[5:7]!=prev:
             ticks.append(date_idx)
-            if date_idx[5:7]=="01":
-                labels.append(date_idx[2:4]+date_idx[5:7])
-            else:
-                labels.append(date_idx[5:7])
             prev = date_idx[5:7]
     ticks.append(df_asset_values.index[-1])
-    labels.append([df_asset_values.index[-1][2:4] + df_asset_values.index[-1][5:7]])
+    labels = [ticks[0].replace("-","")[2:]]\
+             +[date_idx[2:4]+date_idx[5:7] if date_idx[5:7]=="01" else
+               date_idx[5:7] for date_idx in ticks[1:-1]]\
+             + [ticks[-1].replace("-","")[2:]]
     plt.xticks(ticks, labels)
     plt.show()
 
