@@ -145,8 +145,8 @@ class Trader:
             account.records[code][1] * 0.15))
         # sell_cond0 = (retracement >= account.records[code][1] * 0.1)
 
-        sell_cond1 = (stock_signal["y_l_rise"].iloc[0] <= 0.3) \
-                     & (stock_signal["y_s_decline"].iloc[0] <= -0.1)
+        sell_cond1 = (stock_signal["y_l_rise"].iloc[0] <= 0.1) \
+                     & (stock_signal["y_s_decline"].iloc[0] <= -0.08)
 
         # Generate order based on various conditions.
         plan=None
@@ -672,17 +672,17 @@ def main():
     #                                             num_leaves=128, max_depth=10,
     #                    random_state=0, min_child_weight=5)
 
-    models["model_l_high"] = xgb.XGBRegressor(n_estimators=150,max_depth=8,
+    models["model_l_high"] = xgb.XGBRegressor(n_estimators=100,max_depth=8,
                                                 random_state=0,
                                                 min_child_weight=5)
-    models["model_s_low"] = xgb.XGBRegressor(n_estimators=150,max_depth=8,
+    models["model_s_low"] = xgb.XGBRegressor(n_estimators=100,max_depth=8,
                                                random_state=0,
                                                min_child_weight=5)
-    models["model_s_high"] = xgb.XGBRegressor(n_estimators=150,max_depth=8,
+    models["model_s_high"] = xgb.XGBRegressor(n_estimators=100,max_depth=8,
                                                 random_state=0,
                                                 min_child_weight=5)
 
-    backtester = BackTest(start="2013-01-01")
+    backtester = BackTest(start="2014-01-01")
     df_asset_values,orders,transactions,stocks = backtester.backtest_with_updating_model(models)
     # for date,row in df_asset_values.iterrows():
     #     print(date,dict(row))
