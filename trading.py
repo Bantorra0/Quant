@@ -115,9 +115,9 @@ class Trader:
     @classmethod
     def plan_for_stck_not_in_pos(cls, code, account: Account, day_signal):
         stock_signal = day_signal[day_signal["code"] == code]
-        init_buy_cond = (stock_signal["y_l_rise"] >= 0.2) \
-                        & (stock_signal["y_s_decline"] >= -0.04) \
-                        & (stock_signal["y_s_rise"] >= 0.06)
+        init_buy_cond = (stock_signal["y_l_rise"] >= 0.15) \
+                        & (stock_signal["y_s_decline"] >= -0.05) \
+                        & (stock_signal["y_s_rise"] >= 0.05)
         if init_buy_cond.iloc[0]:
             prices = {code: day_signal[day_signal["code"] == code][
                 "qfq_close"].iloc[0] for code in day_signal["code"]}
@@ -175,7 +175,8 @@ class Trader:
             code].items() if cnt < 0]
         selling_times = len(selling_records)
         stop_profit_price = account.records[code][1]*(1-(selling_times+1)*0.05)
-        if stop_profit_price > sell_price:
+        if stop_profit_price > sell_price and account.records[code][
+            1]/account.records[code][0]>1.2:
             plan.append([constants.SELL_FLAG,code,stop_profit_price,
                          -init_buy_cnt])
 
@@ -681,25 +682,25 @@ def main():
     # models["model_s_low"] = ml_model.load_model(model_type,pred_period=5,is_high=False)
     # models["model_s_high"] = ml_model.load_model(model_type,pred_period=5,is_high=True)
 
-    # models["model_l_high"] = lgbm.LGBMRegressor(n_estimators=10,
-    #                                             num_leaves=128, max_depth=10,
-    #                    random_state=0, min_child_weight=5)
-    # models["model_s_low"] = lgbm.LGBMRegressor(n_estimators=10,
-    #                                            num_leaves=128, max_depth=10,
-    #                    random_state=0, min_child_weight=5)
-    # models["model_s_high"] = lgbm.LGBMRegressor(n_estimators=10,
-    #                                             num_leaves=128, max_depth=10,
-    #                    random_state=0, min_child_weight=5)
+    models["model_l_high"] = lgbm.LGBMRegressor(n_estimators=20,
+                                                num_leaves=128, max_depth=10,
+                       random_state=0, min_child_weight=5)
+    models["model_s_low"] = lgbm.LGBMRegressor(n_estimators=20,
+                                               num_leaves=128, max_depth=10,
+                       random_state=0, min_child_weight=5)
+    models["model_s_high"] = lgbm.LGBMRegressor(n_estimators=20,
+                                                num_leaves=128, max_depth=10,
+                       random_state=0, min_child_weight=5)
 
-    models["model_l_high"] = xgb.XGBRegressor(n_estimators=100,max_depth=8,
-                                                random_state=0,
-                                                min_child_weight=5)
-    models["model_s_low"] = xgb.XGBRegressor(n_estimators=100,max_depth=8,
-                                               random_state=0,
-                                               min_child_weight=5)
-    models["model_s_high"] = xgb.XGBRegressor(n_estimators=100,max_depth=8,
-                                                random_state=0,
-                                                min_child_weight=5)
+    # models["model_l_high"] = xgb.XGBRegressor(n_estimators=100,max_depth=8,
+    #                                             random_state=0,
+    #                                             min_child_weight=5)
+    # models["model_s_low"] = xgb.XGBRegressor(n_estimators=100,max_depth=8,
+    #                                            random_state=0,
+    #                                            min_child_weight=5)
+    # models["model_s_high"] = xgb.XGBRegressor(n_estimators=100,max_depth=8,
+    #                                             random_state=0,
+    #                                             min_child_weight=5)
 
     stock_pools = ['600487.SH', '600567.SH', '002068.SZ', '000488.SZ',
                    '600392.SH', '600966.SH', '000725.SZ', '600549.SH',
@@ -708,7 +709,7 @@ def main():
 
     backtester = BackTest(start="2014-01-01")
     df_asset_values,orders,transactions,stocks = \
-        backtester.backtest_with_updating_model(models,stock_pools=stock_pools)
+        backtester.backtest_with_updating_model(models)
 
     print("Transactions:",len(transactions))
     for e in sorted(transactions,key=lambda x:(x[1],x[0])):
