@@ -682,25 +682,25 @@ def main():
     # models["model_s_low"] = ml_model.load_model(model_type,pred_period=5,is_high=False)
     # models["model_s_high"] = ml_model.load_model(model_type,pred_period=5,is_high=True)
 
-    models["model_l_high"] = lgbm.LGBMRegressor(n_estimators=20,
-                                                num_leaves=128, max_depth=10,
-                       random_state=0, min_child_weight=5)
-    models["model_s_low"] = lgbm.LGBMRegressor(n_estimators=20,
-                                               num_leaves=128, max_depth=10,
-                       random_state=0, min_child_weight=5)
-    models["model_s_high"] = lgbm.LGBMRegressor(n_estimators=20,
-                                                num_leaves=128, max_depth=10,
-                       random_state=0, min_child_weight=5)
+    # models["model_l_high"] = lgbm.LGBMRegressor(n_estimators=20,
+    #                                             num_leaves=128, max_depth=10,
+    #                    random_state=0, min_child_weight=5)
+    # models["model_s_low"] = lgbm.LGBMRegressor(n_estimators=20,
+    #                                            num_leaves=128, max_depth=10,
+    #                    random_state=0, min_child_weight=5)
+    # models["model_s_high"] = lgbm.LGBMRegressor(n_estimators=20,
+    #                                             num_leaves=128, max_depth=10,
+    #                    random_state=0, min_child_weight=5)
 
-    # models["model_l_high"] = xgb.XGBRegressor(n_estimators=100,max_depth=8,
-    #                                             random_state=0,
-    #                                             min_child_weight=5)
-    # models["model_s_low"] = xgb.XGBRegressor(n_estimators=100,max_depth=8,
-    #                                            random_state=0,
-    #                                            min_child_weight=5)
-    # models["model_s_high"] = xgb.XGBRegressor(n_estimators=100,max_depth=8,
-    #                                             random_state=0,
-    #                                             min_child_weight=5)
+    models["model_l_high"] = xgb.XGBRegressor(n_estimators=100,max_depth=8,
+                                                random_state=0,
+                                                min_child_weight=5)
+    models["model_s_low"] = xgb.XGBRegressor(n_estimators=100,max_depth=8,
+                                               random_state=0,
+                                               min_child_weight=5)
+    models["model_s_high"] = xgb.XGBRegressor(n_estimators=100,max_depth=8,
+                                                random_state=0,
+                                                min_child_weight=5)
 
     stock_pools = ['600487.SH', '600567.SH', '002068.SZ', '000488.SZ',
                    '600392.SH', '600966.SH', '000725.SZ', '600549.SH',
