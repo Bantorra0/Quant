@@ -236,17 +236,37 @@ def update():
     # # init_table(INDEX_DAY[TABLE], db_type)
     # # init_table(STOCK_DAY[TABLE], db_type)
 
+    index_pools = idx_pools()
+    # stock_pools = stck_pools()
+    stock_pools = ['600487.SH',
+                   '600567.SH',
+                   '002068.SZ',
+                   '000488.SZ',
+                   '600392.SH',
+                   '600966.SH',
+                   '000725.SZ',
+                   '600549.SH',
+                   '000333.SZ',
+                   '300700.SZ',
+                   '000338.SZ',
+                   '002099.SZ',
+                   '600023.SH',
+                   '000581.SZ',
+                   '000539.SZ',
+                   '600401.SH']
+
+
     download_failure = 1
     write_failure = 0
     while download_failure>0 or write_failure>0:
-        print("Indexes:", len(idx_pools()))
-        download_failure1,write_failure1 = collect_index_day(idx_pools(),
+        print("Indexes:", len(index_pools))
+        download_failure1,write_failure1 = collect_index_day(index_pools,
                                                            db_type,
                                               update=True)
-        print("Stocks:",len(stck_pools()))
-        download_failure2, write_failure2 = collect_stock_day(stck_pools(),
+        print("Stocks:",len(stock_pools))
+        download_failure2, write_failure2 = collect_stock_day(stock_pools,
                                                               db_type,
-                                             update=True)
+                                             update=False)
         download_failure = download_failure1+download_failure2
         write_failure = write_failure1+write_failure2
     dc.fillna_stock_day(db_type=db_type)

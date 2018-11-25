@@ -1,5 +1,6 @@
 from collect import stck_pools
-from constants import DATE_FORMAT,FEE_RATE, BUY_FLAG,SELL_FLAG
+from constants import DATE_FORMAT,FEE_RATE, BUY_FLAG,SELL_FLAG, BUY_IN_PCT
+import constants
 import ml_model
 import numpy as np
 import pandas as pd
@@ -118,13 +119,12 @@ class Trader:
                         & (stock_signal["y_s_decline"] >= -0.04) \
                         & (stock_signal["y_s_rise"] >= 0.06)
         if init_buy_cond.iloc[0]:
-            pct = 0.1
             prices = {code: day_signal[day_signal["code"] == code][
                 "qfq_close"].iloc[0] for code in day_signal["code"]}
 
-            p = cls.order_buy_pct(code, percent=pct, price=prices[code],
-                                     account=account, prices=prices)
-            p[2]="open"
+            p = cls.order_buy_pct(code, percent=constants.BUY_IN_PCT,
+                                  price=prices[code],account=account, prices=prices)
+            p[2] = -float("inf")
             return [p]
         else:
             return None
@@ -149,45 +149,56 @@ class Trader:
                      & (stock_signal["y_s_decline"].iloc[0] <= -0.08)
 
         # Generate order based on various conditions.
-        plan=None
         if sell_cond0 or sell_cond1:
             o = cls.order_sell_by_stck_pct(code, percent=1,
                                               price=qfq_close, account=account)
-            o[2] = "open"
-            plan = [o]
-        elif sum(account.stocks[code].values()) == init_buy_cnt:
-            # Stage after buying first commitment.
-            sell_price = round(init_buy_price*0.95,2)
-            buy_price = round(init_buy_price*1.05,2)
-            plan=[cls.order_sell_by_stck_pct(code, percent=1,
-                                             price=sell_price,
-                                             account=account)]
-            plan.append([BUY_FLAG, code, buy_price, init_buy_cnt])
-        elif sum(account.stocks[code].values()) == 2 * init_buy_cnt:
-            # Stage after buying second commitment.
-            holding_shares = sum([v for v in account.stocks[code].values()])
-            cost = sum([k*v for k,v in account.stocks[code].items()])
-            sell_price = round(cost * (1-0.025)/holding_shares,2)
-            buy_price = round(init_buy_price * 1.1, 2)
-            plan=[cls.order_sell_by_stck_pct(code, percent=1,
-                                                  price=sell_price,
-                                                  account=account)]
-            plan.append([BUY_FLAG, code, buy_price, init_buy_cnt])
-        elif sum(account.stocks[code].values()) == 3 * init_buy_cnt:
-            # Stage after buying third commitment.
-            holding_shares = sum([v for v in account.stocks[code].values()])
-            cost = sum([k * v for k, v in account.stocks[code].items()])
-            sell_price = round(cost * (1 - 0.0166) / holding_shares, 2)
-            plan = [cls.order_sell_by_stck_pct(code, percent=1,
-                                                  price=sell_price,
-                                                  account=account)]
+            o[2] = -float("inf")
+            return [o]
+
+        holding_shares = sum(account.stocks[code].values())
+        cost = sum([price*cnt for price,cnt in account.stocks[code].items()])
+        if holding_shares % init_buy_cnt != 0:
+            raise ValueError("Holing shares {0} can not divided by initial "
+                             "buying shares {1}".format(holding_shares,
+                                                        init_buy_cnt))
+        i = holding_shares // init_buy_cnt
+        if i>5:
+            raise ValueError("Buying in {0} for {1} times".format(code,i))
+        sell_price = (1-0.01/(i*constants.BUY_IN_PCT))*cost/holding_shares
+        # Closing out fails today, try again at next opening.
+        if stock_signal["qfq_low"].iloc[0] < sell_price:
+            return [[constants.SELL_FLAG,code,-float("inf"),-holding_shares]]
+        plan = [cls.order_sell_by_stck_pct(code, percent=1, price=sell_price,
+                                           account=account)]
+
+        selling_records= [(price, cnt) for price, cnt in account.stocks[
+            code].items() if cnt < 0]
+        selling_times = len(selling_records)
+        stop_profit_price = account.records[code][1]*(1-(selling_times+1)*0.05)
+        if stop_profit_price > sell_price:
+            plan.append([constants.SELL_FLAG,code,stop_profit_price,
+                         -init_buy_cnt])
+
+        if i< round(constants.HOLDING_PCT_LIMIT/constants.BUY_IN_PCT):
+            buy_price = init_buy_price * (1 + i * 0.05)
+            if buy_price > qfq_close:
+                plan.append([BUY_FLAG, code, buy_price, init_buy_cnt])
         return plan
 
     @classmethod
-    def gen_trading_plan(cls,day_signal:pd.DataFrame,account:Account):
+    def gen_trading_plan(cls,day_signal:pd.DataFrame,account:Account,
+                         stock_pools=None):
         plan = []
         # Generate plan.
-        for code in day_signal.sort_values(by="y_l_rise",ascending=False)["code"]:
+        codes = sorted(list(day_signal["code"]),
+                       key=lambda c:
+                       (len(account.stocks[c].keys()) if c in account.stocks
+                        else 0,
+                        day_signal[day_signal["code"]==c]["y_l_rise"].iloc[0]),
+                       reverse=True)
+        for code in codes:
+            if stock_pools and code not in stock_pools:
+                continue
             if code not in account.stocks:
                 p = cls.plan_for_stck_not_in_pos(code, account, day_signal)
             else:
@@ -211,8 +222,8 @@ class Trader:
                     continue
             else:
                 continue
-            for flag, code, price,cnt in stock_plan:
-                if price == "open":
+            for flag, code, price,cnt in sorted(stock_plan, key=lambda x:x[2]):
+                if price == -float("inf"):
                     price = stock_signal["qfq_open"].iloc[0]
                     orders.append([flag, code, price,cnt])
                     break
@@ -226,7 +237,7 @@ class Trader:
                                    "change_rate_p1mv_close"].iloc[
                                    0]<-0.089:
                             print("收盘涨停板，加仓失败！")
-                        else:
+                        elif qfq_close < 1.1*price:
                             orders.append([flag,code,qfq_close,cnt])
                         break
                     elif flag==SELL_FLAG and qfq_low < price:
@@ -281,10 +292,10 @@ class Trader:
                     del account.records[code]
                 else:
                     # Update remaining records.
-                    qfq_close = day_signal[day_signal["code"] == code][
+                    qfq_high = day_signal[day_signal["code"] == code][
                         "qfq_high"].iloc[0]
-                    if qfq_close > account.records[code][1]:
-                        account.records[code][1] = qfq_close
+                    if qfq_high > account.records[code][1]:
+                        account.records[code][1] = qfq_high
 
 
     @classmethod
@@ -512,7 +523,9 @@ class BackTest:
         return df_asset_values,orders,transactions,stocks
 
 
-    def backtest_with_updating_model(self, models, update_frequency=60):
+    def backtest_with_updating_model(self, models, update_frequency=60,
+                                     stock_pools=None,
+                                     training_stock_pools=None):
         self.init_account()
         self.init_trader()
 
@@ -531,10 +544,12 @@ class BackTest:
 
         df_all, cols_future = ml_model.gen_data(pred_period=20,
                                                 lower_bound= lower_bound,
-                                                start=training_bound)
+                                                start=training_bound,
+                                                stock_pools=training_stock_pools)
         df_all2, cols_future2 = ml_model.gen_data(pred_period=5,
                                                 lower_bound=lower_bound,
-                                                start=training_bound)
+                                                start=training_bound,
+                                                stock_pools=training_stock_pools)
         print("df_all:",df_all.shape)
         trading_date_idxes = df_all.index.unique().sort_values(ascending=False)
 
@@ -625,6 +640,8 @@ class BackTest:
 
                 baseline_val_list = []
                 for code in day_signal["code"]:
+                    if stock_pools and code not in stock_pools:
+                        continue
                     day_stock_signal = day_signal[day_signal["code"]==code]
                     df_backtest_stock = df_backtest[df_backtest["code"]==code]
                     start_idx = df_backtest_stock[
@@ -644,7 +661,9 @@ class BackTest:
             print(date_idx, dict(df_asset_values.loc[date_idx]))
 
             # Make a plan for the next trading day.
-            day_plan = self.trader.gen_trading_plan(day_signal=day_signal,account=self.account)
+            day_plan = self.trader.gen_trading_plan(day_signal=day_signal,
+                                                    account=self.account,
+                                                    stock_pools=stock_pools)
 
             date = date + day_delta
             cnt +=1
@@ -662,13 +681,13 @@ def main():
     # models["model_s_low"] = ml_model.load_model(model_type,pred_period=5,is_high=False)
     # models["model_s_high"] = ml_model.load_model(model_type,pred_period=5,is_high=True)
 
-    # models["model_l_high"] = lgbm.LGBMRegressor(n_estimators=100,
+    # models["model_l_high"] = lgbm.LGBMRegressor(n_estimators=10,
     #                                             num_leaves=128, max_depth=10,
     #                    random_state=0, min_child_weight=5)
-    # models["model_s_low"] = lgbm.LGBMRegressor(n_estimators=100,
+    # models["model_s_low"] = lgbm.LGBMRegressor(n_estimators=10,
     #                                            num_leaves=128, max_depth=10,
     #                    random_state=0, min_child_weight=5)
-    # models["model_s_high"] = lgbm.LGBMRegressor(n_estimators=100,
+    # models["model_s_high"] = lgbm.LGBMRegressor(n_estimators=10,
     #                                             num_leaves=128, max_depth=10,
     #                    random_state=0, min_child_weight=5)
 
@@ -682,10 +701,15 @@ def main():
                                                 random_state=0,
                                                 min_child_weight=5)
 
+    stock_pools = ['600487.SH', '600567.SH', '002068.SZ', '000488.SZ',
+                   '600392.SH', '600966.SH', '000725.SZ', '600549.SH',
+                   '000333.SZ', '300700.SZ', '000338.SZ', '002099.SZ',
+                   '600023.SH', '000581.SZ', '000539.SZ', '600401.SH']
+
     backtester = BackTest(start="2014-01-01")
-    df_asset_values,orders,transactions,stocks = backtester.backtest_with_updating_model(models)
-    # for date,row in df_asset_values.iterrows():
-    #     print(date,dict(row))
+    df_asset_values,orders,transactions,stocks = \
+        backtester.backtest_with_updating_model(models,stock_pools=stock_pools)
+
     print("Transactions:",len(transactions))
     for e in sorted(transactions,key=lambda x:(x[1],x[0])):
         print(e)

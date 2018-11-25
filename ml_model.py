@@ -16,13 +16,14 @@ from data_prepare import prepare_data, feature_select
 from constants import FLOAT_DELTA, MODEL_DIR
 
 
-def gen_data(pred_period=20, lower_bound="2011-01-01", start="2014-01-01"):
+def gen_data(pred_period=20, lower_bound="2011-01-01", start="2014-01-01",
+             stock_pools=None):
     db_type = "sqlite3"
     conn = dbop.connect_db(db_type)
     cursor = conn.cursor()
 
     df_all, cols_not_in_X = prepare_data(cursor, pred_period=pred_period,
-                                       start=lower_bound)
+                                       start=lower_bound,stock_pools=stock_pools)
 
     data_period = (df_all.index >= start)
     df_all = df_all[data_period]

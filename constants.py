@@ -18,3 +18,8 @@ FLOAT_DELTA = 1+1e-7
 
 BUY_FLAG = 1
 SELL_FLAG = -1
+
+
+# Configs for trading pattern.
+BUY_IN_PCT = 0.1
+HOLDING_PCT_LIMIT = 0.5

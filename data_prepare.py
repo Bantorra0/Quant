@@ -144,7 +144,7 @@ def prepare_each_stck(df_stck, qfq_type="hfq"):
     return df_stck
 
 
-def proc_stck_d(df_stck_d, pred_period=10):
+def proc_stck_d(df_stck_d, pred_period=10,stock_pools=None):
     df_stck_d = prepare_stck_d(df_stck_d)
 
     df_stck_list = []
@@ -153,6 +153,9 @@ def proc_stck_d(df_stck_d, pred_period=10):
     fq_cols = ["open", "high", "low", "close"]
     cols_not_in_X = None
     for code, df in df_stck_d.groupby("code"):
+        if stock_pools and code not in stock_pools:
+            continue
+
         df = df.sort_index(ascending=False)
         df = prepare_each_stck(df)
         df_label_min = rolling("min", pred_period, move(-1, df, cols="low"))
@@ -233,7 +236,7 @@ def proc_idx_d(df_idx_d: pd.DataFrame):
     return df_idx_d
 
 
-def prepare_data(cursor, pred_period=10, start=None):
+def prepare_data(cursor, pred_period=10, start=None,stock_pools=None):
     stock_day, index_day = constants.STOCK_DAY[clct.TABLE], constants.INDEX_DAY[
         clct.TABLE]
     print("start:",start)
@@ -242,7 +245,8 @@ def prepare_data(cursor, pred_period=10, start=None):
     df_idx_d = dbop.create_df(cursor, index_day, start)
 
     df_stck_d_all, cols_future = proc_stck_d(df_stck_d,
-                                             pred_period=pred_period)
+                                             pred_period=pred_period,
+                                             stock_pools=stock_pools)
     print(df_stck_d_all.shape)
 
     df_idx_d = proc_idx_d(df_idx_d)
