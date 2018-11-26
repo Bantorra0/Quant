@@ -149,7 +149,7 @@ class Trader:
                      & (stock_signal["y_s_decline"].iloc[0] <= -0.08)
 
         # Generate order based on various conditions.
-        if sell_cond0 or sell_cond1:
+        if sell_cond0:
             o = cls.order_sell_by_stck_pct(code, percent=1,
                                               price=qfq_close, account=account)
             o[2] = -float("inf")
@@ -682,13 +682,13 @@ def main():
     # models["model_s_low"] = ml_model.load_model(model_type,pred_period=5,is_high=False)
     # models["model_s_high"] = ml_model.load_model(model_type,pred_period=5,is_high=True)
 
-    # models["model_l_high"] = lgbm.LGBMRegressor(n_estimators=20,
+    # models["model_l_high"] = lgbm.LGBMRegressor(n_estimators=100,
     #                                             num_leaves=128, max_depth=10,
     #                    random_state=0, min_child_weight=5)
-    # models["model_s_low"] = lgbm.LGBMRegressor(n_estimators=20,
+    # models["model_s_low"] = lgbm.LGBMRegressor(n_estimators=100,
     #                                            num_leaves=128, max_depth=10,
     #                    random_state=0, min_child_weight=5)
-    # models["model_s_high"] = lgbm.LGBMRegressor(n_estimators=20,
+    # models["model_s_high"] = lgbm.LGBMRegressor(n_estimators=100,
     #                                             num_leaves=128, max_depth=10,
     #                    random_state=0, min_child_weight=5)
 
@@ -702,10 +702,10 @@ def main():
                                                 random_state=0,
                                                 min_child_weight=5)
 
-    stock_pools = ['600487.SH', '600567.SH', '002068.SZ', '000488.SZ',
-                   '600392.SH', '600966.SH', '000725.SZ', '600549.SH',
-                   '000333.SZ', '300700.SZ', '000338.SZ', '002099.SZ',
-                   '600023.SH', '000581.SZ', '000539.SZ', '600401.SH']
+    # stock_pools = ['600487.SH', '600567.SH', '002068.SZ', '000488.SZ',
+    #                '600392.SH', '600966.SH', '000725.SZ', '600549.SH',
+    #                '000333.SZ', '300700.SZ', '000338.SZ', '002099.SZ',
+    #                '600023.SH', '000581.SZ', '000539.SZ', '600401.SH']
 
     backtester = BackTest(start="2014-01-01")
     df_asset_values,orders,transactions,stocks = \

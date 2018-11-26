@@ -4,10 +4,10 @@ import numpy as np
 import pandas as pd
 import tushare as ts
 
-from constants import TOKEN, STOCK_DAY, INDEX_DAY,TABLE,COLUMNS
+import data_cleaning as dc
 import db_operations as dbop
 import df_operations as dfop
-import data_cleaning as dc
+from constants import TOKEN, STOCK_DAY, INDEX_DAY, TABLE, COLUMNS
 
 
 def stck_pools():
@@ -238,22 +238,19 @@ def update():
 
     index_pools = idx_pools()
     # stock_pools = stck_pools()
-    stock_pools = ['600487.SH',
-                   '600567.SH',
-                   '002068.SZ',
-                   '000488.SZ',
-                   '600392.SH',
-                   '600966.SH',
-                   '000725.SZ',
-                   '600549.SH',
-                   '000333.SZ',
-                   '300700.SZ',
-                   '000338.SZ',
-                   '002099.SZ',
-                   '600023.SH',
-                   '000581.SZ',
-                   '000539.SZ',
-                   '600401.SH']
+    stock_pools = ['600050.SH', '600276.SH', '600519.SH', '600536.SH',
+                   '600703.SH', '600779.SH', '600887.SH', '601318.SH',
+                   '601336.SH', '603799.SH', '000001.SZ', '000002.SZ',
+                   '000063.SZ', '000636.SZ', '000651.SZ', '000858.SZ',
+                   '002027.SZ', '002236.SZ', '002359.SZ', '002415.SZ',
+                   '300059.SZ', '600345.SH', '300068.SZ', '300038.SZ',
+                   '300292.SZ', '300113.SZ', '002446.SZ', '002402.SZ',
+                   '300679.SZ', '002335.SZ', '000070.SZ', '002913.SZ',
+                   '601138.SH', '002217.SZ', '600522.SH', '600401.SH',
+                   '600487.SH', '600567.SH', '002068.SZ', '000488.SZ',
+                   '600392.SH', '600966.SH', '000725.SZ', '600549.SH',
+                   '000333.SZ', '300700.SZ', '000338.SZ', '002099.SZ',
+                   '600023.SH', '000581.SZ', '000539.SZ']
 
 
     download_failure = 1
@@ -266,7 +263,7 @@ def update():
         print("Stocks:",len(stock_pools))
         download_failure2, write_failure2 = collect_stock_day(stock_pools,
                                                               db_type,
-                                             update=False)
+                                             update=False,start="2018-11-01")
         download_failure = download_failure1+download_failure2
         write_failure = write_failure1+write_failure2
     dc.fillna_stock_day(db_type=db_type)
