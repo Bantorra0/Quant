@@ -866,3 +866,13 @@
 #     #     print(clf, t)
 #     #
 #     # plt.show()
+
+
+# f_name1 = "XGBRegressor_20high"
+# f_name2 = "XGBRegressor_5low"
+# f_name3 = "XGBRegressor_5high"
+# model_type = "XGBRegressor"
+
+# models["model_l_high"] = ml_model.load_model(model_type,pred_period=20,is_high=True)
+# models["model_s_low"] = ml_model.load_model(model_type,pred_period=5,is_high=False)
+# models["model_s_high"] = ml_model.load_model(model_type,pred_period=5,is_high=True)

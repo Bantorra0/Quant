@@ -230,8 +230,7 @@ def collect_index_day(pools: [str], db_type: str, update=False,
     return download_failure,write_failure
 
 
-def update():
-    db_type = "sqlite3"
+def update(db_type = "sqlite3"):
 
     # # init_table(INDEX_DAY[TABLE], db_type)
     # # init_table(STOCK_DAY[TABLE], db_type)
@@ -252,7 +251,6 @@ def update():
                    '000333.SZ', '300700.SZ', '000338.SZ', '002099.SZ',
                    '600023.SH', '000581.SZ', '000539.SZ']
 
-
     download_failure = 1
     write_failure = 0
     while download_failure>0 or write_failure>0:
@@ -263,11 +261,22 @@ def update():
         print("Stocks:",len(stock_pools))
         download_failure2, write_failure2 = collect_stock_day(stock_pools,
                                                               db_type,
-                                             update=False,start="2018-11-01")
+                                             update=True)
         download_failure = download_failure1+download_failure2
         write_failure = write_failure1+write_failure2
-    dc.fillna_stock_day(db_type=db_type)
+
+
+def add_stock(stocks, db_type="sqlite3"):
+    download_failure = 1
+    write_failure = 0
+    while download_failure > 0 or write_failure > 0:
+        print("Stocks:", len(stocks))
+        download_failure, write_failure = collect_stock_day(stocks, db_type)
 
 
 if __name__ == '__main__':
+    # stocks = ["002410.SZ", "300383.SZ","600845.SH","002463.SZ","600305.SH",
+    #           "002507.SZ", "601006.SH"]
+    # add_stock(stocks)
     update()
+    dc.fillna_stock_day(db_type="sqlite3")

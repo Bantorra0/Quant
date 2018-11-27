@@ -19,14 +19,14 @@ import db_operations as dbop
 import constants as const
 conn = dbop.connect_db("sqlite3")
 cursor = conn.cursor()
-sql0 = "select * from {0} where date='2014-01-02'".format(const.STOCK_DAY[
+sql0 = "select * from {0} where date='2015-04-03'".format(const.STOCK_DAY[
                                                              const.TABLE])
 cursor.execute(sql0)
 df0 = pd.DataFrame(cursor.fetchall())
 df0.columns = dbop.cols_from_cur(cursor)
 
 # print(df)
-codes = list(df0["code"].unique())
+codes = list(df0[df0.notna().all(axis=1)]["code"].unique())
 print(len(codes))
 
 
