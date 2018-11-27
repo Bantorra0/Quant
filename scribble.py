@@ -19,11 +19,37 @@ import db_operations as dbop
 import constants as const
 conn = dbop.connect_db("sqlite3")
 cursor = conn.cursor()
-sql = "select * from {0} where date>'2018-01-02'".format(const.STOCK_DAY[
+sql0 = "select * from {0} where date='2014-01-02'".format(const.STOCK_DAY[
                                                              const.TABLE])
-cursor.execute(sql)
-df = pd.DataFrame(cursor.fetchall())
-df.columns = dbop.cols_from_cur(cursor)
+cursor.execute(sql0)
+df0 = pd.DataFrame(cursor.fetchall())
+df0.columns = dbop.cols_from_cur(cursor)
 
 # print(df)
-print(list(df["code"].unique()))
+codes = list(df0["code"].unique())
+print(len(codes))
+
+
+sql1 = "select * from {0} where date='2018-11-26'".format(const.STOCK_DAY[
+                                                             const.TABLE])
+cursor.execute(sql1)
+df1 = pd.DataFrame(cursor.fetchall())
+df1.columns = dbop.cols_from_cur(cursor)
+codes1 = list(df1["code"].unique())
+
+v_list0 =[]
+v_list1=[]
+list0,list1=[],[]
+for c in codes:
+    v_list0.append(df0[df0["code"]==c]["close"].iloc[0] * df0[df0["code"]==c]["adj_factor"].iloc[0])
+    v_list1.append(df1[df1["code"]==c]["close"].iloc[0] * df1[df1["code"]==c]["adj_factor"].iloc[0])
+    print(c,df0[df0["code"]==c]["close"].iloc[0],df0[df0["code"]==c]["adj_factor"].iloc[0])
+    print(c, df1[df1["code"] == c]["close"].iloc[0], df1[df1["code"] == c]["adj_factor"].iloc[0])
+
+print(len(v_list0),len(v_list1))
+print(sum(v_list0),sum(v_list1))
+print(sum(v_list1)/sum(v_list0)*1000000)
+
+print(set(codes1)-set(codes))
+
+
