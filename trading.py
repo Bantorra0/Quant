@@ -1,14 +1,15 @@
-from collect import stck_pools
-from constants import DATE_FORMAT,FEE_RATE, BUY_FLAG,SELL_FLAG, BUY_IN_PCT
-import constants
-import ml_model
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
 import datetime
 import time
-import xgboost as xgb
+
 import lightgbm as lgbm
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+
+import constants
+import ml_model
+from collect import stck_pools
+from constants import DATE_FORMAT, FEE_RATE, BUY_FLAG, SELL_FLAG
 
 
 class Account:
@@ -115,7 +116,7 @@ class Trader:
     @classmethod
     def plan_for_stck_not_in_pos(cls, code, account: Account, day_signal):
         stock_signal = day_signal[day_signal["code"] == code]
-        init_buy_cond = (stock_signal["y_l_rise"] >= 0.15) \
+        init_buy_cond = (stock_signal["y_l_rise"] >= 0.4) \
                         & (stock_signal["y_s_decline"] >= -0.05) \
                         & (stock_signal["y_s_rise"] >= 0.05)
         if init_buy_cond.iloc[0]:
@@ -694,14 +695,23 @@ def main():
     #                                             random_state=0,
     #                                             min_child_weight=5)
 
-    # stock_pools = ['600487.SH', '600567.SH', '002068.SZ', '000488.SZ',
-    #                '600392.SH', '600966.SH', '000725.SZ', '600549.SH',
-    #                '000333.SZ', '300700.SZ', '000338.SZ', '002099.SZ',
-    #                '600023.SH', '000581.SZ', '000539.SZ', '600401.SH']
+    stock_pools = ['600401.SH', '300292.SZ', '002335.SZ', '002446.SZ',
+                   '002099.SZ', '300059.SZ', '000539.SZ', '600023.SH',
+                   '600536.SH', '300038.SZ', '002402.SZ', '000070.SZ',
+                   '002217.SZ', '600845.SH', '600549.SH', '600966.SH',
+                   '300383.SZ', '000581.SZ', '000725.SZ', '300113.SZ',
+                   '600567.SH', '600050.SH', '300068.SZ', '002068.SZ',
+                   '600522.SH', '002463.SZ', '601006.SH', '601336.SH',
+                   '600345.SH', '002410.SZ', '000636.SZ', '600392.SH',
+                   '600703.SH', '002236.SZ', '000063.SZ', '000001.SZ',
+                   '600305.SH', '000488.SZ', '000338.SZ', '603799.SH',
+                   '600887.SH']
 
-    backtester = BackTest(start="2015-04-01")
+
+    backtester = BackTest(start="2015-06-05",universe=stock_pools)
     df_asset_values,orders,transactions,stocks = \
-        backtester.backtest_with_updating_model(models)
+        backtester.backtest_with_updating_model(models,
+                                                stock_pools=stock_pools)
 
     print("Transactions:",len(transactions))
     for e in sorted(transactions,key=lambda x:(x[1],x[0])):
