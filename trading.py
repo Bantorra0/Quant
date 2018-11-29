@@ -116,9 +116,9 @@ class Trader:
     @classmethod
     def plan_for_stck_not_in_pos(cls, code, account: Account, day_signal):
         stock_signal = day_signal[day_signal["code"] == code]
-        init_buy_cond = (stock_signal["y_l_rise"] >= 0.4) \
-                        & (stock_signal["y_s_decline"] >= -0.05) \
-                        & (stock_signal["y_s_rise"] >= 0.05)
+        init_buy_cond = (stock_signal["y_l_rise"] >= 0.5) \
+                        & (stock_signal["y_s_decline"] >= -0.04) \
+                        & (stock_signal["y_s_rise"] >= 0.08)
         if init_buy_cond.iloc[0]:
             prices = {code: day_signal[day_signal["code"] == code][
                 "qfq_close"].iloc[0] for code in day_signal["code"]}
@@ -525,6 +525,32 @@ class BackTest:
         return df_asset_values,orders,transactions,stocks
 
 
+    @classmethod
+    def stock_pool_baseline(cls, capital_base, ss_asset_values, date_idx,day_signal, df_backtest, stock_pools=None):
+        if len(ss_asset_values) == 0:
+            baseline_value = capital_base
+        else:
+            baseline_val_list = []
+            for code in day_signal["code"]:
+                if stock_pools and code not in stock_pools:
+                    continue
+                day_stock_signal = day_signal[day_signal["code"] == code]
+                df_backtest_stock = df_backtest[df_backtest["code"] == code]
+                start_idx = df_backtest_stock[
+                    "qfq_close"].first_valid_index()
+                if start_idx < date_idx:
+                    current_qfq_close = day_stock_signal["qfq_close"]
+                    start_qfq_close = df_backtest_stock.loc[start_idx,
+                                                            "qfq_close"]
+                    stock_relative_value = current_qfq_close / start_qfq_close \
+                                           * ss_asset_values.loc[start_idx]
+                    baseline_val_list.append(stock_relative_value)
+            baseline_value = np.mean(baseline_val_list) if \
+                baseline_val_list else ss_asset_values.iloc[-1]
+
+        return baseline_value
+
+
     def backtest_with_updating_model(self, models, update_frequency=60,
                                      stock_pools=None,
                                      training_stock_pools=None):
@@ -570,7 +596,8 @@ class BackTest:
 
         day_delta = datetime.timedelta(days=1)
 
-        df_asset_values = pd.DataFrame(columns = ["my_model",self.benchmark])
+        df_asset_values = pd.DataFrame(columns = ["my_model","stock_pool",self.benchmark])
+        df_share_positions = pd.DataFrame(columns = ["share_positions"])
 
         orders,transactions, stocks=[],[],{}
         day_plan, day_orders, day_transactions,pos=[],[],[],{}
@@ -634,33 +661,25 @@ class BackTest:
             my_model_value = self.trader.tot_amt(account=self.account,
                                                  prices=prices)
             if len(df_asset_values)==0:
-                baseline_value = self.capital_base
+                benchmark_value = self.capital_base
+                stock_pool_value = self.capital_base
             else:
-                # baseline_value = day_signal[self.benchmark+"_close"].iloc[0] / df_all.loc[
-                #     df_asset_values.index.min(), self.benchmark+"_close"].iloc[
-                #     0] * self.capital_base
-
-                baseline_val_list = []
-                for code in day_signal["code"]:
-                    if stock_pools and code not in stock_pools:
-                        continue
-                    day_stock_signal = day_signal[day_signal["code"]==code]
-                    df_backtest_stock = df_backtest[df_backtest["code"]==code]
-                    start_idx = df_backtest_stock[
-                        "qfq_close"].first_valid_index()
-                    if start_idx < date_idx:
-                        current_qfq_close = day_stock_signal["qfq_close"]
-                        start_qfq_close = df_backtest_stock.loc[start_idx,
-                                                           "qfq_close"]
-                        stock_relative_value = current_qfq_close/start_qfq_close\
-                                           * df_asset_values.loc[start_idx,
-                                                                 self.benchmark]
-                        baseline_val_list.append(stock_relative_value)
-                baseline_value = np.mean(baseline_val_list) if \
-                    baseline_val_list else df_asset_values[
-                    self.benchmark].iloc[-1]
-            df_asset_values.loc[date_idx] = [my_model_value, baseline_value]
+                benchmark_value = day_signal[self.benchmark+"_close"].iloc[0] / df_all.loc[
+                    df_asset_values.index.min(), self.benchmark+"_close"].iloc[
+                    0] * self.capital_base
+                stock_pool_value = self.stock_pool_baseline(capital_base=self.capital_base,
+                                                          ss_asset_values=df_asset_values[self.benchmark],
+                                                          date_idx=date_idx,day_signal=day_signal,
+                                                          df_backtest=df_backtest, stock_pools=stock_pools)
+            df_asset_values.loc[date_idx] = {"my_model":my_model_value,
+                                             "stock_pool":stock_pool_value,
+                                             self.benchmark:benchmark_value}
             print(date_idx, dict(df_asset_values.loc[date_idx]))
+
+            # Calculate the positions of holding shares on current trading date,
+            # based on qfq closing price.
+            df_share_positions.loc[date_idx] = self.account.cash/self.trader.tot_amt(self.account,prices)
+            print(date_idx, dict(df_share_positions.loc[date_idx]))
 
             # Make a plan for the next trading day.
             day_plan = self.trader.gen_trading_plan(day_signal=day_signal,
@@ -669,19 +688,19 @@ class BackTest:
 
             date = date + day_delta
             cnt +=1
-        return df_asset_values,orders,transactions,stocks
+        return df_asset_values,orders,transactions,stocks, df_share_positions
 
 
 def main():
     models = {}
 
-    models["model_l_high"] = lgbm.LGBMRegressor(n_estimators=100,
+    models["model_l_high"] = lgbm.LGBMRegressor(n_estimators=10,
                                                 num_leaves=128, max_depth=10,
                        random_state=0, min_child_weight=5)
-    models["model_s_low"] = lgbm.LGBMRegressor(n_estimators=100,
+    models["model_s_low"] = lgbm.LGBMRegressor(n_estimators=10,
                                                num_leaves=128, max_depth=10,
                        random_state=0, min_child_weight=5)
-    models["model_s_high"] = lgbm.LGBMRegressor(n_estimators=100,
+    models["model_s_high"] = lgbm.LGBMRegressor(n_estimators=10,
                                                 num_leaves=128, max_depth=10,
                        random_state=0, min_child_weight=5)
 
@@ -708,10 +727,9 @@ def main():
                    '600887.SH']
 
 
-    backtester = BackTest(start="2015-06-05",universe=stock_pools)
-    df_asset_values,orders,transactions,stocks = \
-        backtester.backtest_with_updating_model(models,
-                                                stock_pools=stock_pools)
+    backtester = BackTest(start="2018-01-01",universe=stock_pools)
+    df_asset_values,orders,transactions,stocks,df_share_positions = \
+        backtester.backtest_with_updating_model(models,stock_pools=['600401.SH','600050.SH'],training_stock_pools=['600401.SH','600050.SH'])
 
     print("Transactions:",len(transactions))
     for e in sorted(transactions,key=lambda x:(x[1],x[0])):
