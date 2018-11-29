@@ -144,7 +144,7 @@ def prepare_each_stck(df_stck, qfq_type="hfq"):
     return df_stck
 
 
-def proc_stck_d(df_stck_d, pred_period=10,stock_pools=None):
+def proc_stck_d(df_stck_d, stock_pool=None,targets=None):
     df_stck_d = prepare_stck_d(df_stck_d)
 
     df_stck_list = []
@@ -153,21 +153,30 @@ def proc_stck_d(df_stck_d, pred_period=10,stock_pools=None):
     fq_cols = ["open", "high", "low", "close"]
     cols_not_in_X = None
     for code, df in df_stck_d.groupby("code"):
-        if stock_pools and code not in stock_pools:
+        if stock_pool and code not in stock_pool:
             continue
 
         df = df.sort_index(ascending=False)
         df = prepare_each_stck(df)
-        df_label_min = rolling("min", pred_period, move(-1, df, cols="low"))
-        df_label_max = rolling("max", pred_period - 1, move(-2, df, "high"))
-        p1 = (pred_period - 1) // 3
-        p2 = p1
-        p3 = pred_period - 1 - p1 - p2
-        df_label_mean1 = rolling("mean", p1, move(-2, df, "open"))
-        df_label_mean2 = rolling("mean", p2, move(-2 - p1, df, "open"))
-        df_label_mean3 = rolling("mean", p3, move(-2 - p1 - p2, df, "open"))
-
         df_tomorrow = move(-1, df, ["open", "high", "low", "close"])
+
+        df_targets_list = []
+        for t in targets:
+            pred_period = t["period"]
+            if t["fun"]=="min":
+                df_target = rolling(t["fun"], pred_period, move(-1, df, cols=t["col"]))
+                df_targets_list.append(df_target)
+            elif t["fun"]=="max":
+                df_target = rolling(t["fun"],pred_period - 1, move(-2, df, cols=t["col"]))
+                df_targets_list.append(df_target)
+            elif t["fun"]=="mean":
+                p1 = (pred_period - 1) // 3
+                p2 = p1
+                p3 = pred_period - 1 - p1 - p2
+                df_period_mean1 = rolling(t["fun"], p1, move(-2, df, t["col"]))
+                df_period_mean2 = rolling(t["fun"], p2, move(-2 - p1, df, t["col"]))
+                df_period_mean3 = rolling(t["fun"], p3, move(-2 - p1 - p2, df, t["col"]))
+                df_targets_list.extend([df_period_mean1,df_period_mean2,df_period_mean3])
 
         df_move_list = [change_rate(df[cols_move], move(i, df, cols_move)) for
                         i in range(1, 6)]
@@ -183,8 +192,7 @@ def proc_stck_d(df_stck_d, pred_period=10,stock_pools=None):
             for rolling_type in ["max","min","mean"]]
 
         df_not_in_X = pd.concat(
-            [df_qfq,df_tomorrow,df_tomorrow_qfq, df_label_max, df_label_min, df_label_mean1,
-             df_label_mean2, df_label_mean3], axis=1, sort=False)
+            [df_qfq,df_tomorrow,df_tomorrow_qfq]+df_targets_list, axis=1, sort=False)
         df_stck = pd.concat(
             [df] + df_move_list + df_rolling_list + [df_not_in_X], axis=1,
             sort=False)
@@ -236,7 +244,7 @@ def proc_idx_d(df_idx_d: pd.DataFrame):
     return df_idx_d
 
 
-def prepare_data(cursor, pred_period=10, start=None,stock_pools=None):
+def prepare_data(cursor,targets=None, start=None, stock_pool=None):
     stock_day, index_day = constants.STOCK_DAY[clct.TABLE], constants.INDEX_DAY[
         clct.TABLE]
     print("start:",start)
@@ -245,8 +253,8 @@ def prepare_data(cursor, pred_period=10, start=None,stock_pools=None):
     df_idx_d = dbop.create_df(cursor, index_day, start)
 
     df_stck_d_all, cols_future = proc_stck_d(df_stck_d,
-                                             pred_period=pred_period,
-                                             stock_pools=stock_pools)
+                                             stock_pool=stock_pool,
+                                             targets=targets)
     print(df_stck_d_all.shape)
 
     df_idx_d = proc_idx_d(df_idx_d)

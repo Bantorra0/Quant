@@ -16,14 +16,14 @@ from data_prepare import prepare_data, feature_select
 from constants import FLOAT_DELTA, MODEL_DIR
 
 
-def gen_data(pred_period=20, lower_bound="2011-01-01", start="2014-01-01",
-             stock_pools=None):
+def gen_data(targets=None, lower_bound="2011-01-01", start="2014-01-01",
+             stock_pool=None):
     db_type = "sqlite3"
     conn = dbop.connect_db(db_type)
     cursor = conn.cursor()
 
-    df_all, cols_not_in_X = prepare_data(cursor, pred_period=pred_period,
-                                       start=lower_bound,stock_pools=stock_pools)
+    df_all, cols_not_in_X = prepare_data(cursor, targets=targets,
+                                         start=lower_bound, stock_pool=stock_pool)
 
     data_period = (df_all.index >= start)
     df_all = df_all[data_period]
@@ -91,7 +91,7 @@ def drop_null(X, y):
     return X, y
 
 
-def gen_dataset(pred_period=20, lower_bound="2011-01-01", start="2014-01-01",
+def gen_dataset(targets=None,pred_period=20,lower_bound="2011-01-01", start="2014-01-01",
                 test_start="2018-01-01", is_high=True, is_clf=False, is_drop_null=False,
                 is_normalized=False, is_feature_selected=False):
     """
@@ -102,7 +102,7 @@ def gen_dataset(pred_period=20, lower_bound="2011-01-01", start="2014-01-01",
     :param is_feature_selected:
     :return:
     """
-    df_all, cols_not_in_X = gen_data(pred_period, lower_bound, start)
+    df_all, cols_not_in_X = gen_data(targets, lower_bound, start)
 
     y = gen_y(df_all, threshold=0.15, pred_period=pred_period, is_high=is_high,
               is_clf=is_clf)

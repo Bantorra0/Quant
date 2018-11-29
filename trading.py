@@ -188,8 +188,8 @@ class Trader:
         return plan
 
     @classmethod
-    def gen_trading_plan(cls,day_signal:pd.DataFrame,account:Account,
-                         stock_pools=None):
+    def gen_trading_plan(cls, day_signal:pd.DataFrame, account:Account,
+                         stock_pool=None):
         plan = []
         # Generate plan.
         codes = sorted(list(day_signal["code"]),
@@ -199,7 +199,7 @@ class Trader:
                         day_signal[day_signal["code"]==c]["y_l_rise"].iloc[0]),
                        reverse=True)
         for code in codes:
-            if stock_pools and code not in stock_pools:
+            if stock_pool and code not in stock_pool:
                 continue
             if code not in account.stocks:
                 p = cls.plan_for_stck_not_in_pos(code, account, day_signal)
@@ -328,7 +328,7 @@ class Trader:
 
 class BackTest:
     def __init__(self, start="2018-01-01", end=None, benchmark='hs300',
-                 universe=stck_pools(), capital_base=1000000, freq='d'):
+                 universe=None, capital_base=1000000, freq='d'):
         self.start = start
         self.end = end if end else datetime.datetime.now().strftime(DATE_FORMAT)
         self.universe = universe
@@ -526,13 +526,14 @@ class BackTest:
 
 
     @classmethod
-    def stock_pool_baseline(cls, capital_base, ss_asset_values, date_idx,day_signal, df_backtest, stock_pools=None):
+    def stock_pool_baseline(cls, capital_base, ss_asset_values, date_idx, day_signal, df_backtest, stock_pool=None):
+        # print(day_signal[["code","open","qfq_open","close","qfq_close"]])
         if len(ss_asset_values) == 0:
             baseline_value = capital_base
         else:
             baseline_val_list = []
             for code in day_signal["code"]:
-                if stock_pools and code not in stock_pools:
+                if stock_pool and code not in stock_pool:
                     continue
                 day_stock_signal = day_signal[day_signal["code"] == code]
                 df_backtest_stock = df_backtest[df_backtest["code"] == code]
@@ -552,8 +553,8 @@ class BackTest:
 
 
     def backtest_with_updating_model(self, models, update_frequency=60,
-                                     stock_pools=None,
-                                     training_stock_pools=None):
+                                     stock_pool=None,
+                                     training_stock_pool=None, is_verbose=True):
         self.init_account()
         self.init_trader()
 
@@ -570,22 +571,26 @@ class BackTest:
         lower_bound = datetime.datetime.strftime(lower_bound,DATE_FORMAT)
         # print(lower_bound, self.start)
 
-        df_all, cols_future = ml_model.gen_data(pred_period=20,
+        targets = [{"period":20,"fun":"max","col":"high"},
+                   {"period": 20, "fun": "min", "col": "low"},
+                   {"period": 5, "fun": "max", "col": "high"},
+                   {"period": 5, "fun": "min", "col": "low"}]
+        df_all, cols_future = ml_model.gen_data(targets=targets,
                                                 lower_bound= lower_bound,
                                                 start=training_bound,
-                                                stock_pools=training_stock_pools)
-        df_all2, cols_future2 = ml_model.gen_data(pred_period=5,
-                                                lower_bound=lower_bound,
-                                                start=training_bound,
-                                                stock_pools=training_stock_pools)
+                                                stock_pool=training_stock_pool)
+        # df_all2, cols_future2 = ml_model.gen_data(pred_period=5,
+        #                                           lower_bound=lower_bound,
+        #                                           start=training_bound,
+        #                                           stock_pool=training_stock_pool)
         print("df_all:",df_all.shape)
         trading_date_idxes = df_all.index.unique().sort_values(ascending=False)
 
         X = ml_model.gen_X(df_all, cols_future)
         df_backtest =df_all[df_all.index>=self.start]
         paras = [("y_l_rise",{"pred_period":20,"is_high":True,"is_clf":False},df_all),
-                 ("y_s_rise",{"pred_period":5,"is_high":True,"is_clf":False},df_all2),
-                 ("y_s_decline",{"pred_period":5,"is_high":False,"is_clf":False},df_all2),]
+                 ("y_s_rise",{"pred_period":5,"is_high":True,"is_clf":False},df_all),
+                 ("y_s_decline",{"pred_period":5,"is_high":False,"is_clf":False},df_all),]
         Y = pd.concat([ml_model.gen_y(v2,**v1) for k,v1,v2 in paras],axis=1)
         Y.columns = [k for k,_,_ in paras]
         Y.index = X.index
@@ -597,7 +602,7 @@ class BackTest:
         day_delta = datetime.timedelta(days=1)
 
         df_asset_values = pd.DataFrame(columns = ["my_model","stock_pool",self.benchmark])
-        df_share_positions = pd.DataFrame(columns = ["share_positions"])
+        df_share_positions = pd.DataFrame(columns = ["long_positions"])
 
         orders,transactions, stocks=[],[],{}
         day_plan, day_orders, day_transactions,pos=[],[],[],{}
@@ -630,8 +635,9 @@ class BackTest:
             day_signal["y_l_rise"] = models["model_l_high"].predict(X_day_slice)
             day_signal["y_s_rise"] = models["model_s_high"].predict(X_day_slice)
             day_signal["y_s_decline"] = models["model_s_low"].predict(X_day_slice)
-            print(day_signal["y_l_rise"].max(), day_signal["y_s_rise"].max(),
-                  day_signal["y_s_decline"].min())
+            if is_verbose:
+                print(day_signal["y_l_rise"].max(), day_signal["y_s_rise"].max(),
+                    day_signal["y_s_decline"].min())
 
             # Execute the trading plan made on previous trading day,
             # including generating and executing orders, updating account information.
@@ -668,23 +674,25 @@ class BackTest:
                     df_asset_values.index.min(), self.benchmark+"_close"].iloc[
                     0] * self.capital_base
                 stock_pool_value = self.stock_pool_baseline(capital_base=self.capital_base,
-                                                          ss_asset_values=df_asset_values[self.benchmark],
-                                                          date_idx=date_idx,day_signal=day_signal,
-                                                          df_backtest=df_backtest, stock_pools=stock_pools)
+                                                            ss_asset_values=df_asset_values["stock_pool"],
+                                                            date_idx=date_idx, day_signal=day_signal,
+                                                            df_backtest=df_backtest, stock_pool=stock_pool)
             df_asset_values.loc[date_idx] = {"my_model":my_model_value,
                                              "stock_pool":stock_pool_value,
                                              self.benchmark:benchmark_value}
-            print(date_idx, dict(df_asset_values.loc[date_idx]))
+            if is_verbose:
+                print(date_idx, dict(df_asset_values.loc[date_idx]))
 
             # Calculate the positions of holding shares on current trading date,
             # based on qfq closing price.
-            df_share_positions.loc[date_idx] = self.account.cash/self.trader.tot_amt(self.account,prices)
-            print(date_idx, dict(df_share_positions.loc[date_idx]))
+            df_share_positions.loc[date_idx] = 1-self.account.cash/self.trader.tot_amt(self.account,prices)
+            if is_verbose:
+                print(date_idx, dict(df_share_positions.loc[date_idx]))
 
             # Make a plan for the next trading day.
             day_plan = self.trader.gen_trading_plan(day_signal=day_signal,
                                                     account=self.account,
-                                                    stock_pools=stock_pools)
+                                                    stock_pool=stock_pool)
 
             date = date + day_delta
             cnt +=1
@@ -694,13 +702,13 @@ class BackTest:
 def main():
     models = {}
 
-    models["model_l_high"] = lgbm.LGBMRegressor(n_estimators=10,
+    models["model_l_high"] = lgbm.LGBMRegressor(n_estimators=100,
                                                 num_leaves=128, max_depth=10,
                        random_state=0, min_child_weight=5)
-    models["model_s_low"] = lgbm.LGBMRegressor(n_estimators=10,
+    models["model_s_low"] = lgbm.LGBMRegressor(n_estimators=100,
                                                num_leaves=128, max_depth=10,
                        random_state=0, min_child_weight=5)
-    models["model_s_high"] = lgbm.LGBMRegressor(n_estimators=10,
+    models["model_s_high"] = lgbm.LGBMRegressor(n_estimators=100,
                                                 num_leaves=128, max_depth=10,
                        random_state=0, min_child_weight=5)
 
@@ -714,22 +722,9 @@ def main():
     #                                             random_state=0,
     #                                             min_child_weight=5)
 
-    stock_pools = ['600401.SH', '300292.SZ', '002335.SZ', '002446.SZ',
-                   '002099.SZ', '300059.SZ', '000539.SZ', '600023.SH',
-                   '600536.SH', '300038.SZ', '002402.SZ', '000070.SZ',
-                   '002217.SZ', '600845.SH', '600549.SH', '600966.SH',
-                   '300383.SZ', '000581.SZ', '000725.SZ', '300113.SZ',
-                   '600567.SH', '600050.SH', '300068.SZ', '002068.SZ',
-                   '600522.SH', '002463.SZ', '601006.SH', '601336.SH',
-                   '600345.SH', '002410.SZ', '000636.SZ', '600392.SH',
-                   '600703.SH', '002236.SZ', '000063.SZ', '000001.SZ',
-                   '600305.SH', '000488.SZ', '000338.SZ', '603799.SH',
-                   '600887.SH']
-
-
-    backtester = BackTest(start="2018-01-01",universe=stock_pools)
+    backtester = BackTest(start="2015-06-05")
     df_asset_values,orders,transactions,stocks,df_share_positions = \
-        backtester.backtest_with_updating_model(models,stock_pools=['600401.SH','600050.SH'],training_stock_pools=['600401.SH','600050.SH'])
+        backtester.backtest_with_updating_model(models, stock_pool=None, training_stock_pool=None)
 
     print("Transactions:",len(transactions))
     for e in sorted(transactions,key=lambda x:(x[1],x[0])):
@@ -738,10 +733,16 @@ def main():
         print(k,v)
 
     dates = df_asset_values.index
-    figs,axes = plt.subplots()
+
+    # Plotting.
+    fig,ax = plt.subplots()
     for col in df_asset_values.columns:
-        axes.plot(dates, df_asset_values[col],label=col)
-    axes.legend(loc="upper left")
+        ax.plot(dates, df_asset_values[col],label=col)
+    ax.legend(loc="upper left")
+    ax2 = ax.twinx()
+    ax2.plot(dates, df_share_positions["long_positions"], label="long_positions")
+    ax2.set_ylim(0,1)
+    ax2.legend(loc="upper right")
 
     df_asset_values = df_asset_values.sort_index()
     prev = df_asset_values.index[0][5:7]
