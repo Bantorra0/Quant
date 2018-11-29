@@ -117,8 +117,8 @@ class Trader:
     def plan_for_stck_not_in_pos(cls, code, account: Account, day_signal):
         stock_signal = day_signal[day_signal["code"] == code]
         init_buy_cond = (stock_signal["y_l_rise"] >= 0.5) \
-                        & (stock_signal["y_s_decline"] >= -0.04) \
-                        & (stock_signal["y_s_rise"] >= 0.08)
+                        & (stock_signal["y_s_decline"] >= -0.05) \
+                        & (stock_signal["y_s_rise"] >= 0.05)
         if init_buy_cond.iloc[0]:
             prices = {code: day_signal[day_signal["code"] == code][
                 "qfq_close"].iloc[0] for code in day_signal["code"]}
@@ -740,8 +740,13 @@ def main():
         ax.plot(dates, df_asset_values[col],label=col)
     ax.legend(loc="upper left")
     ax2 = ax.twinx()
-    ax2.plot(dates, df_share_positions["long_positions"], label="long_positions")
-    ax2.set_ylim(0,1)
+    ax2.plot(dates, df_share_positions["long_positions"], linestyle=":",
+             color="grey",
+             label="long_positions")
+    ax2.set_ylim(0,2)
+    plt.yticks(np.arange(0, 6) * 0.2,
+               ["{:.1%}".format(i * 0.2) for i in range(0, 6)])
+
     ax2.legend(loc="upper right")
 
     df_asset_values = df_asset_values.sort_index()
