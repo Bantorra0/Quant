@@ -116,7 +116,7 @@ class Trader:
     @classmethod
     def plan_for_stck_not_in_pos(cls, code, account: Account, day_signal):
         stock_signal = day_signal[day_signal["code"] == code]
-        init_buy_cond = (stock_signal["y_l_rise"] >= 0.5) \
+        init_buy_cond = (stock_signal["y_l_rise"] >= 0.35) \
                         & (stock_signal["y_s_decline"] >= -0.05) \
                         & (stock_signal["y_s_rise"] >= 0.05)
         if init_buy_cond.iloc[0]:
@@ -562,7 +562,7 @@ class BackTest:
         end = datetime.datetime.strptime(self.end,DATE_FORMAT)
 
         training_bound = datetime.datetime.strptime(self.start,
-                                                 DATE_FORMAT) - 1825 * \
+                                                 DATE_FORMAT) - 3000 * \
                          self.time_delta
         training_bound = datetime.datetime.strftime(training_bound, DATE_FORMAT)
 
@@ -584,7 +584,7 @@ class BackTest:
         #                                           start=training_bound,
         #                                           stock_pool=training_stock_pool)
         print("df_all:",df_all.shape)
-        trading_date_idxes = df_all.index.unique().sort_values(ascending=False)
+        trading_date_idxes = df_all.index.unique().sort_values(ascending=True)
 
         X = ml_model.gen_X(df_all, cols_future)
         df_backtest =df_all[df_all.index>=self.start]
@@ -624,7 +624,8 @@ class BackTest:
                 t=time.time()
                 for ycol in Y.columns:
                     train_date_idx = trading_date_idxes[
-                                         trading_date_idxes<=date_idx][cnt:-25]
+                                         trading_date_idxes<=date_idx][:-25]
+                    print("train:", train_date_idx[0],train_date_idx[-1])
                     X_train = X.loc[train_date_idx]
                     y_train = Y.loc[train_date_idx,ycol]
                     print(train_date_idx.shape, X_train.shape, y_train.shape)
@@ -704,13 +705,13 @@ def main():
 
     models["model_l_high"] = lgbm.LGBMRegressor(n_estimators=100,
                                                 num_leaves=128, max_depth=10,
-                       random_state=0, min_child_weight=5)
+                       random_state=0, min_child_samples=20)
     models["model_s_low"] = lgbm.LGBMRegressor(n_estimators=100,
                                                num_leaves=128, max_depth=10,
-                       random_state=0, min_child_weight=5)
+                       random_state=0, min_child_samples=20)
     models["model_s_high"] = lgbm.LGBMRegressor(n_estimators=100,
                                                 num_leaves=128, max_depth=10,
-                       random_state=0, min_child_weight=5)
+                       random_state=0, min_child_samples=20)
 
     # models["model_l_high"] = xgb.XGBRegressor(n_estimators=100,max_depth=8,
     #                                             random_state=0,
