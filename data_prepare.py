@@ -130,7 +130,7 @@ def prepare_each_stck(df_stck, qfq_type="hfq"):
     for col in fq_cols:
         df_stck[col+"0"] = df_stck[col]
 
-    # 后复权
+    # 前复权
     if qfq_type=="qfq":
         qfq_factor = np.array(df_stck["adj_factor"]
                           / df_stck["adj_factor"].iloc[0])
