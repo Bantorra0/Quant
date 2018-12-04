@@ -34,7 +34,6 @@ def gen_data(targets=None, lower_bound="2011-01-01", start="2014-01-01",
 def y_distribution(y):
     y = y.copy().dropna()
     # print distribution of y
-    print("before", sum(y < 0))
     print("y<-0.5:", sum(y < -0.5))
     for i in range(-5, 5):
         tmp1 = ((i * 0.1) <= y)
@@ -45,7 +44,7 @@ def y_distribution(y):
             tmp = tmp1 & tmp2
         print("{0:.2f}<=y<{1:.2f}:".format(i * 0.1, (i + 1) * 0.1), sum(tmp))
     print("y>0.5", sum(y > 0.5))
-    print("after", sum(y < 0))
+    print("mean:",y.mean(),"median:",y.median(),"std:",y.std())
     plt.figure()
     plt.hist(y, bins=np.arange(-10, 11) * 0.1)
 
@@ -59,7 +58,9 @@ def gen_y(df_all: pd.DataFrame, pred_period=10, threshold=0.1, is_high=True,
 
     # print(y[y.isna() & (df_all["f1mv_high"] == df_all["f1mv_low"])])
     y[y.notnull() & (df_all["f1mv_high"] == df_all["f1mv_low"])] = 0
-    print("过滤涨停项：", sum(df_all["f1mv_high"] == df_all["f1mv_low"]))
+    print("过滤涨停项或停牌（最高价=最低价）：", sum(df_all["f1mv_high"] == df_all["f1mv_low"]))
+
+    y_distribution(y)
 
     if is_clf:
         return label(y, threshold=threshold, is_high=is_high)
