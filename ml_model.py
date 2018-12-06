@@ -77,6 +77,7 @@ def get_target_col(pred_period = 20,is_high = True):
 
 
 def label(y, threshold=0.1, is_high=True):
+    y = y.copy()
     if not is_high:
         y = -y
     y[y > threshold] = 1
