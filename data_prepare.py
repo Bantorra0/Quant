@@ -178,7 +178,7 @@ def proc_stck_d(df_stck_d, stock_pool=None,targets=None):
                 df_period_mean3 = rolling(t["fun"], p3, move(-2 - p1 - p2, df, t["col"]))
                 df_targets_list.extend([df_period_mean1,df_period_mean2,df_period_mean3])
 
-        df_move_list = [change_rate(df[cols_move], move(i, df, cols_move)) for
+        df_move_list = [change_rate(move(i, df, cols_move),df[cols_move]) for
                         i in range(1, 6)]
 
         df_qfq = df[fq_cols] / df["adj_factor"].iloc[0]
@@ -186,8 +186,9 @@ def proc_stck_d(df_stck_d, stock_pool=None,targets=None):
         df_tomorrow_qfq = move(-1, df_qfq)
 
         df_rolling_list = [
-            change_rate(df[cols_roll],
-                        rolling(rolling_type, days=days, df=df, cols=cols_roll))
+            change_rate(rolling(rolling_type, days=days, df=df, cols=cols_roll),
+                        df[cols_roll],
+                        )
             for days in [-5, -10, -20, -60, -120, -250]
             for rolling_type in ["max","min","mean"]]
 
@@ -220,15 +221,15 @@ def proc_idx_d(df_idx_d: pd.DataFrame):
         group = group.sort_index(ascending=False)
         del group["code"]
         df_move_list = [
-            change_rate(group[cols_move], move(i, group, cols_move)) for i in
+            change_rate(move(i, group, cols_move),group[cols_move]) for i in
             range(1, 6)]
         df_rolling_list = [
-            (change_rate(group[["high", "vol"]],
-                         rolling("max",days, group,["high", "vol"])),
-             change_rate(group[["low", "vol"]],
-                         rolling("min",days, group,["low", "vol"])),
-             change_rate(group[["open", "close", "vol"]],
-                         rolling("mean",days, group,["open", "close", "vol"])))
+            (change_rate(rolling("max",days, group,["high", "vol"]),
+                         group[["high", "vol"]],),
+             change_rate(rolling("min",days, group,["low", "vol"]),
+                         group[["low", "vol"]],),
+             change_rate(rolling("mean",days, group,["open", "close", "vol"]),
+                         group[["open", "close", "vol"]],))
             for days in [-5, -10, -20, -60, -120, -250, -500]
         ]
 
