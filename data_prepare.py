@@ -87,7 +87,8 @@ def rolling(rolling_type, days, df: pd.DataFrame, cols=None,
         return df_rolling
 
 
-def change_rate(df1: pd.DataFrame, df2: pd.DataFrame, cols1=None, cols2=None):
+def change_rate(df1: pd.DataFrame, df2: pd.DataFrame, cols1=None,
+                cols2=None, prefix=True):
     if cols1:
         df1 = df1[cols1].copy()
     if cols2:
@@ -103,8 +104,30 @@ def change_rate(df1: pd.DataFrame, df2: pd.DataFrame, cols1=None, cols2=None):
     # based on index and columns.
     df1.columns = df2.columns
     df3 = (df2 - df1) / df1
-    df3 = _prefix("change_rate", df3)
-    return df3
+
+    pre = "change_rate"
+    if prefix:
+        return _prefix(pre, df3)
+    else:
+        return df3
+
+
+def candle_stick(df:pd.DataFrame):
+    df_result = pd.DataFrame(index=df.index)
+    if df.shape[1]!=4:
+        raise ValueError("df.shape[1] {}!=4".format(df.shape[1]))
+
+    open,high,low,close = df.columns
+    df_result["(high-low)/open"] = (df[high]-df[low])/df[open]
+    df_result["(close-open)/open"] = (df[close] - df[open]) / df[open]
+
+    df_result["(high-open)/open"] = (df[high]-df[open])/df[open]
+    df_result["(low-open)/open"] = (df[low] - df[open]) / df[open]
+
+    df_result["(high-close)/close"] = (df[high] - df[close]) / df[close]
+    df_result["(low-close)/close"] = (df[low] - df[close]) / df[close]
+
+    return df_result
 
 
 def prepare_stck_d(df_stck_d):
@@ -156,8 +179,10 @@ def proc_stck_d(df_stck_d, stock_pool=None,targets=None):
         if stock_pool and code not in stock_pool:
             continue
 
+        # Initialize df.
         df = df.sort_index(ascending=False)
         df = prepare_each_stck(df)
+
         df_tomorrow = move(-1, df, ["open", "high", "low", "close"])
 
         df_targets_list = []
@@ -178,8 +203,12 @@ def proc_stck_d(df_stck_d, stock_pool=None,targets=None):
                 df_period_mean3 = rolling(t["fun"], p3, move(-2 - p1 - p2, df, t["col"]))
                 df_targets_list.extend([df_period_mean1,df_period_mean2,df_period_mean3])
 
+        move_days = range(1, 6)
         df_move_list = [change_rate(move(i, df, cols_move),df[cols_move]) for
-                        i in range(1, 6)]
+                        i in move_days]
+
+        df_candle_stick = candle_stick(df[fq_cols])
+        df_move_candle_list = [move(i,df_candle_stick) for i in move_days]
 
         df_qfq = df[fq_cols] / df["adj_factor"].iloc[0]
         df_qfq.columns = ["qfq_"+col for col in fq_cols]
@@ -195,7 +224,10 @@ def proc_stck_d(df_stck_d, stock_pool=None,targets=None):
         df_not_in_X = pd.concat(
             [df_qfq,df_tomorrow,df_tomorrow_qfq]+df_targets_list, axis=1, sort=False)
         df_stck = pd.concat(
-            [df] + df_move_list + df_rolling_list + [df_not_in_X], axis=1,
+            [df] + df_move_list + [df_candle_stick] +df_move_candle_list +
+            df_rolling_list
+            + [
+                df_not_in_X], axis=1,
             sort=False)
         df_stck_list.append(df_stck)
 

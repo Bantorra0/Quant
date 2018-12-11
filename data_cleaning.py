@@ -90,7 +90,7 @@ def fillna_stock_day(df_stock_day:pd.DataFrame=None,dates = None,start=None,db_t
 
         # Get all trading dates.
         if dates is None:
-            dates = dbop.get_trading_dates(cursor=cursor)
+            dates = sorted(dbop.get_trading_dates(cursor=cursor))
 
     if start:
         df_stock_day = df_stock_day[df_stock_day.index>=start]

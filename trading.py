@@ -247,13 +247,14 @@ class Trader:
                     if flag == BUY_FLAG and qfq_high > price:
                         if stock_signal[
                             "change_rate_p1mv_close"].iloc[
-                            0] < -0.089:
+                            0] > 0.095:
                             print("收盘涨停板，加仓失败！")
                         elif qfq_close < 1.1 * price:
                             orders.append([flag, code, qfq_close, cnt])
                         break
                     elif flag == SELL_FLAG and qfq_low < price:
-                        if stock_signal["change_rate_p1mv_close"].iloc[0] > 0.107:
+                        if stock_signal["change_rate_p1mv_close"].iloc[0] < \
+                                -0.095:
                             print("收盘跌停板，平仓失败")
                         else:
                             orders.append([flag, code, qfq_close, cnt])

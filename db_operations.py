@@ -94,6 +94,26 @@ def get_trading_dates(db_type="sqlite3", cursor=None):
     return dates
 
 
+def get_all_stocks(db_type="sqlite3", cursor=None):
+    # Get all stock codes from stock table.
+    if not cursor:
+        conn = connect_db(db_type)
+        cursor = conn.cursor()
+
+    cursor.execute("select distinct code from {0}".format(STOCK_DAY[TABLE]))
+    return [row[0] for row in cursor.fetchall()]
+
+
+def get_all_indexes(db_type="sqlite3", cursor=None):
+    # Get all index codes from index table.
+    if not cursor:
+        conn = connect_db(db_type)
+        cursor = conn.cursor()
+
+    cursor.execute("select distinct code from {0}".format(INDEX_DAY[TABLE]))
+    return [row[0] for row in cursor.fetchall()]
+
+
 def write2db(df:pd.DataFrame, table, cols, db_type="sqlite3",
              conn=None, close=True):
     if not conn:
