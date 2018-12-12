@@ -7,7 +7,7 @@ import db_operations as dbop
 
 
 def _check_int(arg):
-    if type(arg) != int:
+    if type(arg) not in [int,np.int,np.int8,np.int16,np.int32]:
         raise ValueError("{} is not a int".format(arg))
 
 
@@ -36,6 +36,10 @@ def move(days, df: pd.DataFrame, cols=None, prefix=True):
         cols = df.columns
     cols = _make_iterable(cols)
 
+    if days==0:
+        return df[cols].copy()
+
+    df = df.sort_index(ascending=False)
     if days > 0:
         pre = "p{}mv".format(abs(days))
         df_mv = df[cols].iloc[days:].copy()
@@ -58,6 +62,7 @@ def rolling(rolling_type, days, df: pd.DataFrame, cols=None,
         cols = df.columns
     cols = _make_iterable(cols)
 
+    df = df.sort_index(ascending=False)
     period = abs(days)
     if rolling_type == "max":
         df_rolling = df[cols].rolling(window=abs(days)).max()
@@ -118,14 +123,69 @@ def candle_stick(df:pd.DataFrame):
         raise ValueError("df.shape[1] {}!=4".format(df.shape[1]))
 
     open,high,low,close = df.columns
-    df_result["(high-low)/open"] = (df[high]-df[low])/df[open]
-    df_result["(close-open)/open"] = (df[close] - df[open]) / df[open]
 
-    df_result["(high-open)/open"] = (df[high]-df[open])/df[open]
-    df_result["(low-open)/open"] = (df[low] - df[open]) / df[open]
+    base_price = (df[open]+df[high]+df[low]+df[close])/4
 
-    df_result["(high-close)/close"] = (df[high] - df[close]) / df[close]
-    df_result["(low-close)/close"] = (df[low] - df[close]) / df[close]
+    stick_top = df.apply(lambda x:x[open] if x[open]>x[close] else x[close],
+                         axis=1)
+
+    stick_bottom = df.apply(lambda x: x[open] if x[open] < x[close] else x[close],
+                         axis=1)
+
+    df_result["(high-low)/avg"] = (df[high]-df[low])/base_price
+    df_result["(close-open)/avg"] = (df[close] - df[open]) / base_price
+
+    df_result["(high-open)/avg"] = (df[high]-df[open])/base_price
+    df_result["(low-open)/avg"] = (df[low] - df[open]) / base_price
+
+    df_result["(high-close)/avg"] = (df[high] - df[close]) / base_price
+    df_result["(low-close)/avg"] = (df[low] - df[close]) / base_price
+
+    df_result["upper_shadow/avg"] = (df[high] - stick_top) / base_price
+    df_result["lower_shadow/avg"] = (stick_bottom - df[low]) / base_price
+
+    return df_result
+
+
+def k_MA(k:int, df:pd.DataFrame):
+    if df.shape[1] != 2:
+        raise ValueError("df.shape[1] {}!=2".format(df.shape[1]))
+
+    if "amt" not in df.columns:
+        raise ValueError("\"amt\" not in df.columns")
+    elif "vol" not in df.columns:
+        raise ValueError("\"vol\" not in df.columns")
+
+    df_result = pd.DataFrame(index=df.index)
+    df = df.sort_index(ascending=True)
+
+    df_result["{}MA_vol".format(k)] = df["vol"].rolling(window=k).mean()
+    df_result["{}MA_amt".format(k)] = df["amt"].rolling(window=k).mean()
+    df_result["{}MA".format(k)] = df_result["{}MA_amt".format(k)]\
+                                  /df_result["{}MA_vol".format(k)]
+    return df_result.sort_index(ascending=False)
+
+
+def k_line(k:int, df:pd.DataFrame):
+    if df.shape[1] != 6:
+        raise ValueError("df.shape[1] {}!=6".format(df.shape[1]))
+
+    if not {"open", "high", "low", "close", "vol", "amt"}.issubset(set(
+            df.columns)):
+        raise ValueError("[\"open\", \"high\", \"low\", \"close\", \"vol\", "
+                         "\"amt\"\] is not a subset of {}".format(set(
+            df.columns)))
+
+    df_result = pd.DataFrame(index=df.index)
+    df = df.sort_index(ascending=True)
+
+    df_result["{}k_open".format(k)] = pd.Series(df["open"].iloc[:-k + 1],
+                                                index=df.index[k - 1:])
+    df_result["{}k_high".format(k)] = df["high"].rolling(k).max()
+    df_result["{}k_low".format(k)] = df["low"].rolling(k).min()
+    df_result["{}k_close".format(k)]=df["close"]
+    df_result["{}k_vol".format(k)] = df["vol"].rolling(k).mean()
+    df_result["{}k_amt".format(k)] = df["amt"].rolling(k).mean()
 
     return df_result
 
@@ -147,7 +207,7 @@ def prepare_each_stck(df_stck, qfq_type="hfq"):
         raise ValueError("qfq_type {} is not supported".format(qfq_type))
 
     df_stck = df_stck.copy()
-    fq_cols = ["open", "high", "low", "close"]
+    fq_cols = ["open", "high", "low", "close","vol"]
 
     # 原始数据
     for col in fq_cols:
@@ -155,14 +215,18 @@ def prepare_each_stck(df_stck, qfq_type="hfq"):
 
     # 前复权
     if qfq_type=="qfq":
-        qfq_factor = np.array(df_stck["adj_factor"]
+        fq_factor = np.array(df_stck["adj_factor"]
                           / df_stck["adj_factor"].iloc[0])
+    else:
+        fq_factor = df_stck["adj_factor"]
 
-    # print(qfq_factor.shape)
-    qfq_factor = np.array(df_stck["adj_factor"]).reshape(-1, 1) * np.ones(
+    # print(fq_factor.shape)
+
+    fq_factor = np.array(fq_factor).reshape(-1, 1) * np.ones(
         (1, len(fq_cols)))
 
-    df_stck.loc[:, fq_cols] = df_stck[fq_cols] * qfq_factor
+    df_stck.loc[:, fq_cols[:4]] = df_stck[fq_cols[:4]] * fq_factor[:,:4]
+    df_stck.loc[:,fq_cols[4]] = df_stck[fq_cols[4]]/fq_factor[:,0]
 
     return df_stck
 
@@ -171,9 +235,20 @@ def proc_stck_d(df_stck_d, stock_pool=None,targets=None):
     df_stck_d = prepare_stck_d(df_stck_d)
 
     df_stck_list = []
-    cols_move = ["open", "high", "low", "close", "amt"]
-    cols_roll = ["open", "high", "low", "close", "amt"]
-    fq_cols = ["open", "high", "low", "close"]
+    cols_move = ["open", "high", "low", "close", "vol","amt"]
+    cols_roll = ["open", "high", "low", "close", "vol","amt"]
+    cols_k_line = ["open", "high", "low", "close", "vol", "amt"]
+    cols_fq = ["open", "high", "low", "close"]
+
+    move_upper_bound = 11
+    move_mv_list = np.arange(1, move_upper_bound)
+    candle_stick_mv_list = np.arange(0,move_upper_bound)
+    kma_k_list = [5, 10, 20, 60, 120, 250]
+    k_line_k_list = kma_k_list
+    rolling_k_list = np.array(kma_k_list,dtype=int)*-1
+    kma_mv_list = np.arange(0,move_upper_bound)
+    k_line_mv_list = np.arange(0,move_upper_bound)
+
     cols_not_in_X = None
     for code, df in df_stck_d.groupby("code"):
         if stock_pool and code not in stock_pool:
@@ -184,6 +259,10 @@ def proc_stck_d(df_stck_d, stock_pool=None,targets=None):
         df = prepare_each_stck(df)
 
         df_tomorrow = move(-1, df, ["open", "high", "low", "close"])
+
+        df_qfq = df[cols_fq] / df["adj_factor"].iloc[0]
+        df_qfq.columns = ["qfq_" + col for col in cols_fq]
+        df_tomorrow_qfq = move(-1, df_qfq)
 
         df_targets_list = []
         for t in targets:
@@ -203,31 +282,45 @@ def proc_stck_d(df_stck_d, stock_pool=None,targets=None):
                 df_period_mean3 = rolling(t["fun"], p3, move(-2 - p1 - p2, df, t["col"]))
                 df_targets_list.extend([df_period_mean1,df_period_mean2,df_period_mean3])
 
-        move_days = range(1, 6)
-        df_move_list = [change_rate(move(i, df, cols_move),df[cols_move]) for
-                        i in move_days]
+        df_move_list = [move(i, df, cols_move) for i in move_mv_list]
+        df_move_change_list = [change_rate(df_move,df[cols_move])
+                               for df_move in df_move_list]
 
-        df_candle_stick = candle_stick(df[fq_cols])
-        df_move_candle_list = [move(i,df_candle_stick) for i in move_days]
+        df_candle_stick = candle_stick(df[cols_fq])
+        df_move_candle_list = [move(i,df_candle_stick) for i in candle_stick_mv_list]
 
-        df_qfq = df[fq_cols] / df["adj_factor"].iloc[0]
-        df_qfq.columns = ["qfq_"+col for col in fq_cols]
-        df_tomorrow_qfq = move(-1, df_qfq)
+        df_1ma = k_MA(1,df[["vol","amt"]])
+        df_kma_change_list = [change_rate(k_MA(k,df[["vol","amt"]]),df_1ma)
+                       for k in kma_k_list]
+        df_move_kma_change_list = [move(mv,df_kma_change)
+            for df_kma_change in df_kma_change_list
+            for mv in kma_mv_list
+        ]
 
-        df_rolling_list = [
+        df_k_line_list = [(k,k_line(k,df[cols_k_line])) for k in k_line_k_list]
+        df_change_move_k_line_list = [change_rate(move(k*mv,df_k_line),
+                                                  df[cols_k_line])
+                                      for k,df_k_line in df_k_line_list
+                                      for mv in k_line_mv_list]
+
+
+        df_rolling_change_list = [
             change_rate(rolling(rolling_type, days=days, df=df, cols=cols_roll),
                         df[cols_roll],
                         )
-            for days in [-5, -10, -20, -60, -120, -250]
+            for days in rolling_k_list
             for rolling_type in ["max","min","mean"]]
 
         df_not_in_X = pd.concat(
             [df_qfq,df_tomorrow,df_tomorrow_qfq]+df_targets_list, axis=1, sort=False)
         df_stck = pd.concat(
-            [df] + df_move_list + [df_candle_stick] +df_move_candle_list +
-            df_rolling_list
-            + [
-                df_not_in_X], axis=1,
+            [df] + df_move_change_list
+            + df_move_candle_list
+            + df_move_kma_change_list
+            + df_rolling_change_list
+            + df_change_move_k_line_list
+            + [df_not_in_X],
+            axis=1,
             sort=False)
         df_stck_list.append(df_stck)
 
