@@ -240,7 +240,7 @@ def proc_stck_d(df_stck_d, stock_pool=None,targets=None):
     cols_k_line = ["open", "high", "low", "close", "vol", "amt"]
     cols_fq = ["open", "high", "low", "close"]
 
-    move_upper_bound = 11
+    move_upper_bound = 6
     move_mv_list = np.arange(1, move_upper_bound)
     candle_stick_mv_list = np.arange(0,move_upper_bound)
     kma_k_list = [5, 10, 20, 60, 120, 250]

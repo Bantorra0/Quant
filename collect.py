@@ -283,10 +283,3 @@ if __name__ == '__main__':
 
     update()
     dc.fillna_stock_day(db_type="sqlite3")
-
-    # print(len(set(dbop.get_all_stocks())))
-    #
-    # indexes = dbop.get_all_indexes()
-    # print(indexes)
-    #
-    # print(len(indexes),len(set(indexes)))

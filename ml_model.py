@@ -58,7 +58,8 @@ def gen_y(df_all: pd.DataFrame, pred_period=10, threshold=0.1, is_high=True,
 
     # print(y[y.isna() & (df_all["f1mv_high"] == df_all["f1mv_low"])])
     y[y.notnull() & (df_all["f1mv_high"] == df_all["f1mv_low"])] = 0
-    print("过滤涨停项或停牌（最高价=最低价）：", sum(df_all["f1mv_high"] == df_all["f1mv_low"]))
+    print("过滤一字涨停项或停牌（最高价=最低价）：", sum(df_all["f1mv_high"] == df_all[
+        "f1mv_low"]))
 
     y_distribution(y)
 
