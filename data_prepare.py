@@ -313,22 +313,23 @@ def proc_stck_d(df_stck_d, stock_pool=None,targets=None):
 
         df_not_in_X = pd.concat(
             [df_qfq,df_tomorrow,df_tomorrow_qfq]+df_targets_list, axis=1, sort=False)
-        # df_stck = pd.concat(
-        #     [df] + df_move_change_list
-        #     # + df_move_candle_list
-        #     # + df_move_kma_change_list
-        #     + df_rolling_change_list
-        #     # + df_change_move_k_line_list
-        #     + [df_not_in_X],
-        #     axis=1,
-        #     sort=False)
 
-        df_stck = pd.concat([df] + df_move_change_list
-                            + df_move_candle_list
-                            + df_move_kma_change_list
-                            + df_rolling_change_list
-                            + df_change_move_k_line_list
-                            + [df_not_in_X], axis=1, sort=False)
+        df_stck = pd.concat(
+            [df] + df_move_change_list
+            # + df_move_candle_list
+            # + df_move_kma_change_list
+            + df_rolling_change_list
+            # + df_change_move_k_line_list
+            + [df_not_in_X],
+            axis=1,
+            sort=False)
+
+        # df_stck = pd.concat([df] + df_move_change_list
+        #                     + df_move_candle_list
+        #                     + df_move_kma_change_list
+        #                     + df_rolling_change_list
+        #                     + df_change_move_k_line_list
+        #                     + [df_not_in_X], axis=1, sort=False)
 
         df_stck_list.append(df_stck)
 

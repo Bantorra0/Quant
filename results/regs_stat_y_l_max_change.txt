@@ -2099,9 +2099,6 @@ LGBMRegressor(boosting_type='gbdt', class_weight=None, colsample_bytree=1.0,
 0 (nan, nan, nan, nan, nan)
 0 (nan, nan, nan, nan, nan)
 
-
-
-
 0 (nan, nan, nan, nan, nan)
 0 (nan, nan, nan, nan, nan)
 0 (nan, nan, nan, nan, nan)
