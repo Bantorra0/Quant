@@ -12,5 +12,5 @@ def sigmoid_linear_transform(x, a,b):
 def sigmoid_lt_obj_generator(a,b):
     def sigmoid_lt_obj(y_true,y_pred):
         _, grad, hess = sigmoid_linear_transform(y_pred,a,b)
-        return -y_true * grad, -y_true * hess
+        return -y_true * grad, np.ones(y_true.shape)
     return sigmoid_lt_obj

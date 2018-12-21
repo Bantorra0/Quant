@@ -104,17 +104,25 @@ def change_rate(df1: pd.DataFrame, df2: pd.DataFrame, cols1=None,
             "Column length not the same:{0}!={1}".format(df1.shape[1],
                                                          df2.shape[1]))
 
-    df1 = df1.copy()
-    # Make sure columns of df1 and df2 are the same, because operations are
-    # based on index and columns.
-    df1.columns = df2.columns
-    df3 = (df2 - df1) / df1
+    cols1 = df1.columns
+    cols2 = df2.columns
+    ndarray1 = np.array(df1)
+    ndarray2 = np.array(df2)
+    ndarray = ndarray2/ndarray1-1
+    cols = ["({1}/{0}-1)".format(c1,c2) for c1,c2 in zip(cols1,cols2)]
 
-    pre = "change_rate"
-    if prefix:
-        return _prefix(pre, df3)
-    else:
-        return df3
+    return pd.DataFrame(ndarray,columns=cols)
+
+    # # Make sure columns of df1 and df2 are the same, because operations are
+    # # based on index and columns.
+    # df1.columns = df2.columns
+    # df3 = (df2 - df1) / df1
+    #
+    # pre = "change_rate"
+    # if prefix:
+    #     return _prefix(pre, df3)
+    # else:
+    #     return df3
 
 
 def candle_stick(df:pd.DataFrame):
