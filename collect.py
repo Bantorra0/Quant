@@ -9,6 +9,8 @@ import db_operations as dbop
 import df_operations as dfop
 from constants import TOKEN, STOCK_DAY, INDEX_DAY, TABLE, COLUMNS
 
+import time
+
 
 def stck_pools():
     api = _init_api(TOKEN)
@@ -207,7 +209,7 @@ def collect_stock_day(pools: [str], db_type: str, update=False,
             write_failure +=failure
         else:
             download_failure = df_single_stock_day
-        print()
+        time.sleep(1)
     dbop.close_db(conn)
     return download_failure,write_failure
 
@@ -225,7 +227,7 @@ def collect_index_day(pools: [str], db_type: str, update=False,
             write_failure += failure
         else:
             download_failure = df_single_index_day
-        print()
+        time.sleep(1)
     dbop.close_db(conn)
     return download_failure,write_failure
 
