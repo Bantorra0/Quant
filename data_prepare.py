@@ -96,22 +96,36 @@ def change_rate(df1: pd.DataFrame, df2: pd.DataFrame, cols1=None,
                 cols2=None, prefix=True):
     if cols1:
         df1 = df1[cols1].copy()
+    else:
+        df1 = df1.copy()
+
     if cols2:
         df2 = df2[cols2].copy()
+    else:
+        df2 = df2.copy()
 
     if df1.shape[1] != df2.shape[1]:
         raise ValueError(
             "Column length not the same:{0}!={1}".format(df1.shape[1],
                                                          df2.shape[1]))
 
+    # cols1 = df1.columns
+    # cols2 = df2.columns
+    # ndarray1 = np.array(df1)
+    # ndarray2 = np.array(df2)
+    # ndarray = ndarray2/ndarray1-1
+    # cols = ["({1}/{0}-1)".format(c1,c2) for c1,c2 in zip(cols1,cols2)]
+    #
+    # return pd.DataFrame(ndarray,columns=cols)
+
     cols1 = df1.columns
     cols2 = df2.columns
-    ndarray1 = np.array(df1)
-    ndarray2 = np.array(df2)
-    ndarray = ndarray2/ndarray1-1
-    cols = ["({1}/{0}-1)".format(c1,c2) for c1,c2 in zip(cols1,cols2)]
 
-    return pd.DataFrame(ndarray,columns=cols)
+    df2.columns = cols1
+    df3 = df2/df1-1
+    cols = ["({1}/{0}-1)".format(c1, c2) for c1, c2 in zip(cols1, cols2)]
+    df3.columns = cols
+    return df3
 
     # # Make sure columns of df1 and df2 are the same, because operations are
     # # based on index and columns.
@@ -322,22 +336,22 @@ def proc_stck_d(df_stck_d, stock_pool=None,targets=None):
         df_not_in_X = pd.concat(
             [df_qfq,df_tomorrow,df_tomorrow_qfq]+df_targets_list, axis=1, sort=False)
 
-        df_stck = pd.concat(
-            [df] + df_move_change_list
-            # + df_move_candle_list
-            # + df_move_kma_change_list
-            + df_rolling_change_list
-            # + df_change_move_k_line_list
-            + [df_not_in_X],
-            axis=1,
-            sort=False)
+        # df_stck = pd.concat(
+        #     [df] + df_move_change_list
+        #     # + df_move_candle_list
+        #     # + df_move_kma_change_list
+        #     + df_rolling_change_list
+        #     # + df_change_move_k_line_list
+        #     + [df_not_in_X],
+        #     axis=1,
+        #     sort=False)
 
-        # df_stck = pd.concat([df] + df_move_change_list
-        #                     + df_move_candle_list
-        #                     + df_move_kma_change_list
-        #                     + df_rolling_change_list
-        #                     + df_change_move_k_line_list
-        #                     + [df_not_in_X], axis=1, sort=False)
+        df_stck = pd.concat([df] + df_move_change_list
+                            + df_move_candle_list
+                            + df_move_kma_change_list
+                            + df_rolling_change_list
+                            + df_change_move_k_line_list
+                            + [df_not_in_X], axis=1, sort=False)
 
         df_stck_list.append(df_stck)
 

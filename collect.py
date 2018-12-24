@@ -130,8 +130,8 @@ def download_index_day(pools: [str], db_type:str, update=False,
 
             # Print progress.
             # 打印进度
-            print('Seq: ' + str(i + 1) + ' of ' + str(
-                len(pools)) + '   Code: ' + str(code))
+            # print('Seq: ' + str(i + 1) + ' of ' + str(
+            #     len(pools)) + '   Code: ' + str(code))
 
         except Exception as err:
             download_failure+=1
@@ -181,8 +181,8 @@ def download_stock_day(pools: [str], db_type:str, update=False,
 
             # Print progress.
             # 打印进度。
-            print('Seq: ' + str(i + 1) + ' of ' + str(
-                len(pools)) + '   Code: ' + str(code)+"\n")
+            # print('Seq: ' + str(i + 1) + ' of ' + str(
+            #     len(pools)) + '   Code: ' + str(code)+"\n")
 
         except Exception as err:
             download_failure += 1
@@ -255,19 +255,26 @@ def update(db_type = "sqlite3"):
     index_pools = dbop.get_all_indexes()
     stock_pools = dbop.get_all_stocks()
 
-    download_failure = 1
-    write_failure = 0
-    while download_failure>0 or write_failure>0:
-        print("Indexes:", len(index_pools))
-        download_failure1,write_failure1 = collect_index_day(index_pools,
-                                                           db_type,
-                                              update=True)
-        print("Stocks:",len(stock_pools))
-        download_failure2, write_failure2 = collect_stock_day(stock_pools,
-                                                              db_type,
-                                             update=True)
-        download_failure = download_failure1+download_failure2
-        write_failure = write_failure1+write_failure2
+
+    print("Indexes:", len(index_pools))
+    for i,idx in enumerate(index_pools):
+        print('Seq: ' + str(i + 1) + ' of ' + str(
+            len(index_pools)) + '   Code: ' + str(idx))
+        download_failure = 1
+        write_failure = 0
+        while download_failure>0 or write_failure>0:
+            download_failure,write_failure = collect_index_day(
+                [idx],db_type,update=True)
+
+    print("Stocks:", len(stock_pools))
+    for i,stock in enumerate(stock_pools):
+        print('Seq: ' + str(i + 1) + ' of ' + str(
+            len(stock_pools)) + '   Code: ' + str(stock))
+        download_failure = 1
+        write_failure = 0
+        while download_failure > 0 or write_failure > 0:
+            download_failure, write_failure = collect_stock_day(
+                [stock],db_type,update=True)
 
 
 def add_stock(stocks, db_type="sqlite3"):

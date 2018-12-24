@@ -19,25 +19,25 @@ def sigmoid_lt_obj_generator(a,b):
     """
     def sigmoid_lt_obj(y_true,y_pred):
         _, grad, hess = sigmoid_linear_transform(y_pred,a,b)
-        return -y_true * grad, np.ones(y_true.shape)
+        return -y_true * grad, -y_true * hess
     return sigmoid_lt_obj
 
 
-def smooth_abs(x:np.array):
+def smooth_abs(x:np.array, k):
     """
     Smooth version of abs() function.
 
     :param x:
     :return:
     """
-    v = np.log(np.exp(x)+np.exp(-x))
-    grad = np.tanh(x)
-    tmp = (np.exp(x)+np.exp(-x))
-    hess = 4/ tmp * tmp
+    v = np.log(np.exp(k*x)+np.exp(-k*x))/k
+    grad = np.tanh(k * x)
+    tmp = (np.exp(k * x)+np.exp(-k * x))
+    hess = 4 * k/ (tmp * tmp)
     return v, grad, hess
 
 
-def smooth_l1(y_true:np.array, y_pred:np.array):
+def smooth_l1(y_true:np.array, y_pred:np.array, k):
     """
     Smooth version of l1 loss.
 
@@ -45,8 +45,14 @@ def smooth_l1(y_true:np.array, y_pred:np.array):
     :return:
     """
     x = y_pred-y_true
-    grad = np.tanh(x)
-    tmp = (np.exp(x) + np.exp(-x))
-    hess = 4 / tmp * tmp
+    grad = np.tanh(k * x)
+    tmp = (np.exp(k * x) + np.exp(-k * x))
+    hess = 4 * k / (tmp * tmp)
     return grad, hess
+
+
+def smooth_l1_obj_generator(k):
+    def smooth_l1_obj(y_true,y_pred):
+        return smooth_l1(y_true,y_pred,k)
+    return smooth_l1_obj
 

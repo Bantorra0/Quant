@@ -31,11 +31,11 @@ class SigmoidLtObjCase(unittest.TestCase):
 
         # Test gradient
         grad_expected = (sigmoid2 - sigmoid1)/(x2-x1)
-        self.assertTrue(np.alltrue(grad_expected-grad<delta))
+        self.assertTrue(np.alltrue(np.abs(grad_expected-grad)<delta))
 
         # Test hessian
         hess_expected = (grad2-grad1)/(x2-x1)
-        self.assertTrue(np.alltrue(hess_expected-hess<delta))
+        self.assertTrue(np.alltrue(np.abs(hess_expected-hess)<delta))
 
 
     def test_sigmoid_lt_obj_generator(self):
@@ -74,14 +74,74 @@ class SigmoidLtObjCase(unittest.TestCase):
 
         # Test gradient
         grad_expected = (sigmoid2 - sigmoid1) / (y2 - y1)
-        self.assertTrue(np.alltrue(grad_expected - grad < delta))
+        self.assertTrue(np.alltrue(np.abs(grad_expected - grad) < delta))
 
         # Test hessian
         hess_expected = (grad2 - grad1) / (y2 - y1)
-        self.assertTrue(np.alltrue(hess_expected - hess < delta))
+        self.assertTrue(np.alltrue(np.abs(hess_expected - hess) < delta))
 
-        print(grad)
-        print(hess)
+
+    def test_smooth_l1(self):
+        delta = 1e-6
+        k = 100
+
+        y_pred = np.arange(-5,6)*0.1
+        y_true = y_pred * np.random.uniform(0.7,1.3,y_pred.shape)
+        grad, hess = cus_obj.smooth_l1(y_true,y_pred,k)
+
+        delta_y = 1e-6
+        y1 = y_pred - delta_y
+        y2 = y_pred + delta_y
+
+        loss1,_,_ = cus_obj.smooth_abs(y1-y_true,k)
+        loss2, _, _ = cus_obj.smooth_abs(y2 - y_true, k)
+
+        grad1,hess1 = cus_obj.smooth_l1(y_true,y1,k)
+        grad2, hess2 = cus_obj.smooth_l1(y_true,y2,k)
+
+        grad_expected = (loss2-loss1)/(y2-y1)
+        self.assertTrue(np.alltrue(np.abs(grad_expected-grad)<delta))
+        # print(grad_expected)
+        # print(grad)
+
+        hess_expected = (grad2-grad1)/(y2-y1)
+        # print(grad2)
+        # print(grad1)
+        # print(hess_expected)
+        # print(hess)
+        self.assertTrue(np.alltrue(np.abs(hess_expected-hess)<delta))
+
+
+    def test_smooth_l1_generator(self):
+        delta = 1e-6
+        k = 100
+
+        y_pred = np.arange(-5,6)*0.1
+        y_true = y_pred * np.random.uniform(0.7,1.3,y_pred.shape)
+        obj = cus_obj.smooth_l1_obj_generator(k)
+        grad, hess = obj(y_true,y_pred)
+
+        delta_y = 1e-6
+        y1 = y_pred - delta_y
+        y2 = y_pred + delta_y
+
+        loss1,_,_ = cus_obj.smooth_abs(y1-y_true,k)
+        loss2, _, _ = cus_obj.smooth_abs(y2 - y_true, k)
+
+        grad1,hess1 = obj(y_true,y1)
+        grad2, hess2 = obj(y_true,y2)
+
+        grad_expected = (loss2-loss1)/(y2-y1)
+        self.assertTrue(np.alltrue(np.abs(grad_expected-grad)<delta))
+        # print(grad_expected)
+        # print(grad)
+
+        hess_expected = (grad2-grad1)/(y2-y1)
+        # print(grad2)
+        # print(grad1)
+        # print(hess_expected)
+        # print(hess)
+        self.assertTrue(np.alltrue(np.abs(hess_expected-hess)<delta))
 
 
 if __name__ == '__main__':
