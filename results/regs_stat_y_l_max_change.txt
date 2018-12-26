@@ -4026,6 +4026,7 @@ LGBMRegressor(alpha=0.5, boosting_type='gbdt', class_weight=None,
 917
 obj = mae
 
+sample_weight = abs/mean+1
 -0.1973608041164343
 LGBMRegressor(boosting_type='gbdt', class_weight=None, colsample_bytree=1.0,
        learning_rate=0.05, max_depth=8, min_child_samples=20,
@@ -4118,7 +4119,6 @@ LGBMRegressor(boosting_type='gbdt', class_weight=None, colsample_bytree=1.0,
 
 
 no sample_weight
-
 y_l_rise
 -0.3048560124362867
 LGBMRegressor(boosting_type='gbdt', class_weight=None, colsample_bytree=1.0,
@@ -4171,6 +4171,8 @@ LGBMRegressor(boosting_type='gbdt', class_weight=None, colsample_bytree=1.0,
 
 
 y_l_rise
+loss = huber(y,y_pred*15)
+sample_weight = abs/mean+1
 -64.09220082645382
 LGBMRegressor(boosting_type='gbdt', class_weight=None, colsample_bytree=1.0,
        learning_rate=0.1, max_depth=8, min_child_samples=20,
@@ -4221,6 +4223,8 @@ LGBMRegressor(boosting_type='gbdt', class_weight=None, colsample_bytree=1.0,
 
 
 y_l_rise
+loss = huber(y,y_pred*15)
+sample_weight = abs/mean+1
 -83.62003637251831
 LGBMRegressor(boosting_type='gbdt', class_weight=None, colsample_bytree=1.0,
        learning_rate=0.1, max_depth=8, min_child_samples=20,
