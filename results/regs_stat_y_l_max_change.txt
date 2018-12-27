@@ -4171,7 +4171,7 @@ LGBMRegressor(boosting_type='gbdt', class_weight=None, colsample_bytree=1.0,
 
 
 y_l_rise
-loss = huber(y,y_pred*15)
+loss = huber(y*15,y_pred*15)
 sample_weight = abs/mean+1
 -64.09220082645382
 LGBMRegressor(boosting_type='gbdt', class_weight=None, colsample_bytree=1.0,
@@ -4223,7 +4223,7 @@ LGBMRegressor(boosting_type='gbdt', class_weight=None, colsample_bytree=1.0,
 
 
 y_l_rise
-loss = huber(y,y_pred*15)
+loss = huber(y*15,y_pred*15)
 sample_weight = abs/mean+1
 -83.62003637251831
 LGBMRegressor(boosting_type='gbdt', class_weight=None, colsample_bytree=1.0,
