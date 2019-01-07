@@ -226,11 +226,11 @@ def download_stock_basic(db_type:str):
 
 
 def collect_stock_day(pools: [str], db_type: str, update=False,
-                      start="2000-01-01"):
+                      start="2000-01-01", verbose=False):
     conn = dbop.connect_db(db_type)
     download_failure,write_failure=0,0
     for df_single_stock_day in download_stock_day(pools=pools,db_type=db_type,
-                                      update=update, start=start):
+                                      update=update, start=start, verbose=verbose):
         if type(df_single_stock_day)!=int:
             conn,failure = dbop.write2db(df_single_stock_day,table=STOCK_DAY[
                 TABLE],
@@ -244,11 +244,11 @@ def collect_stock_day(pools: [str], db_type: str, update=False,
 
 
 def collect_index_day(pools: [str], db_type: str, update=False,
-                      start="2000-01-01"):
+                      start="2000-01-01",verbose=False):
     conn = dbop.connect_db(db_type)
     download_failure,write_failure = 0,0
     for df_single_index_day in download_index_day(pools=pools,db_type=db_type,
-                                      update=update, start=start):
+                                      update=update, start=start, verbose=verbose):
         if type(df_single_index_day)!=int:
             conn, failure = dbop.write2db(df_single_index_day,
                                             table=INDEX_DAY[TABLE],
@@ -322,11 +322,11 @@ def update(db_type = "sqlite3"):
             download_failure, write_failure = collect_stock_day(
                 [stock],db_type,update=True)
 
-    download_failure = 1
-    write_failure = 0
-    while download_failure > 0 or write_failure > 0:
-        download_failure, write_failure = collect_stock_basic(db_type,
-                                                              update=True)
+    # download_failure = 1
+    # write_failure = 0
+    # while download_failure > 0 or write_failure > 0:
+    #     download_failure, write_failure = collect_stock_basic(db_type,
+    #                                                           update=True)
 
 
 def update_stock_basic(db_type = "sqlite3", initialize = False):
@@ -353,9 +353,9 @@ if __name__ == '__main__':
     #           "002507.SZ", "601006.SH"]
     # add_stock(stocks)
 
-    # update()
-    # dc.fillna_stock_day(db_type="sqlite3")
+    update()
+    dc.fillna_stock_day(db_type="sqlite3")
 
-    update_stock_basic()
+    # update_stock_basic()
 
 

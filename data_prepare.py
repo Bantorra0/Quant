@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import sklearn as sk
 
 import collect as clct
 import constants as const
@@ -434,6 +435,8 @@ def prepare_data(cursor,targets=None, start=None, stock_pool=None):
 
     df_stock_basic = dbop.create_df(cursor, const.STOCK_BASIC[const.TABLE])
     # print(df_stock_basic)
+    # le = sk.preprocessing.LabelEncoder()
+    # le.fit()
 
     df_stck_d_all, cols_future = proc_stck_d(df_stck_d,
                                              stock_pool=stock_pool,
