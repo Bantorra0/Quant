@@ -10,7 +10,7 @@ INDEX_DAY = {TABLE: "index_day",
 FEE_RATE = 2.5 / 10000
 STAMP_TAX_RATE = (0,1/1000)
 
-# BASE_DIR = r"C:\Users\dell-pc\Quant\Quant"
+# BASE_DIR = r"C:\Users\dell-pc\DM\DM"
 
 MODEL_DIR = "models"
 

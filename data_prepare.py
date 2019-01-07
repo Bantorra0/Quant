@@ -146,7 +146,7 @@ def candle_stick(df:pd.DataFrame):
 
     open,high,low,close = df.columns
 
-    base_price = (df[open]+df[high]+df[low]+df[close])/4
+    day_avg_price = (df[open]+df[high]+df[low]+df[close])/4
 
     stick_top = df.apply(lambda x:x[open] if x[open]>x[close] else x[close],
                          axis=1)
@@ -154,17 +154,17 @@ def candle_stick(df:pd.DataFrame):
     stick_bottom = df.apply(lambda x: x[open] if x[open] < x[close] else x[close],
                          axis=1)
 
-    df_result["(high-low)/avg"] = (df[high]-df[low])/base_price
-    df_result["(close-open)/avg"] = (df[close] - df[open]) / base_price
+    df_result["(high-low)/avg"] = (df[high]-df[low])/day_avg_price
+    df_result["(close-open)/avg"] = (df[close] - df[open]) / day_avg_price
 
-    df_result["(high-open)/avg"] = (df[high]-df[open])/base_price
-    df_result["(low-open)/avg"] = (df[low] - df[open]) / base_price
+    df_result["(high-open)/avg"] = (df[high]-df[open])/day_avg_price
+    df_result["(low-open)/avg"] = (df[low] - df[open]) / day_avg_price
 
-    df_result["(high-close)/avg"] = (df[high] - df[close]) / base_price
-    df_result["(low-close)/avg"] = (df[low] - df[close]) / base_price
+    df_result["(high-close)/avg"] = (df[high] - df[close]) / day_avg_price
+    df_result["(low-close)/avg"] = (df[low] - df[close]) / day_avg_price
 
-    df_result["upper_shadow/avg"] = (df[high] - stick_top) / base_price
-    df_result["lower_shadow/avg"] = (stick_bottom - df[low]) / base_price
+    df_result["upper_shadow/avg"] = (df[high] - stick_top) / day_avg_price
+    df_result["lower_shadow/avg"] = (stick_bottom - df[low]) / day_avg_price
 
     return df_result
 
@@ -264,14 +264,19 @@ def proc_stck_d(df_stck_d, stock_pool=None,targets=None):
 
     move_upper_bound = 6
     move_mv_list = np.arange(1, move_upper_bound)
+
     candle_stick_mv_list = np.arange(0,move_upper_bound)
-    kma_k_list = [5, 10, 20, 60, 120, 250]
+
+    kma_k_list = [3,5, 10, 20, 60, 120, 250]
+    kma_mv_list = np.arange(0, move_upper_bound)
+
     k_line_k_list = kma_k_list
+    k_line_mv_list = np.arange(0, move_upper_bound)
+
     rolling_k_list = np.array(kma_k_list,dtype=int)*-1
-    kma_mv_list = np.arange(0,move_upper_bound)
-    k_line_mv_list = np.arange(0,move_upper_bound)
 
     cols_not_in_X = None
+
     for code, df in df_stck_d.groupby("code"):
         if stock_pool and code not in stock_pool:
             continue
@@ -377,6 +382,8 @@ def proc_idx_d(df_idx_d: pd.DataFrame):
     cols_move = ["open", "high", "low", "close", "vol"]
     cols_roll = cols_move
 
+    rolling_k_list = [-3, -5, -10, -20, -60, -120, -250, -500]
+
     df_idx_list = []
     for name, group in df_idx_d.groupby("code"):
         group = group.sort_index(ascending=False)
@@ -391,7 +398,7 @@ def proc_idx_d(df_idx_d: pd.DataFrame):
                          group[["low", "vol"]],),
              change_rate(rolling("mean",days, group,["open", "close", "vol"]),
                          group[["open", "close", "vol"]],))
-            for days in [-5, -10, -20, -60, -120, -250, -500]
+            for days in rolling_k_list
         ]
 
         df_rolling_flat_list = []

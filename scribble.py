@@ -64,13 +64,35 @@ import matplotlib.pyplot as plt
 #
 
 
-def loss(y_true,y_pred):
-    x = -100 * y_true*(y_pred-y_true)
-    return 1/(1+np.exp(-x))
+# def loss(y_true,y_pred):
+#     x = -100 * y_true*(y_pred-y_true)
+#     return 1/(1+np.exp(-x))
+#
+#
+# if __name__ == '__main__':
+#     y_true = np.arange(-1,4)*0.1
+#     y_pred = np.array([-0.2,-0.05,-0.1,0.15,0.4])
+#
+#     print(loss(y_true,y_pred))
 
 
-if __name__ == '__main__':
-    y_true = np.arange(-1,4)*0.1
-    y_pred = np.array([-0.2,-0.05,-0.1,0.15,0.4])
+base_price = 1
+change_rates = np.random.normal(0,0.03,size=10)
+print(change_rates)
+shape=11
+open = np.ones(shape=11)*base_price
+for i,chg in enumerate(change_rates):
+    if chg<-0.1:
+        chg = -0.1
+    elif chg>0.1:
+        chg=0.1
+    open[i+1] = open[i] * (1+chg)
 
-    print(loss(y_true,y_pred))
+print(open)
+
+high = open * (1+np.random.uniform(0,0.05,size=open.shape))
+low = open * (1-np.random.uniform(0,0.05,size=open.shape))
+close = open * (1+np.random.uniform(-0.025,0.025,size=open.shape))
+print(high)
+print(low)
+print(close)
