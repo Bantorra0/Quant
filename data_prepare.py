@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 import collect as clct
-import constants
+import constants as const
 import db_operations as dbop
 
 
@@ -369,6 +369,8 @@ def proc_stck_d(df_stck_d, stock_pool=None,targets=None):
         df_stck_d_all["code"][df_stck_d_all.index >= "2018-01-01"].unique()))
     print(df_stck_d_all.shape)
 
+    df_stck_d_all.index.name = "date"
+
     return df_stck_d_all, cols_not_in_X
 
 
@@ -381,6 +383,8 @@ def proc_idx_d(df_idx_d: pd.DataFrame):
     for name, group in df_idx_d.groupby("code"):
         group = group.sort_index(ascending=False)
         del group["code"]
+
+        # print("group",group.index.name)
         df_move_list = [
             change_rate(move(i, group, cols_move),group[cols_move]) for i in
             range(1, 6)]
@@ -400,19 +404,29 @@ def proc_idx_d(df_idx_d: pd.DataFrame):
 
         tmp_list = [group] + df_move_list + df_rolling_flat_list
         tmp = pd.concat(tmp_list, axis=1, sort=False)
+        # print("tmp_list",[t.index.name for t in tmp_list],pd.concat(
+        #     tmp_list,axis=1,sort=False).index.name)
+        # print("tmp",tmp.index.name)
         df_idx_list.append(_prefix(name, tmp))
 
+    # print("df_idx_list:",df_idx_list[0].index.name)
+
     df_idx_d = pd.concat(df_idx_list, axis=1, sort=False)
+    # print("df_idx_d:",df_idx_d.index.name)
+    df_idx_d.index.name="date"
     return df_idx_d
 
 
 def prepare_data(cursor,targets=None, start=None, stock_pool=None):
-    stock_day, index_day = constants.STOCK_DAY[clct.TABLE], constants.INDEX_DAY[
-        clct.TABLE]
+    stock_day, index_day = const.STOCK_DAY[const.TABLE], const.INDEX_DAY[
+        const.TABLE]
     print("start:",start)
     df_stck_d = dbop.create_df(cursor, stock_day, start)
-    print("min_date",min(df_stck_d.date))
+    print("min_date:",min(df_stck_d.date))
     df_idx_d = dbop.create_df(cursor, index_day, start)
+
+    df_stock_basic = dbop.create_df(cursor, const.STOCK_BASIC[const.TABLE])
+    # print(df_stock_basic)
 
     df_stck_d_all, cols_future = proc_stck_d(df_stck_d,
                                              stock_pool=stock_pool,
@@ -422,9 +436,24 @@ def prepare_data(cursor,targets=None, start=None, stock_pool=None):
     df_idx_d = proc_idx_d(df_idx_d)
     print(df_idx_d.shape, len(df_idx_d.index.unique()))
     df_all = df_stck_d_all.join(df_idx_d)
+
+    # print(df_all.index)
+    print(df_stck_d_all.index.name)
+    print(df_idx_d.index.name)
+    print(list(df_all.reset_index().columns))
+
+    df_all.index.name = "date"
+
+    df_all = df_all.reset_index()\
+        .merge(df_stock_basic, on="code",how="outer")\
+        .set_index(["date"])
+
+    cols_category = ["area","industry","market","exchange","is_hs"]
+    cols_not_for_model = list(df_stock_basic.columns.difference(
+        cols_category+["code"]))
     print(df_all.shape)
 
-    return df_all, cols_future
+    return df_all, cols_future, cols_category, cols_not_for_model
 
 
 def feature_select(X, y):

@@ -122,11 +122,14 @@ def write2db(df:pd.DataFrame, table, cols, db_type="sqlite3",
 
     write_failure = 0
     for _, row in df.iterrows():
-        code, date = row["code"],row["date"]
+        if "date" in row.index:
+            args = row["code"],row["date"]
+        else:
+            args = (row["code"],)
         # Try to delete the row first if exists.
         try:
             cursor.execute(("delete from {0} where code='{1}' "
-                            "and date='{2}'").format(table, code,date))
+                            "and date='{2}'").format(table,*args))
         except Exception as e:
             pass
 

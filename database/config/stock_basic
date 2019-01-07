@@ -1,0 +1,19 @@
+create::
+create table stock_basic
+(
+code	varchar(45),
+symbol	varchar(45),
+name	varchar(45),
+area	varchar(45),
+industry	varchar(45),
+fullname	varchar(45),
+enname	varchar(45),
+market	varchar(45),
+exchange	varchar(45),
+curr_type	varchar(45),
+list_status	varchar(45),
+list_date	varchar(45),
+delist_date	varchar(45),
+is_hs	varchar(45),
+primary key(code)
+);

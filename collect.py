@@ -1,15 +1,14 @@
 import datetime
+import time
 
 import numpy as np
 import pandas as pd
 import tushare as ts
 
-import data_cleaning as dc
+import constants as const
 import db_operations as dbop
 import df_operations as dfop
 from constants import TOKEN, STOCK_DAY, INDEX_DAY, TABLE, COLUMNS
-
-import time
 
 
 def stck_pools():
@@ -196,6 +195,34 @@ def download_stock_day(pools: [str], db_type:str, update=False,
     yield download_failure
 
 
+def download_stock_basic(db_type:str):
+    pro = _init_api(TOKEN)
+    download_failure = 0
+    status_list = ["L", "D", "P"]  # L上市，D退市，P暂停上市。
+    fields = ['ts_code', 'symbol', 'name', 'area', 'industry', 'fullname',
+              'enname', 'market', 'exchange', 'curr_type', 'list_status',
+              'list_date', 'delist_date', 'is_hs']
+    df_list = []
+    try:
+        for status in status_list:
+            df_list.append(
+                pro.stock_basic(list_status=status, fields=",".join(fields)))
+            print(df_list[-1].shape)
+
+        df = pd.concat(df_list, sort=False, ignore_index=True)
+        df.columns = unify_col_names(df.columns)
+        print(df.shape)
+        print(df.columns)
+        yield df
+
+    except Exception as err:
+        download_failure = 1
+        print(err)
+
+    print("-"*10,"\nDownload failure:{0}\n".format(download_failure))
+    yield download_failure
+
+
 def collect_stock_day(pools: [str], db_type: str, update=False,
                       start="2000-01-01"):
     conn = dbop.connect_db(db_type)
@@ -227,6 +254,23 @@ def collect_index_day(pools: [str], db_type: str, update=False,
             write_failure += failure
         else:
             download_failure = df_single_index_day
+        time.sleep(1)
+    dbop.close_db(conn)
+    return download_failure,write_failure
+
+
+def collect_stock_basic(db_type: str, update=False):
+    conn = dbop.connect_db(db_type)
+    download_failure,write_failure = 0,0
+    for df_single_stock_basic in download_stock_basic(db_type=db_type):
+        if type(df_single_stock_basic)!=int:
+            conn, failure = dbop.write2db(df_single_stock_basic,
+                                          table=const.STOCK_BASIC[const.TABLE],
+                                          cols=const.STOCK_BASIC[const.COLUMNS],
+                                          conn=conn, close=False)
+            write_failure += failure
+        else:
+            download_failure = df_single_stock_basic
         time.sleep(1)
     dbop.close_db(conn)
     return download_failure,write_failure
@@ -276,6 +320,23 @@ def update(db_type = "sqlite3"):
             download_failure, write_failure = collect_stock_day(
                 [stock],db_type,update=True)
 
+    download_failure = 1
+    write_failure = 0
+    while download_failure > 0 or write_failure > 0:
+        download_failure, write_failure = collect_stock_basic(db_type,
+                                                              update=True)
+
+
+def update_stock_basic(db_type = "sqlite3", initialize = False):
+    if initialize:
+        init_table(const.STOCK_BASIC[const.TABLE], "sqlite3")
+
+    download_failure = 1
+    write_failure = 0
+    while download_failure > 0 or write_failure > 0:
+        download_failure, write_failure = collect_stock_basic(db_type,
+                                                              update=True)
+
 
 def add_stock(stocks, db_type="sqlite3"):
     download_failure = 1
@@ -290,5 +351,9 @@ if __name__ == '__main__':
     #           "002507.SZ", "601006.SH"]
     # add_stock(stocks)
 
-    update()
-    dc.fillna_stock_day(db_type="sqlite3")
+    # update()
+    # dc.fillna_stock_day(db_type="sqlite3")
+
+    update_stock_basic()
+
+

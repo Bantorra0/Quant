@@ -22,13 +22,13 @@ def gen_data(targets=None, lower_bound="2011-01-01", start="2014-01-01",
     conn = dbop.connect_db(db_type)
     cursor = conn.cursor()
 
-    df_all, cols_not_in_X = prepare_data(cursor, targets=targets,
+    df_all, cols_future, cols_category,cols_not_for_model = prepare_data(cursor, targets=targets,
                                          start=lower_bound, stock_pool=stock_pool)
 
     data_period = (df_all.index >= start)
     df_all = df_all[data_period]
 
-    return df_all, cols_not_in_X
+    return df_all, cols_future, cols_category,cols_not_for_model
 
 
 def y_distribution(y):
@@ -71,7 +71,7 @@ def gen_y(df_all: pd.DataFrame, pred_period=10, threshold=0.1, is_high=True,
 
 def get_target_col(pred_period = 20,is_high = True):
     if is_high:
-        target_col = "f{}max_f2mv_high".format(pred_period-1)
+        target_col = "f{}max_f1mv_high".format(pred_period)
     else:
         target_col = "f{}min_f1mv_low".format(pred_period)
     return target_col

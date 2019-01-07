@@ -63,14 +63,116 @@ import matplotlib.pyplot as plt
 #
 #
 
+#
+# def loss(y_true,y_pred):
+#     x = -100 * y_true*(y_pred-y_true)
+#     return 1/(1+np.exp(-x))
+#
+#
+# if __name__ == '__main__':
+#     y_true = np.arange(-1,4)*0.1
+#     y_pred = np.array([-0.2,-0.05,-0.1,0.15,0.4])
+#
+#     print(loss(y_true,y_pred))
 
-def loss(y_true,y_pred):
-    x = -100 * y_true*(y_pred-y_true)
-    return 1/(1+np.exp(-x))
 
 
-if __name__ == '__main__':
-    y_true = np.arange(-1,4)*0.1
-    y_pred = np.array([-0.2,-0.05,-0.1,0.15,0.4])
+# import collect
+# import constants
+#
+# pro = collect._init_api(constants.TOKEN)
+# status_list = ["L","D","P"] # L上市，D退市，P暂停上市。
+# fields = ['ts_code',
+#           'symbol',
+#           'name',
+#           'area',
+#           'industry',
+#           'fullname',
+#           'enname',
+#           'market',
+#           'exchange',
+#           'curr_type',
+#           'list_status',
+#           'list_date',
+#           'delist_date',
+#           'is_hs']
+# df_list = []
+# for status in status_list:
+#     df_list.append(pro.stock_basic(list_status=status,fields=",".join(fields)))
+#     print(df_list[-1].shape)
+#
+# df = pd.concat(df_list,sort=False,ignore_index=True)
+# df.columns = collect.unify_col_names(df.columns)
+# print(df)
+# print(df.columns)
+#
+# df.to_excel("stock_basic.xlsx",index=False)
 
-    print(loss(y_true,y_pred))
+
+
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+import constants as const
+import db_operations as dbop
+import data_prepare as dp
+import ml_model
+import customized_obj as cus_obj
+
+import xgboost.sklearn as xgb
+import lightgbm.sklearn as lgbm
+import sklearn.preprocessing as preproc
+import sklearn.metrics as metrics
+
+import datetime
+import time
+
+targets = [{"period": 20, "fun": "max", "col": "high"},
+           {"period": 20, "fun": "min", "col": "low"},
+           # {"period": 5, "fun": "max", "col": "high"},
+           # {"period": 5, "fun": "min", "col": "low"},
+           # {"period": 20, "fun": "mean", "col": ""}
+           ]
+
+time_delta = datetime.timedelta(days=1)
+test_start = "2018-01-01"
+train_length = 250
+max_feature_length = 75
+
+train_bound = datetime.datetime.strptime(test_start, const.DATE_FORMAT) - train_length * time_delta
+train_bound = datetime.datetime.strftime(train_bound, const.DATE_FORMAT)
+
+lower_bound = datetime.datetime.strptime(train_bound, const.DATE_FORMAT) - max_feature_length * time_delta
+lower_bound = datetime.datetime.strftime(lower_bound, const.DATE_FORMAT)
+print(test_start,train_bound,lower_bound)
+
+df_all, cols_future, cols_category,cols_not_for_model = ml_model.gen_data(
+    targets=targets,
+                                        lower_bound=lower_bound,
+                                        start=train_bound,
+                                        stock_pool=None)
+
+print("df_all:", df_all.shape)
+trading_date_idxes = df_all.index.unique().sort_values(ascending=True)
+
+X = ml_model.gen_X(df_all, cols_future+cols_not_for_model)
+
+paras = [("y_l_rise", {"pred_period": 20, "is_high": True, "is_clf": False,"threshold":0.2}, df_all),
+         ("y_l_decline", {"pred_period": 20, "is_high": False, "is_clf": False, "threshold":0.2}, df_all),
+         # ("y_s_rise", {"pred_period": 5, "is_high": True, "is_clf": False,"threshold":0.1}, df_all),
+         # ("y_s_decline", {"pred_period": 5, "is_high": False, "is_clf": False,"threshold":0.1}, df_all),
+         ]
+
+# paras = [("y_l", {"pred_period": 20, "is_high": True, "is_clf": False,
+#                        "threshold":0.1}, df_all)]
+Y = pd.concat([ml_model.gen_y(v2, **v1) for k, v1, v2 in paras], axis=1)
+Y.columns = [k for k, _, _ in paras]
+Y.index = X.index
+Y["y_l"] = Y.apply(
+    lambda r:r["y_l_rise"] if r["y_l_rise"]> -r["y_l_decline"] else r["y_l_decline"],
+    axis=1)
+print(X.shape, Y.shape, Y.columns)
+
+
