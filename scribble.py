@@ -164,7 +164,7 @@ lower_bound = datetime.datetime.strptime(train_bound, const.DATE_FORMAT) - max_f
 lower_bound = datetime.datetime.strftime(lower_bound, const.DATE_FORMAT)
 print(test_start,train_bound,lower_bound)
 
-df_all, cols_future, cols_category,cols_not_for_model = ml_model.gen_data(
+df_all, cols_future, cols_category,cols_not_for_model,enc = ml_model.gen_data(
     targets=targets,
                                         lower_bound=lower_bound,
                                         start=train_bound,

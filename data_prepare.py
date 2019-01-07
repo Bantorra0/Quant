@@ -435,8 +435,16 @@ def prepare_data(cursor,targets=None, start=None, stock_pool=None):
 
     df_stock_basic = dbop.create_df(cursor, const.STOCK_BASIC[const.TABLE])
     # print(df_stock_basic)
-    # le = sk.preprocessing.LabelEncoder()
-    # le.fit()
+    cols_category = ["area","industry","market","exchange","is_hs"]
+    enc = sk.preprocessing.OrdinalEncoder()
+    print(df_stock_basic[df_stock_basic[cols_category].isna().any(axis=1)][
+        cols_category])
+    df_stock_basic[cols_category] = df_stock_basic[cols_category].fillna("")
+    print(df_stock_basic[
+              cols_category])
+    df_stock_basic[cols_category] = enc.fit_transform(df_stock_basic[cols_category])
+
+    print(df_stock_basic[cols_category])
 
     df_stck_d_all, cols_future = proc_stck_d(df_stck_d,
                                              stock_pool=stock_pool,
@@ -458,12 +466,11 @@ def prepare_data(cursor,targets=None, start=None, stock_pool=None):
         .merge(df_stock_basic, on="code",how="outer")\
         .set_index(["date"])
 
-    cols_category = ["area","industry","market","exchange","is_hs"]
     cols_not_for_model = list(df_stock_basic.columns.difference(
         cols_category+["code"]))
     print(df_all.shape)
 
-    return df_all, cols_future, cols_category, cols_not_for_model
+    return df_all, cols_future, cols_category, cols_not_for_model, enc
 
 
 def feature_select(X, y):
