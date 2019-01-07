@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-#
+
 # # figs, ax = plt.subplots()
 # # x = np.arange(100)
 # # y = np.random.rand(100)
@@ -109,11 +109,27 @@ import matplotlib.pyplot as plt
 # df.to_excel("stock_basic.xlsx",index=False)
 
 
+# base_price = 1
+# change_rates = np.random.normal(0,0.03,size=10)
+# print(change_rates)
+# shape=11
+# open = np.ones(shape=11)*base_price
+# for i,chg in enumerate(change_rates):
+#     if chg<-0.1:
+#         chg = -0.1
+#     elif chg>0.1:
+#         chg=0.1
+#     open[i+1] = open[i] * (1+chg)
+#
+# print(open)
+#
+# high = open * (1+np.random.uniform(0,0.05,size=open.shape))
+# low = open * (1-np.random.uniform(0,0.05,size=open.shape))
+# close = open * (1+np.random.uniform(-0.025,0.025,size=open.shape))
+# print(high)
+# print(low)
+# print(close)
 
-
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
 
 import constants as const
 import db_operations as dbop
@@ -174,5 +190,4 @@ Y["y_l"] = Y.apply(
     lambda r:r["y_l_rise"] if r["y_l_rise"]> -r["y_l_decline"] else r["y_l_decline"],
     axis=1)
 print(X.shape, Y.shape, Y.columns)
-
 

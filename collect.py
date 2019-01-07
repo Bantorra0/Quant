@@ -109,7 +109,7 @@ def insert_to_db(row, db_type: str, table_name, columns):
 
 
 def download_index_day(pools: [str], db_type:str, update=False,
-                       start ="2000-01-01"):
+                       start ="2000-01-01", verbose=False):
     download_failure = 0
     for i, code in enumerate(pools):
         try:
@@ -140,12 +140,13 @@ def download_index_day(pools: [str], db_type:str, update=False,
 
         yield df
 
-    print("-"*10,"\nDownload failure:{0}\n".format(download_failure))
+    if verbose:
+        print("-"*10,"\nDownload failure:{0}\n".format(download_failure))
     yield download_failure
 
 
 def download_stock_day(pools: [str], db_type:str, update=False,
-                       start="2000-01-01"):
+                       start="2000-01-01", verbose=False):
     pro = _init_api(TOKEN)
     download_failure = 0
     for i, code in enumerate(pools):
@@ -191,7 +192,8 @@ def download_stock_day(pools: [str], db_type:str, update=False,
 
         yield df
 
-    print("-"*10,"\nDownload failure:{0}\n".format(download_failure))
+    if verbose:
+        print("-"*10,"\nDownload failure:{0}\n".format(download_failure))
     yield download_failure
 
 

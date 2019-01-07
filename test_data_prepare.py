@@ -273,5 +273,62 @@ class ChangeRateTestCase(unittest.TestCase):
         self.assertTrue((self.df==df).all().all())
 
 
+class CandleStickTestCase(unittest.TestCase):
+    def setUp(self):
+        base_price = 1
+        change_rates = np.random.normal(0, 0.03, size=10)
+        print(change_rates)
+        size = 11
+        open = np.ones(shape=11) * base_price
+        for i, chg in enumerate(change_rates):
+            if chg < -0.1:
+                chg = -0.1
+            elif chg > 0.1:
+                chg = 0.1
+            open[i + 1] = open[i] * (1 + chg)
+
+        print(open)
+
+        high = open * (1 + np.random.uniform(0, 0.05, size=open.shape))
+        low = open * (1 - np.random.uniform(0, 0.05, size=open.shape))
+        close = open * (1 + np.random.uniform(-0.025, 0.025, size=open.shape))
+        print(high)
+        print(low)
+        print(close)
+
+        # open,high,low,close are row vectors.
+        df = pd.DataFrame(np.vstack([open,high,low,close]).T)
+        df.columns=["open","high","low","close"]
+        df.index = sorted(["2018-09-{:02d}".format(i) for i in range(1, size+1)])
+        self.prices = [open,high,low,close]
+        self.df = df
+
+    def test_candle_stick(self):
+        open,high,low,close = self.prices.copy()
+        stick_top = np.max(np.vstack([open,close]),axis=0)
+        print(stick_top)
+        stick_bottom = np.min(np.vstack([open, close]), axis=0)
+
+        avg = (open+high+low+close)/4
+
+        df_result = pd.DataFrame(index=self.df.index)
+
+        df_result["(high-low)/avg"] = (high - low) / avg
+        df_result["(close-open)/avg"] = (close-open) / avg
+
+        df_result["(high-open)/avg"] = (high-open) / avg
+        df_result["(low-open)/avg"] = (low - open) / avg
+
+        df_result["(high-close)/avg"] = (high - close) / avg
+        df_result["(low-close)/avg"] = (low - close) / avg
+
+        df_result["upper_shadow/avg"] = (high - stick_top) / avg
+        df_result["lower_shadow/avg"] = (stick_bottom - low) / avg
+
+        df_expected = df_result
+        df_actual = data_p.candle_stick(self.df)
+        self.assertTrue((df_expected==df_actual).all().all())
+
+
 if __name__ == '__main__':
     unittest.main()
