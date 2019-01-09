@@ -304,6 +304,8 @@ class CandleStickTestCase(unittest.TestCase):
         self.df = df
 
     def test_candle_stick(self):
+        delta = 1e-6
+
         open,high,low,close = self.prices.copy()
         stick_top = np.max(np.vstack([open,close]),axis=0)
         print(stick_top)
@@ -327,7 +329,7 @@ class CandleStickTestCase(unittest.TestCase):
 
         df_expected = df_result
         df_actual = data_p.candle_stick(self.df)
-        self.assertTrue((df_expected==df_actual).all().all())
+        self.assertTrue(((df_expected-df_actual).abs()<delta).all().all())
 
 
 if __name__ == '__main__':
