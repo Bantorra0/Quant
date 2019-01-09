@@ -22,13 +22,10 @@ def gen_data(targets=None, lower_bound="2011-01-01", start="2014-01-01",
     conn = dbop.connect_db(db_type)
     cursor = conn.cursor()
 
-    df_all, cols_future, cols_category,cols_not_for_model,enc = prepare_data(
-        cursor, targets=targets,
-                                         start=lower_bound, stock_pool=stock_pool)
+    df_all, cols_future, cols_category,cols_not_for_model,enc = \
+        prepare_data(cursor, targets=targets,start=start,lowerbound=lower_bound, stock_pool=stock_pool)
 
-    data_period = (df_all.index >= start)
-    df_all = df_all[data_period]
-
+    df_all = df_all[df_all.index >= start]
     return df_all, cols_future, cols_category,cols_not_for_model,enc
 
 
