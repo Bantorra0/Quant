@@ -118,9 +118,11 @@ def change_rate(df1: pd.DataFrame, df2: pd.DataFrame, cols1=None,
     # because operations are based on index and columns.
     df2.columns = cols1
     df3 = df2/df1-1
+    df3 = df3*100  # Convert to percentage.
     cols = ["({1}/{0}-1)".format(c1, c2) for c1, c2 in zip(cols1, cols2)]
     df3.columns = cols
-    return df3
+    # Round to two decimals and convert to float16 to save memory.
+    return df3.round(2).astype('float16')
 
 
 def candle_stick(df:pd.DataFrame):
