@@ -426,7 +426,6 @@ def proc_stock_basic(df_stock_basic:pd.DataFrame):
     return df_stock_basic,cols_category,enc
 
 
-
 def prepare_data(cursor, targets=None, start=None, lowerbound=None, stock_pool=None):
     print("start:",start,"\tlowerbound:", lowerbound)
 
@@ -446,7 +445,6 @@ def prepare_data(cursor, targets=None, start=None, lowerbound=None, stock_pool=N
     print(df_stock_d_FE.shape)
     print(df_stock_d_FE.index.name)
 
-
     # Prepare df_index_d_FE
     df_index_d = dbop.create_df(cursor, const.INDEX_DAY[const.TABLE], lowerbound)
     df_index_d_FE = proc_idx_d(df_index_d,start=start)
@@ -454,12 +452,11 @@ def prepare_data(cursor, targets=None, start=None, lowerbound=None, stock_pool=N
     print(df_index_d_FE.shape, len(df_index_d_FE.index.unique()))
     print(df_index_d_FE.index.name)
 
-
     # Merge three df.
-    df_all = df_stock_d_FE.join(df_index_d_FE)
+    df_all = df_stock_d_FE.join(df_index_d_FE, how="left")
     df_all.index.name = "date"
     df_all = df_all.reset_index()\
-        .merge(df_stock_basic, on="code",how="outer")\
+        .merge(df_stock_basic, on="code",how="left")\
         .set_index(["date"])
 
     cols_not_for_model = list(df_stock_basic.columns.difference(

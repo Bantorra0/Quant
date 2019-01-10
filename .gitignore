@@ -1,0 +1,7 @@
+*.db
+
+*.xml
+
+*.iml
+
+__pycache__/*
