@@ -159,8 +159,8 @@ targets = [{"period": 20, "fun": "max", "col": "high"},
 
 time_delta = datetime.timedelta(days=1)
 test_start = "2018-09-01"
-train_length = 50
-max_feature_length = 50
+train_length = 1000
+max_feature_length = 250
 
 train_bound = datetime.datetime.strptime(test_start, const.DATE_FORMAT) - train_length * time_delta
 train_bound = datetime.datetime.strftime(train_bound, const.DATE_FORMAT)
@@ -169,6 +169,7 @@ lower_bound = datetime.datetime.strptime(train_bound, const.DATE_FORMAT) - max_f
 lower_bound = datetime.datetime.strftime(lower_bound, const.DATE_FORMAT)
 print(test_start,train_bound,lower_bound)
 
+t0 = time.time()
 df_all, cols_future, cols_category,cols_not_for_model,enc = ml_model.gen_data(
     targets=targets,
                                         lower_bound=lower_bound,
@@ -196,6 +197,7 @@ Y["y_l"] = Y.apply(
     axis=1)
 print(X.shape, Y.shape, Y.columns)
 
+print(time.time()-t0)
 print(X.info(memory_usage='deep'))
 
 
