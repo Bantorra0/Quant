@@ -109,18 +109,18 @@ def insert_to_db(row, db_type: str, table_name, columns):
     conn.commit()
 
 
-def download_index_day(pools: [str], db_type:str, update=False,
-                       start ="2000-01-01", end=None, verbose=False):
+def download_index_day(pools: [str], db_type: str, update=False,
+                       start="2000-01-01", end=None, verbose=0):
     download_failure = 0
     for i, code in enumerate(pools):
         try:
             # Set start to the newest date in table if update is true.
             if update:
-                latest_date = dbop.get_latest_date(INDEX_DAY[TABLE],code,db_type)
+                latest_date = dbop.get_latest_date(INDEX_DAY[TABLE], code, db_type)
                 if latest_date:
                     start = latest_date
-
-            print("start:",start)
+            if verbose > -1:
+                print("start:", start)
 
             df = ts.get_k_data(code=code, start=start, end=end)
 
@@ -130,44 +130,45 @@ def download_index_day(pools: [str], db_type:str, update=False,
             #     len(pools)) + '   Code: ' + str(code))
 
         except Exception as err:
-            download_failure+=1
+            download_failure += 1
             print(err)
-            print('No DATA Code: ' + str(i))
+            print('No DATA Code:', str(i), code)
             continue
 
         else:
             # df["date"] = df["date"].astype(str)
-
             # Unify column names.
             df.columns = unify_col_names(df.columns)
-            print(df.shape)
+            if verbose > -1:
+                print(df.shape)
             yield df
 
-    if verbose:
-        print("-"*10,"\nDownload failure:{0}\n".format(download_failure))
+    if verbose > 0:
+        print("-" * 10, "\nDownload failure:{0}\n".format(download_failure))
     yield download_failure
 
 
-def download_stock_day(pools: [str], db_type:str, update=False,
-                       start="2000-01-01", end=None, verbose=False):
+def download_stock_day(pools: [str], db_type: str, update=False,
+                       start="2000-01-01", end=None, verbose=0):
     pro = _init_api(TOKEN)
     download_failure = 0
     for i, code in enumerate(pools):
         try:
             # Set start to the newest date in table if update is true.
             if update:
-                latest_date = dbop.get_latest_date(STOCK_DAY[TABLE],code,db_type)
+                latest_date = dbop.get_latest_date(STOCK_DAY[TABLE], code, db_type)
                 if latest_date:
                     start = datetime.datetime.strptime(latest_date, "%Y-%m-%d") - datetime.timedelta(days=5)
                     start = start.strftime('%Y-%m-%d')
 
-            print("start:",start)
+            if verbose > -1:
+                print("start:", start)
 
             # Download daily data and adj_factor(复权因子).
             # pro.daily accepts start_date with format "YYYYmmdd".
             start = str(start).replace("-", "")
             if end:
-                end = str(end).replace("-","")
+                end = str(end).replace("-", "")
             daily = pro.daily(ts_code=code, start_date=start, end_date=end)
             adj_factor = pro.adj_factor(ts_code=code, start_date=start, end_date=end)
 
@@ -179,13 +180,15 @@ def download_stock_day(pools: [str], db_type:str, update=False,
         except Exception as err:
             download_failure += 1
             print(err)
-            print('No DATA Code: ' + str(i))
+            print('No DATA Code:', str(i), code)
             continue
 
         else:
             # daily["trade_date"] = daily["trade_date"].astype(str)
             # adj_factor["trade_date"] = adj_factor["trade_date"].astype(str)
-            print(daily["trade_date"].max(),str(adj_factor["trade_date"].max()))
+            if verbose > -1:
+                print(daily["trade_date"].max(), str(adj_factor["trade_date"].max()))
+
             end = min(daily["trade_date"].max(), adj_factor["trade_date"].max())
             start = max(daily["trade_date"].min(), adj_factor["trade_date"].min())
 
@@ -206,16 +209,18 @@ def download_stock_day(pools: [str], db_type:str, update=False,
             df["date"] = df["date"].apply(
                 lambda d: datetime.datetime.strptime(d, "%Y%m%d").strftime(
                     '%Y-%m-%d'))
-            print(df.shape)
+
+            if verbose > -1:
+                print(df.shape)
 
             yield df
 
-    if verbose:
-        print("-"*10,"\nDownload failure:{0}\n".format(download_failure))
+    if verbose > 0:
+        print("-" * 10, "\nDownload failure:{0}\n".format(download_failure))
     yield download_failure
 
 
-def download_stock_basic(db_type:str):
+def download_stock_basic(db_type: str):
     pro = _init_api(TOKEN)
     download_failure = 0
     status_list = ["L", "D", "P"]  # L上市，D退市，P暂停上市。
@@ -239,51 +244,52 @@ def download_stock_basic(db_type:str):
         download_failure = 1
         print(err)
 
-    print("-"*10,"\nDownload failure:{0}\n".format(download_failure))
+    print("-" * 10, "\nDownload failure:{0}\n".format(download_failure))
     yield download_failure
 
 
 def collect_stock_day(pools: [str], db_type: str, update=False,
-                      start="2000-01-01", verbose=False):
+                      start="2000-01-01", verbose=0):
     conn = dbop.connect_db(db_type)
-    download_failure,write_failure=0,0
-    for df_single_stock_day in download_stock_day(pools=pools,db_type=db_type,
-                                      update=update, start=start, verbose=verbose):
-        if type(df_single_stock_day)!=int:
-            conn,failure = dbop.write2db(df_single_stock_day,table=STOCK_DAY[
+    download_failure, write_failure = 0, 0
+
+    for df_single_stock_day in download_stock_day(pools=pools, db_type=db_type,
+                                                  update=update, start=start, verbose=verbose):
+        if type(df_single_stock_day) != int:
+            conn, failure = dbop.write2db(df_single_stock_day, table=STOCK_DAY[
                 TABLE],
-                      cols=STOCK_DAY[COLUMNS],conn=conn, close=False)
-            write_failure +=failure
+                                          cols=STOCK_DAY[COLUMNS], conn=conn, close=False)
+            write_failure += failure
         else:
             download_failure = df_single_stock_day
-        time.sleep(0.1)
+
     dbop.close_db(conn)
-    return download_failure,write_failure
+    return download_failure, write_failure
 
 
 def collect_index_day(pools: [str], db_type: str, update=False,
-                      start="2000-01-01",verbose=False):
+                      start="2000-01-01", verbose=0):
     conn = dbop.connect_db(db_type)
-    download_failure,write_failure = 0,0
-    for df_single_index_day in download_index_day(pools=pools,db_type=db_type,
-                                      update=update, start=start, verbose=verbose):
-        if type(df_single_index_day)!=int:
+    download_failure, write_failure = 0, 0
+    for df_single_index_day in download_index_day(pools=pools, db_type=db_type,
+                                                  update=update, start=start, verbose=verbose):
+        if type(df_single_index_day) != int:
             conn, failure = dbop.write2db(df_single_index_day,
-                                            table=INDEX_DAY[TABLE],
-                      cols=INDEX_DAY[COLUMNS],conn=conn, close=False)
+                                          table=INDEX_DAY[TABLE],
+                                          cols=INDEX_DAY[COLUMNS], conn=conn, close=False)
             write_failure += failure
         else:
             download_failure = df_single_index_day
-        time.sleep(1)
+
     dbop.close_db(conn)
-    return download_failure,write_failure
+    return download_failure, write_failure
 
 
 def collect_stock_basic(db_type: str, update=False):
     conn = dbop.connect_db(db_type)
-    download_failure,write_failure = 0,0
+    download_failure, write_failure = 0, 0
     for df_single_stock_basic in download_stock_basic(db_type=db_type):
-        if type(df_single_stock_basic)!=int:
+        if type(df_single_stock_basic) != int:
             conn, failure = dbop.write2db(df_single_stock_basic,
                                           table=const.STOCK_BASIC[const.TABLE],
                                           cols=const.STOCK_BASIC[const.COLUMNS],
@@ -293,11 +299,10 @@ def collect_stock_basic(db_type: str, update=False):
             download_failure = df_single_stock_basic
         time.sleep(1)
     dbop.close_db(conn)
-    return download_failure,write_failure
+    return download_failure, write_failure
 
 
-def update(db_type = "sqlite3"):
-
+def update(db_type="sqlite3"):
     # # init_table(INDEX_DAY[TABLE], db_type)
     # # init_table(STOCK_DAY[TABLE], db_type)
 
@@ -319,11 +324,10 @@ def update(db_type = "sqlite3"):
     index_pool = dbop.get_all_indexes()
     stock_pool = dbop.get_all_stocks()
 
-    update_indexes(index_pool,db_type)
-    update_stocks(stock_pool,db_type)
+    update_indexes(index_pool, db_type)
+    update_stocks(stock_pool, db_type)
 
     dc.fillna_stock_day(db_type=db_type)
-    
 
     # download_failure = 1
     # write_failure = 0
@@ -332,31 +336,47 @@ def update(db_type = "sqlite3"):
     #                                                           update=True)
 
 
-def update_indexes(index_pool, db_type = "sqlite3"):
+def update_indexes(index_pool, db_type="sqlite3", verbose=0, print_freq=1):
     print("Indexes:", len(index_pool))
-    for i,idx in enumerate(index_pool):
-        print('Seq: ' + str(i + 1) + ' of ' + str(
-            len(index_pool)) + '   Code: ' + str(idx))
+    t0 = time.time()
+    for i, index in enumerate(index_pool):
+        if i % print_freq == 0:
+            print('Seq:', str(i + 1), 'of', str(len(index_pool)), '  Code:', str(index))
         download_failure = 1
         write_failure = 0
-        while download_failure>0 or write_failure>0:
-            download_failure,write_failure = collect_index_day(
-                [idx],db_type,update=True)
+        while download_failure > 0 or write_failure > 0:
+            download_failure, write_failure = collect_index_day(
+                [index], db_type, update=True, verbose=verbose)
+
+            # Sleep to make sure each iteration take 0.3s,
+            # because the server has a limit of 200 api connections per min.
+            t1 = time.time()
+            if t1 - t0 < 0.3:
+                time.sleep(0.3 - (t1 - t0))
+            t0 = t1
 
 
-def update_stocks(stock_pool, db_type="sqlite3"):
+def update_stocks(stock_pool, db_type="sqlite3", verbose=0, print_freq=1):
     print("Stocks:", len(stock_pool))
+    t0 = time.time()
     for i, stock in enumerate(stock_pool):
-        print('Seq: ' + str(i + 1) + ' of ' + str(
-            len(stock_pool)) + '   Code: ' + str(stock))
+        if i % print_freq == 0:
+            print('Seq:', str(i + 1), 'of', str(len(stock_pool)), '  Code:', str(stock))
         download_failure = 1
         write_failure = 0
         while download_failure > 0 or write_failure > 0:
             download_failure, write_failure = collect_stock_day(
-                [stock], db_type, update=True)
+                [stock], db_type, update=True, verbose=verbose)
+
+            # Sleep to make sure each iteration take 0.3s,
+            # because the server has a limit of 200 api connections per min.
+            t1 = time.time()
+            if t1 - t0 < 0.3:
+                time.sleep(0.3 - (t1 - t0))
+            t0 = t1
 
 
-def update_stock_basic(db_type = "sqlite3", initialize = False):
+def update_stock_basic(db_type="sqlite3", initialize=False):
     if initialize:
         init_table(const.STOCK_BASIC[const.TABLE], "sqlite3")
 
@@ -365,15 +385,6 @@ def update_stock_basic(db_type = "sqlite3", initialize = False):
     while download_failure > 0 or write_failure > 0:
         download_failure, write_failure = collect_stock_basic(db_type,
                                                               update=True)
-
-
-# def add_stock(stocks, db_type="sqlite3"):
-#     download_failure = 1
-#     write_failure = 0
-#     while download_failure > 0 or write_failure > 0:
-#         print("Stocks:", len(stocks))
-#         download_failure, write_failure = collect_stock_day(stocks, db_type)
-
 
 
 if __name__ == '__main__':
@@ -385,11 +396,8 @@ if __name__ == '__main__':
 
     # update_stock_basic()
 
-    db_type="sqlite3"
+    db_type = "sqlite3"
     cursor = dbop.connect_db(db_type).cursor()
     df_stock_basic = dbop.create_df(cursor, const.STOCK_BASIC[const.TABLE])
     stock_pool = list(df_stock_basic[df_stock_basic["is_hs"] != "N"]["code"])
-    update_stocks(stock_pool,db_type=db_type)
-
-
-
+    update_stocks(stock_pool, db_type=db_type)
