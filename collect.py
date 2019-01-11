@@ -8,6 +8,7 @@ import tushare as ts
 import constants as const
 import db_operations as dbop
 import df_operations as dfop
+import data_cleaning as dc
 from constants import TOKEN, STOCK_DAY, INDEX_DAY, TABLE, COLUMNS
 
 
@@ -109,7 +110,7 @@ def insert_to_db(row, db_type: str, table_name, columns):
 
 
 def download_index_day(pools: [str], db_type:str, update=False,
-                       start ="2000-01-01", verbose=False):
+                       start ="2000-01-01", end=None, verbose=False):
     download_failure = 0
     for i, code in enumerate(pools):
         try:
@@ -121,11 +122,7 @@ def download_index_day(pools: [str], db_type:str, update=False,
 
             print("start:",start)
 
-            df = ts.get_k_data(code=code, start=start)
-
-            # Unify column names.
-            df.columns = unify_col_names(df.columns)
-            print(df.shape)
+            df = ts.get_k_data(code=code, start=start, end=end)
 
             # Print progress.
             # 打印进度
@@ -138,7 +135,13 @@ def download_index_day(pools: [str], db_type:str, update=False,
             print('No DATA Code: ' + str(i))
             continue
 
-        yield df
+        else:
+            # df["date"] = df["date"].astype(str)
+
+            # Unify column names.
+            df.columns = unify_col_names(df.columns)
+            print(df.shape)
+            yield df
 
     if verbose:
         print("-"*10,"\nDownload failure:{0}\n".format(download_failure))
@@ -146,7 +149,7 @@ def download_index_day(pools: [str], db_type:str, update=False,
 
 
 def download_stock_day(pools: [str], db_type:str, update=False,
-                       start="2000-01-01", verbose=False):
+                       start="2000-01-01", end=None, verbose=False):
     pro = _init_api(TOKEN)
     download_failure = 0
     for i, code in enumerate(pools):
@@ -155,29 +158,18 @@ def download_stock_day(pools: [str], db_type:str, update=False,
             if update:
                 latest_date = dbop.get_latest_date(STOCK_DAY[TABLE],code,db_type)
                 if latest_date:
-                    start = latest_date
+                    start = datetime.datetime.strptime(latest_date, "%Y-%m-%d") - datetime.timedelta(days=5)
+                    start = start.strftime('%Y-%m-%d')
 
             print("start:",start)
 
             # Download daily data and adj_factor(复权因子).
             # pro.daily accepts start_date with format "YYYYmmdd".
             start = str(start).replace("-", "")
-            daily = pro.daily(ts_code=code, start_date=start)
-            adj_factor = pro.adj_factor(ts_code=code)
-            if start:
-                adj_factor = adj_factor[adj_factor["trade_date"] >= start]
-                print("adj:",adj_factor.shape)
-            # Combine both into one dataframe.
-            df = dfop.natural_join(daily, adj_factor, how="outer")
-
-            # Unify column names.
-            df = unify_df_col_nm(df)
-
-            # Unify date format from "YYYYmmdd" to "YYYY-mm-dd".
-            df["date"] = df["date"].apply(
-                lambda d:datetime.datetime.strptime(d,"%Y%m%d").strftime(
-                    '%Y-%m-%d'))
-            print(df.shape)
+            if end:
+                end = str(end).replace("-","")
+            daily = pro.daily(ts_code=code, start_date=start, end_date=end)
+            adj_factor = pro.adj_factor(ts_code=code, start_date=start, end_date=end)
 
             # Print progress.
             # 打印进度。
@@ -190,7 +182,33 @@ def download_stock_day(pools: [str], db_type:str, update=False,
             print('No DATA Code: ' + str(i))
             continue
 
-        yield df
+        else:
+            # daily["trade_date"] = daily["trade_date"].astype(str)
+            # adj_factor["trade_date"] = adj_factor["trade_date"].astype(str)
+            print(daily["trade_date"].max(),str(adj_factor["trade_date"].max()))
+            end = min(daily["trade_date"].max(), adj_factor["trade_date"].max())
+            start = max(daily["trade_date"].min(), adj_factor["trade_date"].min())
+
+            daily = daily[(daily["trade_date"] <= end) & (daily["trade_date"] >= start)]
+            adj_factor = adj_factor[(adj_factor["trade_date"] <= end) & (adj_factor["trade_date"] >= start)]
+
+            # if start:
+            #     adj_factor = adj_factor[adj_factor["trade_date"] >= start]
+            #     print("adj:",adj_factor.shape)
+            # Combine both into one dataframe.
+
+            df = dfop.natural_join(daily, adj_factor, how="outer")
+
+            # Unify column names.
+            df = unify_df_col_nm(df)
+
+            # Unify date format from "YYYYmmdd" to "YYYY-mm-dd".
+            df["date"] = df["date"].apply(
+                lambda d: datetime.datetime.strptime(d, "%Y%m%d").strftime(
+                    '%Y-%m-%d'))
+            print(df.shape)
+
+            yield df
 
     if verbose:
         print("-"*10,"\nDownload failure:{0}\n".format(download_failure))
@@ -238,7 +256,7 @@ def collect_stock_day(pools: [str], db_type: str, update=False,
             write_failure +=failure
         else:
             download_failure = df_single_stock_day
-        time.sleep(1)
+        time.sleep(0.1)
     dbop.close_db(conn)
     return download_failure,write_failure
 
@@ -283,8 +301,8 @@ def update(db_type = "sqlite3"):
     # # init_table(INDEX_DAY[TABLE], db_type)
     # # init_table(STOCK_DAY[TABLE], db_type)
 
-    # stock_pools = stck_pools()
-    # stock_pools = ['600050.SH', '600276.SH', '600519.SH', '600536.SH',
+    # stock_pool = stck_pools()
+    # stock_pool = ['600050.SH', '600276.SH', '600519.SH', '600536.SH',
     #                '600703.SH', '600779.SH', '600887.SH', '601318.SH',
     #                '601336.SH', '603799.SH', '000001.SZ', '000002.SZ',
     #                '000063.SZ', '000636.SZ', '000651.SZ', '000858.SZ',
@@ -298,35 +316,44 @@ def update(db_type = "sqlite3"):
     #                '000333.SZ', '300700.SZ', '000338.SZ', '002099.SZ',
     #                '600023.SH', '000581.SZ', '000539.SZ']
 
-    index_pools = dbop.get_all_indexes()
-    stock_pools = dbop.get_all_stocks()
+    index_pool = dbop.get_all_indexes()
+    stock_pool = dbop.get_all_stocks()
 
+    update_indexes(index_pool,db_type)
+    update_stocks(stock_pool,db_type)
 
-    print("Indexes:", len(index_pools))
-    for i,idx in enumerate(index_pools):
-        print('Seq: ' + str(i + 1) + ' of ' + str(
-            len(index_pools)) + '   Code: ' + str(idx))
-        download_failure = 1
-        write_failure = 0
-        while download_failure>0 or write_failure>0:
-            download_failure,write_failure = collect_index_day(
-                [idx],db_type,update=True)
-
-    print("Stocks:", len(stock_pools))
-    for i,stock in enumerate(stock_pools):
-        print('Seq: ' + str(i + 1) + ' of ' + str(
-            len(stock_pools)) + '   Code: ' + str(stock))
-        download_failure = 1
-        write_failure = 0
-        while download_failure > 0 or write_failure > 0:
-            download_failure, write_failure = collect_stock_day(
-                [stock],db_type,update=True)
+    dc.fillna_stock_day(db_type=db_type)
+    
 
     # download_failure = 1
     # write_failure = 0
     # while download_failure > 0 or write_failure > 0:
     #     download_failure, write_failure = collect_stock_basic(db_type,
     #                                                           update=True)
+
+
+def update_indexes(index_pool, db_type = "sqlite3"):
+    print("Indexes:", len(index_pool))
+    for i,idx in enumerate(index_pool):
+        print('Seq: ' + str(i + 1) + ' of ' + str(
+            len(index_pool)) + '   Code: ' + str(idx))
+        download_failure = 1
+        write_failure = 0
+        while download_failure>0 or write_failure>0:
+            download_failure,write_failure = collect_index_day(
+                [idx],db_type,update=True)
+
+
+def update_stocks(stock_pool, db_type="sqlite3"):
+    print("Stocks:", len(stock_pool))
+    for i, stock in enumerate(stock_pool):
+        print('Seq: ' + str(i + 1) + ' of ' + str(
+            len(stock_pool)) + '   Code: ' + str(stock))
+        download_failure = 1
+        write_failure = 0
+        while download_failure > 0 or write_failure > 0:
+            download_failure, write_failure = collect_stock_day(
+                [stock], db_type, update=True)
 
 
 def update_stock_basic(db_type = "sqlite3", initialize = False):
@@ -340,12 +367,13 @@ def update_stock_basic(db_type = "sqlite3", initialize = False):
                                                               update=True)
 
 
-def add_stock(stocks, db_type="sqlite3"):
-    download_failure = 1
-    write_failure = 0
-    while download_failure > 0 or write_failure > 0:
-        print("Stocks:", len(stocks))
-        download_failure, write_failure = collect_stock_day(stocks, db_type)
+# def add_stock(stocks, db_type="sqlite3"):
+#     download_failure = 1
+#     write_failure = 0
+#     while download_failure > 0 or write_failure > 0:
+#         print("Stocks:", len(stocks))
+#         download_failure, write_failure = collect_stock_day(stocks, db_type)
+
 
 
 if __name__ == '__main__':
@@ -353,9 +381,15 @@ if __name__ == '__main__':
     #           "002507.SZ", "601006.SH"]
     # add_stock(stocks)
 
-    update()
-    dc.fillna_stock_day(db_type="sqlite3")
+    # update()
 
     # update_stock_basic()
+
+    db_type="sqlite3"
+    cursor = dbop.connect_db(db_type).cursor()
+    df_stock_basic = dbop.create_df(cursor, const.STOCK_BASIC[const.TABLE])
+    stock_pool = list(df_stock_basic[df_stock_basic["is_hs"] != "N"]["code"])
+    update_stocks(stock_pool,db_type=db_type)
+
 
 

@@ -110,62 +110,46 @@ def change_rate(df1: pd.DataFrame, df2: pd.DataFrame, cols1=None,
             "Column length not the same:{0}!={1}".format(df1.shape[1],
                                                          df2.shape[1]))
 
-    # cols1 = df1.columns
-    # cols2 = df2.columns
-    # ndarray1 = np.array(df1)
-    # ndarray2 = np.array(df2)
-    # ndarray = ndarray2/ndarray1-1
-    # cols = ["({1}/{0}-1)".format(c1,c2) for c1,c2 in zip(cols1,cols2)]
-    #
-    # return pd.DataFrame(ndarray,columns=cols)
-
     cols1 = df1.columns
     cols2 = df2.columns
-
+    # Use df rather than np.array because data calculation need to be aligned with df.index(date),
+    # especially when len(df1.index)!=len(df2.index)
+    # Reset columns to make sure columns of df1 and df2 are the same,
+    # because operations are based on index and columns.
     df2.columns = cols1
     df3 = df2/df1-1
+    df3 = df3*100  # Convert to percentage.
     cols = ["({1}/{0}-1)".format(c1, c2) for c1, c2 in zip(cols1, cols2)]
     df3.columns = cols
-    return df3
-
-    # # Make sure columns of df1 and df2 are the same, because operations are
-    # # based on index and columns.
-    # df1.columns = df2.columns
-    # df3 = (df2 - df1) / df1
-    #
-    # pre = "change_rate"
-    # if prefix:
-    #     return _prefix(pre, df3)
-    # else:
-    #     return df3
+    # Round to two decimals and convert to float16 to save memory.
+    return df3.round(2).astype('float16')
 
 
 def candle_stick(df:pd.DataFrame):
     df_result = pd.DataFrame(index=df.index)
-    if df.shape[1]!=4:
-        raise ValueError("df.shape[1] {}!=4".format(df.shape[1]))
+    if df.shape[1]!=5:
+        raise ValueError("df.shape[1] {}!=5".format(df.shape[1]))
 
-    open,high,low,close = df.columns
+    open,high,low,close,avg = df.columns
 
-    day_avg_price = (df[open]+df[high]+df[low]+df[close])/4
+    # avg = (df[open]+df[high]+df[low]+df[close])/4
 
     stick_top = df.apply(lambda x:x[open] if x[open]>x[close] else x[close],
                          axis=1)
-
     stick_bottom = df.apply(lambda x: x[open] if x[open] < x[close] else x[close],
                          axis=1)
 
-    df_result["(high-low)/avg"] = (df[high]-df[low])/day_avg_price
-    df_result["(close-open)/avg"] = (df[close] - df[open]) / day_avg_price
+    df_result["(high-low)/avg"] = (df[high]-df[low])/df[avg]
+    df_result["(close-open)/avg"] = (df[close] - df[open]) / df[avg]
 
-    df_result["(high-open)/avg"] = (df[high]-df[open])/day_avg_price
-    df_result["(low-open)/avg"] = (df[low] - df[open]) / day_avg_price
+    df_result["(high-open)/avg"] = (df[high]-df[open])/df[avg]
+    df_result["(low-open)/avg"] = (df[low] - df[open]) / df[avg]
 
-    df_result["(high-close)/avg"] = (df[high] - df[close]) / day_avg_price
-    df_result["(low-close)/avg"] = (df[low] - df[close]) / day_avg_price
+    df_result["(high-close)/avg"] = (df[high] - df[close]) / df[avg]
+    df_result["(low-close)/avg"] = (df[low] - df[close]) / df[avg]
 
-    df_result["upper_shadow/avg"] = (df[high] - stick_top) / day_avg_price
-    df_result["lower_shadow/avg"] = (stick_bottom - df[low]) / day_avg_price
+    df_result["upper_shadow/avg"] = (df[high] - stick_top) / df[avg]
+    df_result["lower_shadow/avg"] = (stick_bottom - df[low]) / df[avg]
 
     return df_result
 
@@ -213,55 +197,59 @@ def k_line(k:int, df:pd.DataFrame):
     return df_result
 
 
-def prepare_stck_d(df_stck_d):
+def prepare_stock_d(df_stck_d):
     df_stck_d = df_stck_d.set_index(["date"]).sort_index(ascending=False)
     df_stck_d = df_stck_d[
         ["code", "open", "high", "low", "close", "vol", "amt", "adj_factor"]]
     return df_stck_d
 
 
-def prepare_idx_d(df_idx_d):
+def prepare_index_d(df_idx_d):
     df_idx_d = df_idx_d.set_index("date").sort_index(ascending=False)
     return df_idx_d
 
 
-def prepare_each_stck(df_stck, qfq_type="hfq"):
+def prepare_each_stock(df_stock_d, qfq_type="hfq"):
     if qfq_type and qfq_type not in ["hfq","qfq"]:
         raise ValueError("qfq_type {} is not supported".format(qfq_type))
 
-    df_stck = df_stck.copy()
+    df_stock_d = df_stock_d.copy()
     fq_cols = ["open", "high", "low", "close","vol"]
 
     # 原始数据
     for col in fq_cols:
-        df_stck[col+"0"] = df_stck[col]
+        df_stock_d[col + "0"] = df_stock_d[col]
 
     # 前复权
     if qfq_type=="qfq":
-        fq_factor = np.array(df_stck["adj_factor"]
-                          / df_stck["adj_factor"].iloc[0])
+        fq_factor = np.array(df_stock_d["adj_factor"]
+                             / df_stock_d["adj_factor"].iloc[0])
     else:
-        fq_factor = df_stck["adj_factor"]
+        fq_factor = df_stock_d["adj_factor"]
 
     # print(fq_factor.shape)
-
     fq_factor = np.array(fq_factor).reshape(-1, 1) * np.ones(
         (1, len(fq_cols)))
 
-    df_stck.loc[:, fq_cols[:4]] = df_stck[fq_cols[:4]] * fq_factor[:,:4]
-    df_stck.loc[:,fq_cols[4]] = df_stck[fq_cols[4]]/fq_factor[:,0]
+    # Deal with open,high,low,close.
+    df_stock_d.loc[:, fq_cols[:4]] = df_stock_d[fq_cols[:4]] * fq_factor[:, :4]
+    # Deal with vol.
+    df_stock_d.loc[:, fq_cols[4]] = df_stock_d[fq_cols[4]] / fq_factor[:, 0]
+    # Calculate stocks' avg day prices.
+    # vol's unit is "手", while amt's unit is "1000yuan", so 10 is multiplied.
+    df_stock_d["avg"] = df_stock_d["amt"]/df_stock_d["vol"]*10
 
-    return df_stck
+    return df_stock_d
 
 
-def proc_stck_d(df_stck_d, stock_pool=None,targets=None):
-    df_stck_d = prepare_stck_d(df_stck_d)
+def proc_stck_d(df_stck_d, stock_pool=None,targets=None,start=None):
+    df_stck_d = prepare_stock_d(df_stck_d)
 
     df_stck_list = []
     cols_move = ["open", "high", "low", "close", "vol","amt"]
     cols_roll = ["open", "high", "low", "close", "vol","amt"]
-    cols_k_line = ["open", "high", "low", "close", "vol", "amt"]
-    cols_fq = ["open", "high", "low", "close"]
+    cols_k_line = ["open", "high", "low", "close","vol", "amt"]
+    cols_fq = ["open", "high", "low", "close","avg"]
 
     move_upper_bound = 6
     move_mv_list = np.arange(1, move_upper_bound)
@@ -278,13 +266,13 @@ def proc_stck_d(df_stck_d, stock_pool=None,targets=None):
 
     cols_not_in_X = None
 
-    for code, df in df_stck_d.groupby("code"):
+    for i,(code, df) in enumerate(df_stck_d.groupby("code")):
         if stock_pool and code not in stock_pool:
             continue
 
         # Initialize df.
         df = df.sort_index(ascending=False)
-        df = prepare_each_stck(df)
+        df = prepare_each_stock(df)
 
         df_tomorrow = move(-1, df, ["open", "high", "low", "close"])
 
@@ -364,10 +352,13 @@ def proc_stck_d(df_stck_d, stock_pool=None,targets=None):
                             + df_change_move_k_line_list
                             + [df_not_in_X], axis=1, sort=False)
 
-        df_stck_list.append(df_stck)
+        df_stck_list.append(df_stck[df_stck.index>=start])
 
         if not cols_not_in_X:
             cols_not_in_X = list(df_not_in_X.columns)
+
+        if i%10==0:
+            print("Finish preparing {} stocks.".format(i))
 
     df_stck_d_all = pd.concat(df_stck_list, sort=False)
 
@@ -380,8 +371,8 @@ def proc_stck_d(df_stck_d, stock_pool=None,targets=None):
     return df_stck_d_all, cols_not_in_X
 
 
-def proc_idx_d(df_idx_d: pd.DataFrame):
-    df_idx_d = prepare_idx_d(df_idx_d)
+def proc_idx_d(df_idx_d: pd.DataFrame, start=None):
+    df_idx_d = prepare_index_d(df_idx_d)
     cols_move = ["open", "high", "low", "close", "vol"]
     cols_roll = cols_move
 
@@ -415,7 +406,7 @@ def proc_idx_d(df_idx_d: pd.DataFrame):
         # print("tmp_list",[t.index.name for t in tmp_list],pd.concat(
         #     tmp_list,axis=1,sort=False).index.name)
         # print("tmp",tmp.index.name)
-        df_idx_list.append(_prefix(name, tmp))
+        df_idx_list.append(_prefix(name, tmp[tmp.index>=start]))
 
     # print("df_idx_list:",df_idx_list[0].index.name)
 
@@ -425,45 +416,49 @@ def proc_idx_d(df_idx_d: pd.DataFrame):
     return df_idx_d
 
 
-def prepare_data(cursor,targets=None, start=None, stock_pool=None):
-    stock_day, index_day = const.STOCK_DAY[const.TABLE], const.INDEX_DAY[
-        const.TABLE]
-    print("start:",start)
-    df_stck_d = dbop.create_df(cursor, stock_day, start)
-    print("min_date:",min(df_stck_d.date))
-    df_idx_d = dbop.create_df(cursor, index_day, start)
-
-    df_stock_basic = dbop.create_df(cursor, const.STOCK_BASIC[const.TABLE])
-    # print(df_stock_basic)
-    cols_category = ["area","industry","market","exchange","is_hs"]
-    enc = sk.preprocessing.OrdinalEncoder()
+def proc_stock_basic(df_stock_basic:pd.DataFrame):
+    cols_category = ["area", "industry", "market", "exchange", "is_hs"]
+    df_stock_basic = df_stock_basic[["code"] + cols_category].copy()
     print(df_stock_basic[df_stock_basic[cols_category].isna().any(axis=1)][
-        cols_category])
-    df_stock_basic[cols_category] = df_stock_basic[cols_category].fillna("")
-    print(df_stock_basic[
               cols_category])
-    df_stock_basic[cols_category] = enc.fit_transform(df_stock_basic[cols_category])
+    df_stock_basic.loc[:,cols_category] = df_stock_basic[cols_category].fillna("")
 
-    print(df_stock_basic[cols_category])
+    enc = sk.preprocessing.OrdinalEncoder()
+    df_stock_basic.loc[:,cols_category] = enc.fit_transform(df_stock_basic[cols_category])
+    return df_stock_basic,cols_category,enc
 
-    df_stck_d_all, cols_future = proc_stck_d(df_stck_d,
+
+def prepare_data(cursor, targets=None, start=None, lowerbound=None, stock_pool=None):
+    print("start:",start,"\tlowerbound:", lowerbound)
+
+    # Prepare df_stock_basic
+    df_stock_basic = dbop.create_df(cursor, const.STOCK_BASIC[const.TABLE])
+    df_stock_basic, cols_category, enc = proc_stock_basic(df_stock_basic)
+    print(df_stock_basic.iloc[:10])
+
+    # Prepare df_stock_d_FE
+    df_stock_d = dbop.create_df(cursor, const.STOCK_DAY[const.TABLE], lowerbound)
+    print("min_date:", min(df_stock_d.date))
+    df_stock_d_FE, cols_future = proc_stck_d(df_stock_d,
                                              stock_pool=stock_pool,
-                                             targets=targets)
-    print(df_stck_d_all.shape)
+                                             targets=targets,
+                                             start=start)
+    df_stock_d_FE = df_stock_d_FE[df_stock_d_FE.index>=start]
+    print(df_stock_d_FE.shape)
+    print(df_stock_d_FE.index.name)
 
-    df_idx_d = proc_idx_d(df_idx_d)
-    print(df_idx_d.shape, len(df_idx_d.index.unique()))
-    df_all = df_stck_d_all.join(df_idx_d)
+    # Prepare df_index_d_FE
+    df_index_d = dbop.create_df(cursor, const.INDEX_DAY[const.TABLE], lowerbound)
+    df_index_d_FE = proc_idx_d(df_index_d,start=start)
+    df_index_d_FE = df_index_d_FE[df_index_d_FE>=start]
+    print(df_index_d_FE.shape, len(df_index_d_FE.index.unique()))
+    print(df_index_d_FE.index.name)
 
-    # print(df_all.index)
-    print(df_stck_d_all.index.name)
-    print(df_idx_d.index.name)
-    print(list(df_all.reset_index().columns))
-
+    # Merge three df.
+    df_all = df_stock_d_FE.join(df_index_d_FE, how="left")
     df_all.index.name = "date"
-
     df_all = df_all.reset_index()\
-        .merge(df_stock_basic, on="code",how="outer")\
+        .merge(df_stock_basic, on="code",how="left")\
         .set_index(["date"])
 
     cols_not_for_model = list(df_stock_basic.columns.difference(
