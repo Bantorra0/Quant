@@ -23,6 +23,8 @@ STOCK_BASIC = {
          'delist_date', 'is_hs')
 }
 
+TIMEOUT=30
+
 FEE_RATE = 2.5 / 10000
 STAMP_TAX_RATE = (0,1/1000)
 
