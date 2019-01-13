@@ -234,7 +234,6 @@ def collect_single_stock_day(code, db_type: str, update=False,
     df_single_stock_day = download_single_stock_day(code=code, db_type=db_type,
                                                     update=update, start=start,
                                                     verbose=verbose)
-    # time.sleep(0.3)
     if type(df_single_stock_day)!=bool:
         conn, write_failure = dbop.write2db(df_single_stock_day,
                                             table=STOCK_DAY[TABLE],
@@ -334,7 +333,6 @@ def update_indexes(index_pool, db_type="sqlite3", verbose=0, print_freq=1):
 
 def update_stocks(stock_pool, db_type="sqlite3", verbose=0, print_freq=1):
     print("Stocks:", len(stock_pool))
-    # t0 = time.time()
     conn=dbop.connect_db(db_type)
 
     pool = mp.Pool(processes=1)
@@ -364,18 +362,6 @@ def update_stocks(stock_pool, db_type="sqlite3", verbose=0, print_freq=1):
                 pool = mp.Pool(processes=1)
                 continue
 
-
-
-
-            # download_failure, write_failure,conn = collect_single_stock_day(
-            #     stock, db_type, update=True, verbose=verbose,conn=conn)
-            #
-            # # Sleep to make sure each iteration take 0.3s,
-            # # because the server has a limit of 200 api connections per min.
-            # t1 = time.time()
-            # if t1 - t0 < 0.5:
-            #     time.sleep(0.5 - (t1 - t0))
-            # t0 = t1
     if conn:
         dbop.close_db(conn)
 
