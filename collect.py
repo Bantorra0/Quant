@@ -227,7 +227,7 @@ def download_stock_basic(db_type: str):
 
 
 def collect_single_stock_day(code, db_type: str, update=False,
-                             start="2000-01-01", verbose=0, conn=None):
+                             start="2000-01-01", verbose=0, conn=None, close_db=False):
     if conn is None:
         conn = dbop.connect_db(db_type)
     download_failure, write_failure = 0, 0
@@ -242,10 +242,12 @@ def collect_single_stock_day(code, db_type: str, update=False,
     else:
         download_failure = 1
 
-    return download_failure, write_failure, conn
+    if close_db:
+        dbop.close_db(conn)
+    return download_failure, write_failure
 
 
-def collect_single_index_day(code, db_type: str, update=False,
+def collect_single_index_day(code:str, db_type: str, update=False,
                              start="2000-01-01", verbose=0,conn=None):
     if conn is None:
         conn = dbop.connect_db(db_type)
@@ -337,6 +339,12 @@ def update_stocks(stock_pool, db_type="sqlite3", verbose=0, print_freq=1):
 
     pool = mp.Pool(processes=1)
 
+    # Use manager.dict() or manager.list() to share objects between processes.
+    # Return mutable objects (refs) may cause error because memory is not shared between process..
+    # manager = mp.Manager()
+    # d = manager.dict()
+
+    start_time = time.time()
     for i, stock in enumerate(stock_pool):
         if i % print_freq == 0:
             print('Seq:', str(i + 1), 'of', str(len(stock_pool)), '  Code:', str(stock))
@@ -345,12 +353,17 @@ def update_stocks(stock_pool, db_type="sqlite3", verbose=0, print_freq=1):
         while download_failure > 0 or write_failure > 0:
             kwargs = {"code": stock, "db_type": db_type,
                       "update": True, "verbose": verbose,
-                      "conn": None}
+                      "conn":None, "close_db":True,
+                      }
 
+            # Use pickle to send and receive objects in mp,
+            # which may raise error in case of unpicklable objects, e.g. sqlite3.connector.
+            # That's why conn is not passed, returned and reused.
             res = pool.apply_async(func=collect_single_stock_day,kwds=kwargs)
             try:
                 t0 =time.time()
-                download_failure, write_failure, _ = res.get(
+
+                download_failure, write_failure = res.get(
                     timeout=const.TIMEOUT)
                 t1 = time.time()
                 if t1-t0<0.3:
@@ -361,6 +374,10 @@ def update_stocks(stock_pool, db_type="sqlite3", verbose=0, print_freq=1):
                 pool.terminate()
                 pool = mp.Pool(processes=1)
                 continue
+
+    end_time = time.time()
+
+    print("Total collecting time: {:.1f}s".format(end_time-start_time))
 
     if conn:
         dbop.close_db(conn)
@@ -387,10 +404,16 @@ if __name__ == '__main__':
     # update_stock_basic()
 
     db_type = "sqlite3"
+
+    # index_pool = dbop.get_all_indexes()
+    # update_indexes(index_pool,db_type)
+
     cursor = dbop.connect_db(db_type).cursor()
     df_stock_basic = dbop.create_df(cursor, const.STOCK_BASIC[const.TABLE])
     stock_pool = sorted(df_stock_basic[df_stock_basic["is_hs"] != "N"]["code"])
     update_stocks(stock_pool, db_type=db_type)
+
+
 
     # p = mp.Process(target=collect_single_stock_day, kwargs=kwargs)
     # p.start()
