@@ -405,8 +405,8 @@ if __name__ == '__main__':
 
     db_type = "sqlite3"
 
-    # index_pool = dbop.get_all_indexes()
-    # update_indexes(index_pool,db_type)
+    index_pool = dbop.get_all_indexes()
+    update_indexes(index_pool,db_type)
 
     cursor = dbop.connect_db(db_type).cursor()
     df_stock_basic = dbop.create_df(cursor, const.STOCK_BASIC[const.TABLE])

@@ -308,22 +308,21 @@ def proc_stck_d(df_stck_d, stock_pool=None,targets=None,start=None):
                                for df_move in df_move_list]
 
         df_candle_stick = candle_stick(df[cols_fq])
-        df_move_candle_list = [move(i,df_candle_stick) for i in candle_stick_mv_list]
+        df_move_candle_list = [move(i,df_candle_stick)
+                               for i in candle_stick_mv_list]
 
         df_1ma = k_MA(1,df[["vol","amt"]])
         df_kma_change_list = [change_rate(k_MA(k,df[["vol","amt"]]),df_1ma)
-                       for k in kma_k_list]
+                              for k in kma_k_list]
         df_move_kma_change_list = [move(mv,df_kma_change)
-            for df_kma_change in df_kma_change_list
-            for mv in kma_mv_list
-        ]
+                                   for df_kma_change in df_kma_change_list
+                                   for mv in kma_mv_list]
 
         df_k_line_list = [(k,k_line(k,df[cols_k_line])) for k in k_line_k_list]
         df_change_move_k_line_list = [change_rate(move(k*mv,df_k_line),
                                                   df[cols_k_line])
                                       for k,df_k_line in df_k_line_list
                                       for mv in k_line_mv_list]
-
 
         df_rolling_change_list = [
             change_rate(rolling(rolling_type, days=days, df=df, cols=cols_roll),
