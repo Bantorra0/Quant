@@ -1,0 +1,908 @@
+C:\Users\dell-pc\Anaconda3.6\python.exe C:/Users/dell-pc/Quant/Quant/scribble.py
+2018-09-01 2018-07-13 2018-05-24
+start: 2018-07-13 	lowerbound: 2018-05-24
+      area industry market exchange is_hs
+443   None     None     主板     SZSE     N
+460   None     None     主板     SZSE     S
+3566  None     None     主板     SZSE     N
+3567  None     None     主板     SZSE     N
+3568  None     None     主板     SZSE     N
+3569  None     None     主板     SZSE     N
+3570  None     None     主板     SZSE     N
+3571  None     None     主板     SZSE     N
+3572  None     None     主板     SZSE     N
+3573  None     None     主板     SZSE     N
+3574  None     None     主板     SZSE     N
+3575  None     None     主板     SZSE     N
+3576  None     None     主板     SZSE     N
+3577  None     None     主板     SZSE     N
+3578  None     None     主板     SZSE     N
+3579  None     None     主板     SZSE     N
+3580  None     None     主板     SZSE     N
+3581  None     None     主板     SZSE     N
+3582  None     None     主板     SZSE     N
+3583  None     None     主板     SZSE     N
+3584  None     None     主板     SZSE     N
+3585  None     None     主板     SZSE     N
+3586  None     None     主板     SZSE     N
+3587  None     None     主板     SZSE     N
+3588  None     None     主板     SZSE     N
+3589  None     None     主板     SZSE     N
+3590  None     None     主板     SZSE     N
+3591  None     None     主板     SZSE     N
+3592  None     None     主板     SZSE     N
+3593  None     None     主板     SZSE     N
+...    ...      ...    ...      ...   ...
+3636  None     None     主板      SSE     N
+3637  None     None     主板      SSE     N
+3638  None     None     主板      SSE     N
+3639  None     None     主板      SSE     N
+3640  None     None     主板      SSE     N
+3641  None     None     主板      SSE     N
+3642  None     None     主板      SSE     N
+3643  None     None     主板      SSE     N
+3644  None     None     主板      SSE     N
+3645  None     None     主板      SSE     N
+3646  None     None     主板      SSE     N
+3647  None     None     主板      SSE     N
+3648  None     None     主板      SSE     N
+3649  None     None     主板      SSE     N
+3650  None     None     主板      SSE     N
+3651  None     None     主板      SSE     N
+3652  None     None     主板      SSE     N
+3653  None     None     主板      SSE     N
+3654  None     None     主板      SSE     N
+3655  None     None     主板      SSE     N
+3656  None     None     主板      SSE     N
+3657  None     None     主板      SSE     N
+3658  None     None     主板      SSE     N
+3659  None     None     主板      SSE     N
+3660  None     None     主板      SSE     N
+3661  None     None     主板      SSE     N
+3662  None     None     主板      SSE     N
+3663  None     None     主板      SSE     N
+3664  None     None             SSE     N
+3667  None     None     主板      SSE     N
+
+[101 rows x 5 columns]
+        code area industry market exchange is_hs
+0  000001.SZ   21      106      2        1     2
+1  000002.SZ   21        9      2        1     2
+2  000004.SZ   21       70      2        1     1
+3  000005.SZ   21       39      2        1     1
+4  000006.SZ   21       22      2        1     2
+5  000007.SZ   21      100      2        1     1
+6  000008.SZ    4       97      2        1     2
+7  000009.SZ   21       87      2        1     2
+8  000010.SZ   21       37      2        1     1
+9  000011.SZ   21       22      2        1     2
+min_date: 2018-05-24
+Finish processing 10 stocks in 6.85s.
+Finish processing 20 stocks in 9.28s.
+Finish processing 30 stocks in 12.73s.
+Finish processing 40 stocks in 15.34s.
+Finish processing 50 stocks in 18.81s.
+Finish processing 60 stocks in 21.40s.
+Finish processing 70 stocks in 24.98s.
+Finish processing 80 stocks in 27.67s.
+Finish processing 90 stocks in 31.21s.
+Finish processing 100 stocks in 34.29s.
+Finish processing 110 stocks in 38.10s.
+Finish processing 120 stocks in 41.48s.
+Finish processing 130 stocks in 45.65s.
+Finish processing 140 stocks in 49.09s.
+Finish processing 150 stocks in 53.10s.
+Finish processing 160 stocks in 56.53s.
+Finish processing 170 stocks in 60.41s.
+Finish processing 180 stocks in 63.97s.
+Finish processing 190 stocks in 67.98s.
+Finish processing 200 stocks in 71.70s.
+Finish processing 210 stocks in 75.91s.
+Finish processing 220 stocks in 79.80s.
+Finish processing 230 stocks in 83.89s.
+Finish processing 240 stocks in 88.01s.
+Finish processing 250 stocks in 91.92s.
+Finish processing 260 stocks in 96.14s.
+Finish processing 270 stocks in 100.27s.
+Finish processing 280 stocks in 104.50s.
+Finish processing 290 stocks in 108.64s.
+Finish processing 300 stocks in 112.86s.
+Finish processing 310 stocks in 117.11s.
+Finish processing 320 stocks in 121.35s.
+Finish processing 330 stocks in 125.75s.
+Finish processing 340 stocks in 130.02s.
+Finish processing 350 stocks in 134.41s.
+Finish processing 360 stocks in 138.82s.
+Finish processing 370 stocks in 143.31s.
+Finish processing 380 stocks in 147.83s.
+Finish processing 390 stocks in 152.53s.
+Finish processing 400 stocks in 157.07s.
+Finish processing 410 stocks in 161.64s.
+Finish processing 420 stocks in 166.31s.
+Finish processing 430 stocks in 170.98s.
+Finish processing 440 stocks in 175.80s.
+Finish processing 450 stocks in 180.85s.
+Finish processing 460 stocks in 185.68s.
+Finish processing 470 stocks in 190.58s.
+Finish processing 480 stocks in 195.62s.
+Finish processing 490 stocks in 200.61s.
+Finish processing 500 stocks in 206.08s.
+Finish processing 510 stocks in 211.36s.
+Finish processing 520 stocks in 216.58s.
+Finish processing 530 stocks in 221.80s.
+Finish processing 540 stocks in 227.04s.
+Finish processing 550 stocks in 232.38s.
+Finish processing 560 stocks in 237.78s.
+Finish processing 570 stocks in 243.33s.
+Finish processing 580 stocks in 248.80s.
+Finish processing 590 stocks in 254.35s.
+Finish processing 600 stocks in 259.90s.
+Finish processing 610 stocks in 265.58s.
+Finish processing 620 stocks in 271.33s.
+Finish processing 630 stocks in 277.09s.
+Finish processing 640 stocks in 282.86s.
+Finish processing 650 stocks in 288.76s.
+Finish processing 660 stocks in 294.78s.
+Finish processing 670 stocks in 300.75s.
+Finish processing 680 stocks in 306.84s.
+Finish processing 690 stocks in 313.04s.
+Finish processing 700 stocks in 319.23s.
+Finish processing 710 stocks in 325.47s.
+Finish processing 720 stocks in 331.69s.
+Finish processing 730 stocks in 338.13s.
+Finish processing 740 stocks in 344.53s.
+Finish processing 750 stocks in 350.99s.
+Finish processing 760 stocks in 357.58s.
+Finish processing 770 stocks in 364.21s.
+Finish processing 780 stocks in 370.86s.
+Finish processing 790 stocks in 377.57s.
+Finish processing 800 stocks in 384.28s.
+Finish processing 810 stocks in 390.99s.
+Finish processing 820 stocks in 397.90s.
+Finish processing 830 stocks in 404.81s.
+Finish processing 840 stocks in 411.75s.
+Finish processing 850 stocks in 418.73s.
+Finish processing 860 stocks in 425.77s.
+Finish processing 870 stocks in 432.89s.
+Finish processing 880 stocks in 440.16s.
+Finish processing 890 stocks in 447.50s.
+Finish processing 900 stocks in 454.78s.
+Finish processing 910 stocks in 462.12s.
+Finish processing 920 stocks in 469.64s.
+Finish processing 930 stocks in 477.17s.
+Finish processing 940 stocks in 484.91s.
+Finish processing 950 stocks in 492.54s.
+Finish processing 960 stocks in 500.22s.
+Finish processing 970 stocks in 508.29s.
+Finish processing 980 stocks in 516.13s.
+Finish processing 990 stocks in 524.28s.
+Finish processing 1000 stocks in 532.24s.
+Finish processing 1010 stocks in 540.24s.
+Finish processing 1020 stocks in 548.39s.
+Finish processing 1030 stocks in 557.74s.
+Finish processing 1040 stocks in 569.06s.
+Finish processing 1050 stocks in 577.46s.
+Finish processing 1060 stocks in 586.23s.
+Finish processing 1070 stocks in 594.72s.
+Finish processing 1080 stocks in 603.28s.
+Finish processing 1090 stocks in 611.90s.
+Finish processing 1100 stocks in 620.58s.
+Finish processing 1110 stocks in 629.34s.
+Finish processing 1120 stocks in 638.15s.
+Finish processing 1130 stocks in 647.06s.
+Finish processing 1140 stocks in 656.05s.
+Finish processing 1150 stocks in 665.10s.
+Finish processing 1160 stocks in 674.16s.
+Finish processing 1170 stocks in 683.28s.
+Finish processing 1180 stocks in 692.62s.
+Finish processing 1190 stocks in 701.90s.
+Finish processing 1200 stocks in 711.44s.
+Finish processing 1210 stocks in 720.88s.
+Finish processing 1220 stocks in 730.31s.
+Finish processing 1230 stocks in 739.78s.
+Finish processing 1240 stocks in 749.63s.
+Finish processing 1250 stocks in 759.22s.
+Finish processing 1260 stocks in 769.00s.
+Finish processing 1270 stocks in 778.74s.
+Finish processing 1280 stocks in 788.56s.
+Finish processing 1290 stocks in 798.37s.
+Finish processing 1300 stocks in 808.65s.
+Finish processing 1310 stocks in 818.66s.
+Finish processing 1320 stocks in 828.82s.
+Finish processing 1330 stocks in 838.92s.
+Finish processing 1340 stocks in 849.03s.
+Finish processing 1350 stocks in 859.38s.
+Finish processing 1360 stocks in 869.69s.
+Finish processing 1370 stocks in 880.01s.
+Finish processing 1380 stocks in 890.53s.
+Finish processing 1390 stocks in 901.00s.
+Finish processing 1400 stocks in 911.52s.
+Finish processing 1410 stocks in 922.06s.
+Finish processing 1420 stocks in 932.76s.
+Finish processing 1430 stocks in 943.94s.
+Total processing time for 1440 stocks:954.15s
+Shape of df_stock_d_FE: (181104, 612)
+(181104, 612)
+date
+(126, 430) 126
+date
+(181104, 1047)
+df_all: (181104, 1047)
+y<-0.5: 0
+-0.50<=y<-0.40: 0
+-0.40<=y<-0.30: 0
+-0.30<=y<-0.20: 0
+-0.20<=y<-0.10: 0
+-0.10<=y<0.00: 0
+0.00<=y<0.10: 107796
+0.10<=y<0.20: 28695
+0.20<=y<0.30: 7885
+0.30<=y<0.40: 2085
+0.40<=y<0.50: 618
+y>0.5 489
+mean: 0.07815343091169126 median: 0.052519049882227664 std: 0.15444126880160125
+过滤一字涨停项或停牌（最高价=最低价）： 518
+y<-0.5: 0
+-0.50<=y<-0.40: 0
+-0.40<=y<-0.30: 0
+-0.30<=y<-0.20: 0
+-0.20<=y<-0.10: 0
+-0.10<=y<0.00: 0
+0.00<=y<0.10: 107886
+0.10<=y<0.20: 28659
+0.20<=y<0.30: 7871
+0.30<=y<0.40: 2077
+0.40<=y<0.50: 611
+y>0.5 464
+mean: 0.07693607669616939 median: 0.05238095238095242 std: 0.0810580614005996
+y<-0.5: 108
+-0.50<=y<-0.40: 237
+-0.40<=y<-0.30: 1818
+-0.30<=y<-0.20: 13878
+-0.20<=y<-0.10: 46470
+-0.10<=y<0.00: 83539
+0.00<=y<0.10: 1520
+0.10<=y<0.20: 0
+0.20<=y<0.30: 0
+0.30<=y<0.40: 0
+0.40<=y<0.50: 0
+y>0.5 0
+mean: -0.10087939586402998 median: -0.08553971486761713 std: 0.07481782664560337
+过滤一字涨停项或停牌（最高价=最低价）： 518
+y<-0.5: 72
+-0.50<=y<-0.40: 205
+-0.40<=y<-0.30: 1768
+-0.30<=y<-0.20: 13790
+-0.20<=y<-0.10: 46381
+-0.10<=y<0.00: 83497
+0.00<=y<0.10: 1857
+0.10<=y<0.20: 0
+0.20<=y<0.30: 0
+0.30<=y<0.40: 0
+0.40<=y<0.50: 0
+y>0.5 0
+mean: -0.10022414068358254 median: -0.08516306274370783 std: 0.0737631158429725
+(181104, 1030) (181104, 3) Index(['y_l_rise', 'y_l_decline', 'y_l'], dtype='object')
+972.7062885761261
+<class 'pandas.core.frame.DataFrame'>
+Index: 181104 entries, 2018-07-13 to 2019-01-16
+Columns: 1030 entries, (1MA/10MA-1) to vol0
+dtypes: float16(939), float64(81), int64(5), object(5)
+memory usage: 482.4 MB
+None
+
+Process finished with exit code 0
+
+
+
+
+
+
+
+
+
+
+-----------------------------------
+
+C:\Users\dell-pc\Anaconda3.6\python.exe C:/Users/dell-pc/Quant/Quant/scribble.py
+2018-09-01 2018-07-13 2018-05-24
+start: 2018-07-13 	lowerbound: 2018-05-24
+      area industry market exchange is_hs
+443   None     None     主板     SZSE     N
+460   None     None     主板     SZSE     S
+3566  None     None     主板     SZSE     N
+3567  None     None     主板     SZSE     N
+3568  None     None     主板     SZSE     N
+3569  None     None     主板     SZSE     N
+3570  None     None     主板     SZSE     N
+3571  None     None     主板     SZSE     N
+3572  None     None     主板     SZSE     N
+3573  None     None     主板     SZSE     N
+3574  None     None     主板     SZSE     N
+3575  None     None     主板     SZSE     N
+3576  None     None     主板     SZSE     N
+3577  None     None     主板     SZSE     N
+3578  None     None     主板     SZSE     N
+3579  None     None     主板     SZSE     N
+3580  None     None     主板     SZSE     N
+3581  None     None     主板     SZSE     N
+3582  None     None     主板     SZSE     N
+3583  None     None     主板     SZSE     N
+3584  None     None     主板     SZSE     N
+3585  None     None     主板     SZSE     N
+3586  None     None     主板     SZSE     N
+3587  None     None     主板     SZSE     N
+3588  None     None     主板     SZSE     N
+3589  None     None     主板     SZSE     N
+3590  None     None     主板     SZSE     N
+3591  None     None     主板     SZSE     N
+3592  None     None     主板     SZSE     N
+3593  None     None     主板     SZSE     N
+...    ...      ...    ...      ...   ...
+3636  None     None     主板      SSE     N
+3637  None     None     主板      SSE     N
+3638  None     None     主板      SSE     N
+3639  None     None     主板      SSE     N
+3640  None     None     主板      SSE     N
+3641  None     None     主板      SSE     N
+3642  None     None     主板      SSE     N
+3643  None     None     主板      SSE     N
+3644  None     None     主板      SSE     N
+3645  None     None     主板      SSE     N
+3646  None     None     主板      SSE     N
+3647  None     None     主板      SSE     N
+3648  None     None     主板      SSE     N
+3649  None     None     主板      SSE     N
+3650  None     None     主板      SSE     N
+3651  None     None     主板      SSE     N
+3652  None     None     主板      SSE     N
+3653  None     None     主板      SSE     N
+3654  None     None     主板      SSE     N
+3655  None     None     主板      SSE     N
+3656  None     None     主板      SSE     N
+3657  None     None     主板      SSE     N
+3658  None     None     主板      SSE     N
+3659  None     None     主板      SSE     N
+3660  None     None     主板      SSE     N
+3661  None     None     主板      SSE     N
+3662  None     None     主板      SSE     N
+3663  None     None     主板      SSE     N
+3664  None     None             SSE     N
+3667  None     None     主板      SSE     N
+
+[101 rows x 5 columns]
+        code area industry market exchange is_hs
+0  000001.SZ   21      106      2        1     2
+1  000002.SZ   21        9      2        1     2
+2  000004.SZ   21       70      2        1     1
+3  000005.SZ   21       39      2        1     1
+4  000006.SZ   21       22      2        1     2
+5  000007.SZ   21      100      2        1     1
+6  000008.SZ    4       97      2        1     2
+7  000009.SZ   21       87      2        1     2
+8  000010.SZ   21       37      2        1     1
+9  000011.SZ   21       22      2        1     2
+min_date: 2018-05-24
+Finish processing 0 stocks in 0.72s.
+Finish processing 10 stocks in 6.96s.
+Finish processing 20 stocks in 13.14s.
+Finish processing 30 stocks in 19.31s.
+Finish processing 40 stocks in 25.37s.
+Finish processing 50 stocks in 31.70s.
+Finish processing 60 stocks in 37.98s.
+Finish processing 70 stocks in 44.24s.
+Finish processing 80 stocks in 50.42s.
+Finish processing 90 stocks in 56.50s.
+Finish processing 100 stocks in 62.68s.
+Finish processing 110 stocks in 68.77s.
+Finish processing 120 stocks in 74.99s.
+Finish processing 130 stocks in 81.22s.
+Finish processing 140 stocks in 87.42s.
+Finish processing 150 stocks in 93.63s.
+Finish processing 160 stocks in 99.86s.
+Finish processing 170 stocks in 106.14s.
+Finish processing 180 stocks in 112.39s.
+Finish processing 190 stocks in 118.63s.
+Finish processing 200 stocks in 124.67s.
+Finish processing 210 stocks in 130.98s.
+Finish processing 220 stocks in 137.20s.
+Finish processing 230 stocks in 143.47s.
+Finish processing 240 stocks in 149.71s.
+Finish processing 250 stocks in 155.78s.
+Finish processing 260 stocks in 161.95s.
+Finish processing 270 stocks in 168.18s.
+Finish processing 280 stocks in 174.39s.
+Finish processing 290 stocks in 180.57s.
+Finish processing 300 stocks in 186.85s.
+Finish processing 310 stocks in 193.28s.
+Finish processing 320 stocks in 199.64s.
+Finish processing 330 stocks in 205.92s.
+Finish processing 340 stocks in 213.33s.
+Finish processing 350 stocks in 219.61s.
+Finish processing 360 stocks in 225.91s.
+Finish processing 370 stocks in 232.19s.
+Finish processing 380 stocks in 238.53s.
+Finish processing 390 stocks in 244.79s.
+Finish processing 400 stocks in 251.27s.
+Finish processing 410 stocks in 257.50s.
+Finish processing 420 stocks in 263.54s.
+Finish processing 430 stocks in 269.70s.
+Finish processing 440 stocks in 275.82s.
+Finish processing 450 stocks in 281.98s.
+Finish processing 460 stocks in 288.10s.
+Finish processing 470 stocks in 294.36s.
+Finish processing 480 stocks in 300.54s.
+Finish processing 490 stocks in 306.77s.
+Finish processing 500 stocks in 313.28s.
+Finish processing 510 stocks in 319.52s.
+Finish processing 520 stocks in 325.79s.
+Finish processing 530 stocks in 331.99s.
+Finish processing 540 stocks in 338.28s.
+Finish processing 550 stocks in 344.54s.
+Finish processing 560 stocks in 350.81s.
+Finish processing 570 stocks in 356.98s.
+Finish processing 580 stocks in 363.29s.
+Finish processing 590 stocks in 369.58s.
+Finish processing 600 stocks in 375.90s.
+Finish processing 610 stocks in 382.14s.
+Finish processing 620 stocks in 388.42s.
+Finish processing 630 stocks in 394.61s.
+Finish processing 640 stocks in 400.71s.
+Finish processing 650 stocks in 406.98s.
+Finish processing 660 stocks in 413.14s.
+Finish processing 670 stocks in 419.19s.
+Finish processing 680 stocks in 425.45s.
+Finish processing 690 stocks in 431.66s.
+Finish processing 700 stocks in 437.82s.
+Finish processing 710 stocks in 443.97s.
+Finish processing 720 stocks in 450.18s.
+Finish processing 730 stocks in 456.39s.
+Finish processing 740 stocks in 462.53s.
+Finish processing 750 stocks in 468.61s.
+Finish processing 760 stocks in 474.90s.
+Finish processing 770 stocks in 481.06s.
+Finish processing 780 stocks in 487.21s.
+Finish processing 790 stocks in 493.74s.
+Finish processing 800 stocks in 499.99s.
+Finish processing 810 stocks in 506.15s.
+Finish processing 820 stocks in 512.29s.
+Finish processing 830 stocks in 518.38s.
+Finish processing 840 stocks in 524.41s.
+Finish processing 850 stocks in 530.50s.
+Finish processing 860 stocks in 536.57s.
+Finish processing 870 stocks in 542.77s.
+Finish processing 880 stocks in 549.00s.
+Finish processing 890 stocks in 555.22s.
+Finish processing 900 stocks in 561.40s.
+Finish processing 910 stocks in 567.46s.
+Finish processing 920 stocks in 573.50s.
+Finish processing 930 stocks in 579.67s.
+Finish processing 940 stocks in 585.74s.
+Finish processing 950 stocks in 591.84s.
+Finish processing 960 stocks in 597.99s.
+Finish processing 970 stocks in 604.17s.
+Finish processing 980 stocks in 610.92s.
+Finish processing 990 stocks in 617.10s.
+Finish processing 1000 stocks in 623.35s.
+Finish processing 1010 stocks in 629.64s.
+Finish processing 1020 stocks in 635.74s.
+Finish processing 1030 stocks in 641.95s.
+Finish processing 1040 stocks in 648.12s.
+Finish processing 1050 stocks in 654.31s.
+Finish processing 1060 stocks in 660.50s.
+Finish processing 1070 stocks in 666.68s.
+Finish processing 1080 stocks in 673.02s.
+Finish processing 1090 stocks in 679.14s.
+Finish processing 1100 stocks in 685.43s.
+Finish processing 1110 stocks in 691.75s.
+Finish processing 1120 stocks in 697.92s.
+Finish processing 1130 stocks in 704.11s.
+Finish processing 1140 stocks in 710.47s.
+Finish processing 1150 stocks in 716.74s.
+Finish processing 1160 stocks in 723.00s.
+Finish processing 1170 stocks in 729.37s.
+Finish processing 1180 stocks in 735.66s.
+Finish processing 1190 stocks in 742.03s.
+Finish processing 1200 stocks in 748.27s.
+Finish processing 1210 stocks in 754.56s.
+Finish processing 1220 stocks in 760.85s.
+Finish processing 1230 stocks in 767.16s.
+Finish processing 1240 stocks in 773.46s.
+Finish processing 1250 stocks in 779.70s.
+Finish processing 1260 stocks in 785.96s.
+Finish processing 1270 stocks in 792.53s.
+Finish processing 1280 stocks in 798.92s.
+Finish processing 1290 stocks in 805.25s.
+Finish processing 1300 stocks in 811.52s.
+Finish processing 1310 stocks in 817.58s.
+Finish processing 1320 stocks in 823.77s.
+Finish processing 1330 stocks in 830.05s.
+Finish processing 1340 stocks in 836.35s.
+Finish processing 1350 stocks in 842.71s.
+Finish processing 1360 stocks in 849.00s.
+Finish processing 1370 stocks in 855.34s.
+Finish processing 1380 stocks in 861.57s.
+Finish processing 1390 stocks in 868.04s.
+Finish processing 1400 stocks in 874.31s.
+Finish processing 1410 stocks in 880.68s.
+Finish processing 1420 stocks in 886.96s.
+Finish processing 1430 stocks in 893.27s.
+Total processing time for 1440 stocks:900.89s
+Shape of df_stock_d_FE: (181104, 612)
+(181104, 612)
+date
+(126, 430) 126
+date
+(181104, 1047)
+df_all: (181104, 1047)
+y<-0.5: 0
+-0.50<=y<-0.40: 0
+-0.40<=y<-0.30: 0
+-0.30<=y<-0.20: 0
+-0.20<=y<-0.10: 0
+-0.10<=y<0.00: 0
+0.00<=y<0.10: 107796
+0.10<=y<0.20: 28695
+0.20<=y<0.30: 7885
+0.30<=y<0.40: 2085
+0.40<=y<0.50: 618
+y>0.5 489
+mean: 0.07815343091169126 median: 0.052519049882227664 std: 0.15444126880160125
+过滤一字涨停项或停牌（最高价=最低价）： 518
+y<-0.5: 0
+-0.50<=y<-0.40: 0
+-0.40<=y<-0.30: 0
+-0.30<=y<-0.20: 0
+-0.20<=y<-0.10: 0
+-0.10<=y<0.00: 0
+0.00<=y<0.10: 107886
+0.10<=y<0.20: 28659
+0.20<=y<0.30: 7871
+0.30<=y<0.40: 2077
+0.40<=y<0.50: 611
+y>0.5 464
+mean: 0.07693607669616939 median: 0.05238095238095242 std: 0.0810580614005996
+y<-0.5: 108
+-0.50<=y<-0.40: 237
+-0.40<=y<-0.30: 1818
+-0.30<=y<-0.20: 13878
+-0.20<=y<-0.10: 46470
+-0.10<=y<0.00: 83539
+0.00<=y<0.10: 1520
+0.10<=y<0.20: 0
+0.20<=y<0.30: 0
+0.30<=y<0.40: 0
+0.40<=y<0.50: 0
+y>0.5 0
+mean: -0.10087939586402998 median: -0.08553971486761713 std: 0.07481782664560337
+过滤一字涨停项或停牌（最高价=最低价）： 518
+y<-0.5: 72
+-0.50<=y<-0.40: 205
+-0.40<=y<-0.30: 1768
+-0.30<=y<-0.20: 13790
+-0.20<=y<-0.10: 46381
+-0.10<=y<0.00: 83497
+0.00<=y<0.10: 1857
+0.10<=y<0.20: 0
+0.20<=y<0.30: 0
+0.30<=y<0.40: 0
+0.40<=y<0.50: 0
+y>0.5 0
+mean: -0.10022414068358254 median: -0.08516306274370783 std: 0.0737631158429725
+(181104, 1030) (181104, 3) Index(['y_l_rise', 'y_l_decline', 'y_l'], dtype='object')
+918.8726661205292
+<class 'pandas.core.frame.DataFrame'>
+Index: 181104 entries, 2018-07-13 to 2019-01-16
+Columns: 1030 entries, (1MA/10MA-1) to vol0
+dtypes: float16(939), float64(81), int64(5), object(5)
+memory usage: 482.4 MB
+None
+
+Process finished with exit code 0
+
+
+
+
+
+
+
+
+
+
+
+-----------------------------
+C:\Users\dell-pc\Anaconda3.6\python.exe C:/Users/dell-pc/Quant/Quant/scribble.py
+2018-09-01 2018-07-13 2018-05-24
+start: 2018-07-13 	lowerbound: 2018-05-24
+      area industry market exchange is_hs
+443   None     None     主板     SZSE     N
+460   None     None     主板     SZSE     S
+3566  None     None     主板     SZSE     N
+3567  None     None     主板     SZSE     N
+3568  None     None     主板     SZSE     N
+3569  None     None     主板     SZSE     N
+3570  None     None     主板     SZSE     N
+3571  None     None     主板     SZSE     N
+3572  None     None     主板     SZSE     N
+3573  None     None     主板     SZSE     N
+3574  None     None     主板     SZSE     N
+3575  None     None     主板     SZSE     N
+3576  None     None     主板     SZSE     N
+3577  None     None     主板     SZSE     N
+3578  None     None     主板     SZSE     N
+3579  None     None     主板     SZSE     N
+3580  None     None     主板     SZSE     N
+3581  None     None     主板     SZSE     N
+3582  None     None     主板     SZSE     N
+3583  None     None     主板     SZSE     N
+3584  None     None     主板     SZSE     N
+3585  None     None     主板     SZSE     N
+3586  None     None     主板     SZSE     N
+3587  None     None     主板     SZSE     N
+3588  None     None     主板     SZSE     N
+3589  None     None     主板     SZSE     N
+3590  None     None     主板     SZSE     N
+3591  None     None     主板     SZSE     N
+3592  None     None     主板     SZSE     N
+3593  None     None     主板     SZSE     N
+...    ...      ...    ...      ...   ...
+3636  None     None     主板      SSE     N
+3637  None     None     主板      SSE     N
+3638  None     None     主板      SSE     N
+3639  None     None     主板      SSE     N
+3640  None     None     主板      SSE     N
+3641  None     None     主板      SSE     N
+3642  None     None     主板      SSE     N
+3643  None     None     主板      SSE     N
+3644  None     None     主板      SSE     N
+3645  None     None     主板      SSE     N
+3646  None     None     主板      SSE     N
+3647  None     None     主板      SSE     N
+3648  None     None     主板      SSE     N
+3649  None     None     主板      SSE     N
+3650  None     None     主板      SSE     N
+3651  None     None     主板      SSE     N
+3652  None     None     主板      SSE     N
+3653  None     None     主板      SSE     N
+3654  None     None     主板      SSE     N
+3655  None     None     主板      SSE     N
+3656  None     None     主板      SSE     N
+3657  None     None     主板      SSE     N
+3658  None     None     主板      SSE     N
+3659  None     None     主板      SSE     N
+3660  None     None     主板      SSE     N
+3661  None     None     主板      SSE     N
+3662  None     None     主板      SSE     N
+3663  None     None     主板      SSE     N
+3664  None     None             SSE     N
+3667  None     None     主板      SSE     N
+
+[101 rows x 5 columns]
+        code area industry market exchange is_hs
+0  000001.SZ   21      106      2        1     2
+1  000002.SZ   21        9      2        1     2
+2  000004.SZ   21       70      2        1     1
+3  000005.SZ   21       39      2        1     1
+4  000006.SZ   21       22      2        1     2
+5  000007.SZ   21      100      2        1     1
+6  000008.SZ    4       97      2        1     2
+7  000009.SZ   21       87      2        1     2
+8  000010.SZ   21       37      2        1     1
+9  000011.SZ   21       22      2        1     2
+min_date: 2018-05-24
+Finish processing 10 stocks in 6.79s.
+Finish processing 20 stocks in 9.20s.
+Finish processing 30 stocks in 12.54s.
+Finish processing 40 stocks in 15.02s.
+Finish processing 50 stocks in 18.33s.
+Finish processing 60 stocks in 20.79s.
+Finish processing 70 stocks in 24.08s.
+Finish processing 80 stocks in 26.56s.
+Finish processing 90 stocks in 29.86s.
+Finish processing 100 stocks in 32.39s.
+Finish processing 110 stocks in 35.62s.
+Finish processing 120 stocks in 38.57s.
+Finish processing 130 stocks in 42.02s.
+Finish processing 140 stocks in 44.97s.
+Finish processing 150 stocks in 48.46s.
+Finish processing 160 stocks in 51.35s.
+Finish processing 170 stocks in 55.08s.
+Finish processing 180 stocks in 58.59s.
+Finish processing 190 stocks in 62.70s.
+Finish processing 200 stocks in 65.63s.
+Finish processing 210 stocks in 69.14s.
+Finish processing 220 stocks in 72.59s.
+Finish processing 230 stocks in 76.97s.
+Finish processing 240 stocks in 79.90s.
+Finish processing 250 stocks in 83.59s.
+Finish processing 260 stocks in 86.48s.
+Finish processing 270 stocks in 90.32s.
+Finish processing 280 stocks in 93.54s.
+Finish processing 290 stocks in 97.50s.
+Finish processing 300 stocks in 100.68s.
+Finish processing 310 stocks in 104.23s.
+Finish processing 320 stocks in 107.13s.
+Finish processing 330 stocks in 110.92s.
+Finish processing 340 stocks in 114.17s.
+Finish processing 350 stocks in 117.81s.
+Finish processing 360 stocks in 120.91s.
+Finish processing 370 stocks in 124.49s.
+Finish processing 380 stocks in 128.01s.
+Finish processing 390 stocks in 131.93s.
+Finish processing 400 stocks in 135.13s.
+Finish processing 410 stocks in 139.19s.
+Finish processing 420 stocks in 142.41s.
+Finish processing 430 stocks in 146.32s.
+Finish processing 440 stocks in 149.53s.
+Finish processing 450 stocks in 153.45s.
+Finish processing 460 stocks in 156.55s.
+Finish processing 470 stocks in 160.15s.
+Finish processing 480 stocks in 163.12s.
+Finish processing 490 stocks in 166.65s.
+Finish processing 500 stocks in 169.63s.
+Finish processing 510 stocks in 173.03s.
+Finish processing 520 stocks in 175.94s.
+Finish processing 530 stocks in 179.39s.
+Finish processing 540 stocks in 182.25s.
+Finish processing 550 stocks in 185.74s.
+Finish processing 560 stocks in 188.55s.
+Finish processing 570 stocks in 191.98s.
+Finish processing 580 stocks in 194.89s.
+Finish processing 590 stocks in 198.30s.
+Finish processing 600 stocks in 201.28s.
+Finish processing 610 stocks in 204.85s.
+Finish processing 620 stocks in 207.78s.
+Finish processing 630 stocks in 211.33s.
+Finish processing 640 stocks in 214.21s.
+Finish processing 650 stocks in 217.68s.
+Finish processing 660 stocks in 220.56s.
+Finish processing 670 stocks in 224.55s.
+Finish processing 680 stocks in 227.58s.
+Finish processing 690 stocks in 231.19s.
+Finish processing 700 stocks in 234.01s.
+Finish processing 710 stocks in 237.52s.
+Finish processing 720 stocks in 240.39s.
+Finish processing 730 stocks in 244.07s.
+Finish processing 740 stocks in 246.87s.
+Finish processing 750 stocks in 250.44s.
+Finish processing 760 stocks in 253.17s.
+Finish processing 770 stocks in 256.79s.
+Finish processing 780 stocks in 259.48s.
+Finish processing 790 stocks in 263.09s.
+Finish processing 800 stocks in 265.75s.
+Finish processing 810 stocks in 269.39s.
+Finish processing 820 stocks in 272.05s.
+Finish processing 830 stocks in 275.85s.
+Finish processing 840 stocks in 278.47s.
+Finish processing 850 stocks in 282.18s.
+Finish processing 860 stocks in 284.78s.
+Finish processing 870 stocks in 288.35s.
+Finish processing 880 stocks in 290.96s.
+Finish processing 890 stocks in 294.63s.
+Finish processing 900 stocks in 297.35s.
+Finish processing 910 stocks in 301.17s.
+Finish processing 920 stocks in 303.87s.
+Finish processing 930 stocks in 307.48s.
+Finish processing 940 stocks in 310.23s.
+Finish processing 950 stocks in 314.77s.
+Finish processing 960 stocks in 318.02s.
+Finish processing 970 stocks in 321.96s.
+Finish processing 980 stocks in 324.79s.
+Finish processing 990 stocks in 329.11s.
+Finish processing 1000 stocks in 332.37s.
+Finish processing 1010 stocks in 336.31s.
+Finish processing 1020 stocks in 339.14s.
+Finish processing 1030 stocks in 342.72s.
+Finish processing 1040 stocks in 345.54s.
+Finish processing 1050 stocks in 349.01s.
+Finish processing 1060 stocks in 352.02s.
+Finish processing 1070 stocks in 355.40s.
+Finish processing 1080 stocks in 358.24s.
+Finish processing 1090 stocks in 361.72s.
+Finish processing 1100 stocks in 364.49s.
+Finish processing 1110 stocks in 367.97s.
+Finish processing 1120 stocks in 370.83s.
+Finish processing 1130 stocks in 374.49s.
+Finish processing 1140 stocks in 377.75s.
+Finish processing 1150 stocks in 381.47s.
+Finish processing 1160 stocks in 384.48s.
+Finish processing 1170 stocks in 387.86s.
+Finish processing 1180 stocks in 390.64s.
+Finish processing 1190 stocks in 394.10s.
+Finish processing 1200 stocks in 397.01s.
+Finish processing 1210 stocks in 400.71s.
+Finish processing 1220 stocks in 404.16s.
+Finish processing 1230 stocks in 407.45s.
+Finish processing 1240 stocks in 410.38s.
+Finish processing 1250 stocks in 413.69s.
+Finish processing 1260 stocks in 416.64s.
+Finish processing 1270 stocks in 420.29s.
+Finish processing 1280 stocks in 423.65s.
+Finish processing 1290 stocks in 426.95s.
+Finish processing 1300 stocks in 430.08s.
+Finish processing 1310 stocks in 433.28s.
+Finish processing 1320 stocks in 436.19s.
+Finish processing 1330 stocks in 439.47s.
+Finish processing 1340 stocks in 442.40s.
+Finish processing 1350 stocks in 445.85s.
+Finish processing 1360 stocks in 448.73s.
+Finish processing 1370 stocks in 452.33s.
+Finish processing 1380 stocks in 455.17s.
+Finish processing 1390 stocks in 458.73s.
+Finish processing 1400 stocks in 461.57s.
+Finish processing 1410 stocks in 465.23s.
+Finish processing 1420 stocks in 467.97s.
+Finish processing 1430 stocks in 471.69s.
+Total processing time for 1440 stocks:476.74s
+Shape of df_stock_d_FE: (181104, 612)
+(181104, 612)
+date
+(126, 430) 126
+date
+(181104, 1047)
+df_all: (181104, 1047)
+y<-0.5: 0
+-0.50<=y<-0.40: 0
+-0.40<=y<-0.30: 0
+-0.30<=y<-0.20: 0
+-0.20<=y<-0.10: 0
+-0.10<=y<0.00: 0
+0.00<=y<0.10: 107796
+0.10<=y<0.20: 28695
+0.20<=y<0.30: 7885
+0.30<=y<0.40: 2085
+0.40<=y<0.50: 618
+y>0.5 489
+mean: 0.07815343091169126 median: 0.052519049882227664 std: 0.15444126880160125
+过滤一字涨停项或停牌（最高价=最低价）： 518
+y<-0.5: 0
+-0.50<=y<-0.40: 0
+-0.40<=y<-0.30: 0
+-0.30<=y<-0.20: 0
+-0.20<=y<-0.10: 0
+-0.10<=y<0.00: 0
+0.00<=y<0.10: 107886
+0.10<=y<0.20: 28659
+0.20<=y<0.30: 7871
+0.30<=y<0.40: 2077
+0.40<=y<0.50: 611
+y>0.5 464
+mean: 0.07693607669616939 median: 0.05238095238095242 std: 0.0810580614005996
+y<-0.5: 108
+-0.50<=y<-0.40: 237
+-0.40<=y<-0.30: 1818
+-0.30<=y<-0.20: 13878
+-0.20<=y<-0.10: 46470
+-0.10<=y<0.00: 83539
+0.00<=y<0.10: 1520
+0.10<=y<0.20: 0
+0.20<=y<0.30: 0
+0.30<=y<0.40: 0
+0.40<=y<0.50: 0
+y>0.5 0
+mean: -0.10087939586402998 median: -0.08553971486761713 std: 0.07481782664560337
+过滤一字涨停项或停牌（最高价=最低价）： 518
+y<-0.5: 72
+-0.50<=y<-0.40: 205
+-0.40<=y<-0.30: 1768
+-0.30<=y<-0.20: 13790
+-0.20<=y<-0.10: 46381
+-0.10<=y<0.00: 83497
+0.00<=y<0.10: 1857
+0.10<=y<0.20: 0
+0.20<=y<0.30: 0
+0.30<=y<0.40: 0
+0.40<=y<0.50: 0
+y>0.5 0
+mean: -0.10022414068358254 median: -0.08516306274370783 std: 0.0737631158429725
+(181104, 1030) (181104, 3) Index(['y_l_rise', 'y_l_decline', 'y_l'], dtype='object')
+500.48861360549927
+<class 'pandas.core.frame.DataFrame'>
+Index: 181104 entries, 2018-07-13 to 2019-01-16
+Columns: 1030 entries, (1MA/10MA-1) to vol0
+dtypes: float16(939), float64(81), int64(5), object(5)
+memory usage: 482.4 MB
+None
+
+Process finished with exit code 0
+

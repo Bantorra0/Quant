@@ -377,6 +377,7 @@ def FE_stock_d(df_stock_d:pd.DataFrame, stock_pool=None, targets=None, start=Non
         df = prepare_each_stock(df)
 
         df_stck, cols_not_in_X = FE_single_stock_d(df, targets=targets, start=start)
+        df_stck_list.append(df_stck)
 
         if i%10==0:
             print("Finish processing {0} stocks in {1:.2f}s.".format(i, time.time() - start_time))
@@ -411,7 +412,8 @@ def FE_stock_d_mp(df_stock_d:pd.DataFrame, stock_pool=None, targets=None, start=
     q_res = queue.Queue()
     start_time = time.time()
     count = 0
-    df_stock_d_FE = pd.DataFrame()  # Initialize as an empty dataframe.
+    # df_stock_d_FE = pd.DataFrame()  # Initialize as an empty dataframe.
+    df_stock_d_list = []
     for i,(code, df) in enumerate(df_stock_d.groupby("code")):
         if stock_pool and code not in stock_pool:
             continue
@@ -424,7 +426,8 @@ def FE_stock_d_mp(df_stock_d:pd.DataFrame, stock_pool=None, targets=None, start=
             res = q_res.get()
             q_res.put(p_pool.apply_async(func=FE_single_stock_d, args=(df, targets, start)))
             df_single_stock_d_FE,cols_not_in_X = res.get()
-            df_stock_d_FE = df_stock_d_FE.append(df_single_stock_d_FE)
+            # df_stock_d_FE = df_stock_d_FE.append(df_single_stock_d_FE)
+            df_stock_d_list.append(df_single_stock_d_FE)
             q_res.task_done()
             count += 1
         else:
@@ -436,11 +439,13 @@ def FE_stock_d_mp(df_stock_d:pd.DataFrame, stock_pool=None, targets=None, start=
     while not q_res.empty():
         res = q_res.get()
         df_single_stock_d_FE, cols_not_in_X = res.get()
-        df_stock_d_FE = df_stock_d_FE.append(df_single_stock_d_FE)
+        # df_stock_d_FE = df_stock_d_FE.append(df_single_stock_d_FE)
+        df_stock_d_list.append(df_single_stock_d_FE)
         q_res.task_done()
         count += 1
     del q_res
 
+    df_stock_d_FE = pd.concat(df_stock_d_list, sort=False)
     p_pool.close()
     print("Total processing time for {0} stocks:{1:.2f}s".format(count, time.time() - start_time))
     print("Shape of df_stock_d_FE:",df_stock_d_FE.shape)
