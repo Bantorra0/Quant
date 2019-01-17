@@ -2,9 +2,12 @@ import numpy as np
 import pandas as pd
 import sklearn as sk
 
-import collect as clct
 import constants as const
 import db_operations as dbop
+
+import multiprocessing as mp
+import time
+import queue
 
 
 def _check_int(arg):
@@ -242,135 +245,211 @@ def prepare_each_stock(df_stock_d, qfq_type="hfq"):
     return df_stock_d
 
 
-def proc_stck_d(df_stck_d, stock_pool=None,targets=None,start=None):
-    df_stck_d = prepare_stock_d(df_stck_d)
+def FE_single_stock_d(df:pd.DataFrame, targets,start=None):
+    df = df.sort_index(ascending=False)
 
-    df_stck_list = []
-    cols_move = ["open", "high", "low", "close", "vol","amt"]
-    cols_roll = ["open", "high", "low", "close", "vol","amt"]
-    cols_k_line = ["open", "high", "low", "close","vol", "amt"]
-    cols_fq = ["open", "high", "low", "close","avg"]
+    # Parameter setting
+    cols_move = ["open", "high", "low", "close", "vol", "amt"]
+    cols_roll = ["open", "high", "low", "close", "vol", "amt"]
+    cols_k_line = ["open", "high", "low", "close", "vol", "amt"]
+    cols_fq = ["open", "high", "low", "close", "avg"]
 
     move_upper_bound = 6
     move_mv_list = np.arange(1, move_upper_bound)
 
-    candle_stick_mv_list = np.arange(0,move_upper_bound)
+    candle_stick_mv_list = np.arange(0, move_upper_bound)
 
-    kma_k_list = [3,5, 10, 20, 60, 120, 250]
+    kma_k_list = [3, 5, 10, 20, 60, 120, 250]
     kma_mv_list = np.arange(0, move_upper_bound)
 
     k_line_k_list = kma_k_list
     k_line_mv_list = np.arange(0, move_upper_bound)
 
-    rolling_k_list = np.array(kma_k_list,dtype=int)*-1
+    rolling_k_list = np.array(kma_k_list, dtype=int) * -1
 
+    # Feature engineering
+    df_tomorrow = move(-1, df, ["open", "high", "low", "close"])
+
+    df_qfq = df[cols_fq] / df["adj_factor"].iloc[0]
+    df_qfq.columns = ["qfq_" + col for col in cols_fq]
+    df_tomorrow_qfq = move(-1, df_qfq)
+
+    df_targets_list = []
+    for t in targets:
+        pred_period = t["period"]
+        if t["fun"] == "min":
+            df_target = rolling(t["fun"], pred_period, move(-1, df, cols=t["col"]))
+        elif t["fun"] == "max":
+            # df_target = rolling(t["fun"],pred_period - 1, move(-2, df, cols=t["col"]))
+            df_target = rolling(t["fun"], pred_period, move(-1, df, cols=t["col"]))
+        elif t["fun"] == "mean":
+            # df_target = rolling(t["fun"], pred_period - 1, move(-2, df, cols=t["col"]))
+            df_target = rolling(t["fun"], pred_period, move(-1, df, cols=t["col"]))
+
+            # p1 = (pred_period - 1) // 3
+            # p2 = p1
+            # p3 = pred_period - 1 - p1 - p2
+            # df_period_mean1 = rolling(t["fun"], p1, move(-2, df, t["col"]))
+            # df_period_mean2 = rolling(t["fun"], p2, move(-2 - p1, df, t["col"]))
+            # df_period_mean3 = rolling(t["fun"], p3, move(-2 - p1 - p2, df, t["col"]))
+            # df_targets_list.extend([df_period_mean1,df_period_mean2,df_period_mean3])
+        else:
+            raise ValueError("Fun type {} is not supported!".format(t["fun"]))
+        df_targets_list.append(df_target)
+
+    df_move_list = [move(i, df, cols_move) for i in move_mv_list]
+    df_move_change_list = [change_rate(df_move, df[cols_move])
+                           for df_move in df_move_list]
+
+    df_candle_stick = candle_stick(df[cols_fq])
+    df_move_candle_list = [move(i, df_candle_stick)
+                           for i in candle_stick_mv_list]
+
+    df_1ma = k_MA(1, df[["vol", "amt"]])
+    df_kma_change_list = [change_rate(k_MA(k, df[["vol", "amt"]]), df_1ma)
+                          for k in kma_k_list]
+    df_move_kma_change_list = [move(mv, df_kma_change)
+                               for df_kma_change in df_kma_change_list
+                               for mv in kma_mv_list]
+
+    df_k_line_list = [(k, k_line(k, df[cols_k_line])) for k in k_line_k_list]
+    df_change_move_k_line_list = [change_rate(move(k * mv, df_k_line),
+                                              df[cols_k_line])
+                                  for k, df_k_line in df_k_line_list
+                                  for mv in k_line_mv_list]
+
+    df_rolling_change_list = [
+        change_rate(rolling(rolling_type, days=days, df=df, cols=cols_roll),
+                    df[cols_roll],
+                    )
+        for days in rolling_k_list
+        for rolling_type in ["max", "min", "mean"]]
+
+    df_not_in_X = pd.concat(
+        [df_qfq, df_tomorrow, df_tomorrow_qfq] + df_targets_list, axis=1, sort=False)
+
+    # df_stck = pd.concat(
+    #     [df] + df_move_change_list
+    #     # + df_move_candle_list
+    #     # + df_move_kma_change_list
+    #     + df_rolling_change_list
+    #     # + df_change_move_k_line_list
+    #     + [df_not_in_X],
+    #     axis=1,
+    #     sort=False)
+
+    df_stck = pd.concat([df] + df_move_change_list
+                        + df_move_candle_list
+                        + df_move_kma_change_list
+                        + df_rolling_change_list
+                        + df_change_move_k_line_list
+                        + [df_not_in_X], axis=1, sort=False)
+
+    cols_not_in_X = list(df_not_in_X.columns)
+
+    if start:
+        df_stck = df_stck[df_stck.index >= start]
+
+    return df_stck, cols_not_in_X
+
+
+def FE_stock_d(df_stock_d:pd.DataFrame, stock_pool=None, targets=None, start=None):
+    """
+    Do feature engineering on stock_daily data.
+
+    :param df_stock_d: Stock daily data as a dataframe.
+    :param stock_pool: The stock pool. If none, all stocks will be included.
+    :param targets: Parameters as a [dict], describing target variables or labels.
+    :param start: Lower bound of samples' dates, i.e. the start date of dataset.
+    :return: A dataframe with shape (n_samples, n_features)
+    """
+    df_stock_d = prepare_stock_d(df_stock_d)
+    df_stck_list = []
     cols_not_in_X = None
 
-    for i,(code, df) in enumerate(df_stck_d.groupby("code")):
+    start_time = time.time()
+    i=-1
+    for i,(code, df) in enumerate(df_stock_d.groupby("code")):
         if stock_pool and code not in stock_pool:
             continue
 
         # Initialize df.
-        df = df.sort_index(ascending=False)
         df = prepare_each_stock(df)
 
-        df_tomorrow = move(-1, df, ["open", "high", "low", "close"])
-
-        df_qfq = df[cols_fq] / df["adj_factor"].iloc[0]
-        df_qfq.columns = ["qfq_" + col for col in cols_fq]
-        df_tomorrow_qfq = move(-1, df_qfq)
-
-        df_targets_list = []
-        for t in targets:
-            pred_period = t["period"]
-            if t["fun"]=="min":
-                df_target = rolling(t["fun"], pred_period, move(-1, df, cols=t["col"]))
-            elif t["fun"]=="max":
-                # df_target = rolling(t["fun"],pred_period - 1, move(-2, df, cols=t["col"]))
-                df_target = rolling(t["fun"], pred_period, move(-1, df, cols=t["col"]))
-            elif t["fun"]=="mean":
-                # df_target = rolling(t["fun"], pred_period - 1, move(-2, df, cols=t["col"]))
-                df_target = rolling(t["fun"], pred_period, move(-1, df, cols=t["col"]))
-
-                # p1 = (pred_period - 1) // 3
-                # p2 = p1
-                # p3 = pred_period - 1 - p1 - p2
-                # df_period_mean1 = rolling(t["fun"], p1, move(-2, df, t["col"]))
-                # df_period_mean2 = rolling(t["fun"], p2, move(-2 - p1, df, t["col"]))
-                # df_period_mean3 = rolling(t["fun"], p3, move(-2 - p1 - p2, df, t["col"]))
-                # df_targets_list.extend([df_period_mean1,df_period_mean2,df_period_mean3])
-            else:
-                raise ValueError("Fun type {} is not supported!".format(t["fun"]))
-            df_targets_list.append(df_target)
-
-        df_move_list = [move(i, df, cols_move) for i in move_mv_list]
-        df_move_change_list = [change_rate(df_move,df[cols_move])
-                               for df_move in df_move_list]
-
-        df_candle_stick = candle_stick(df[cols_fq])
-        df_move_candle_list = [move(i,df_candle_stick)
-                               for i in candle_stick_mv_list]
-
-        df_1ma = k_MA(1,df[["vol","amt"]])
-        df_kma_change_list = [change_rate(k_MA(k,df[["vol","amt"]]),df_1ma)
-                              for k in kma_k_list]
-        df_move_kma_change_list = [move(mv,df_kma_change)
-                                   for df_kma_change in df_kma_change_list
-                                   for mv in kma_mv_list]
-
-        df_k_line_list = [(k,k_line(k,df[cols_k_line])) for k in k_line_k_list]
-        df_change_move_k_line_list = [change_rate(move(k*mv,df_k_line),
-                                                  df[cols_k_line])
-                                      for k,df_k_line in df_k_line_list
-                                      for mv in k_line_mv_list]
-
-        df_rolling_change_list = [
-            change_rate(rolling(rolling_type, days=days, df=df, cols=cols_roll),
-                        df[cols_roll],
-                        )
-            for days in rolling_k_list
-            for rolling_type in ["max","min","mean"]]
-
-        df_not_in_X = pd.concat(
-            [df_qfq,df_tomorrow,df_tomorrow_qfq]+df_targets_list, axis=1, sort=False)
-
-        # df_stck = pd.concat(
-        #     [df] + df_move_change_list
-        #     # + df_move_candle_list
-        #     # + df_move_kma_change_list
-        #     + df_rolling_change_list
-        #     # + df_change_move_k_line_list
-        #     + [df_not_in_X],
-        #     axis=1,
-        #     sort=False)
-
-        df_stck = pd.concat([df] + df_move_change_list
-                            + df_move_candle_list
-                            + df_move_kma_change_list
-                            + df_rolling_change_list
-                            + df_change_move_k_line_list
-                            + [df_not_in_X], axis=1, sort=False)
-
-        df_stck_list.append(df_stck[df_stck.index>=start])
-
-        if not cols_not_in_X:
-            cols_not_in_X = list(df_not_in_X.columns)
+        df_stck, cols_not_in_X = FE_single_stock_d(df, targets=targets, start=start)
 
         if i%10==0:
-            print("Finish preparing {} stocks.".format(i))
+            print("Finish processing {0} stocks in {1:.2f}s.".format(i, time.time() - start_time))
 
-    df_stck_d_all = pd.concat(df_stck_list, sort=False)
+    df_stock_d_FE = pd.concat(df_stck_list, sort=False)
+    print("Total processing time for {0} stocks:{1:.2f}s".format(i + 1, time.time() - start_time))
+    print("Shape of df_stock_d_FE:", df_stock_d_FE.shape)
 
-    print("count stck", len(
-        df_stck_d_all["code"][df_stck_d_all.index >= "2018-01-01"].unique()))
-    print(df_stck_d_all.shape)
+    df_stock_d_FE.index.name = "date"
 
-    df_stck_d_all.index.name = "date"
-
-    return df_stck_d_all, cols_not_in_X
+    return df_stock_d_FE, cols_not_in_X
 
 
-def proc_idx_d(df_idx_d: pd.DataFrame, start=None):
+def FE_stock_d_mp(df_stock_d:pd.DataFrame, stock_pool=None, targets=None, start=None):
+    """
+    A variant of FE_stock_d using multiprocessing.Pool.
+    Experiment shows that speed increases nearly num_process times
+    due to feature engineering parallelly on each stock.
+    Joining(appending) operations are done serially in main process.
+
+    :param df_stock_d:
+    :param stock_pool:
+    :param targets:
+    :param start:
+    :return:
+    """
+    df_stock_d = prepare_stock_d(df_stock_d)
+    cols_not_in_X = None
+
+    num_p = mp.cpu_count()
+    p_pool = mp.Pool(processes=mp.cpu_count())
+    q_res = queue.Queue()
+    start_time = time.time()
+    count = 0
+    df_stock_d_FE = pd.DataFrame()  # Initialize as an empty dataframe.
+    for i,(code, df) in enumerate(df_stock_d.groupby("code")):
+        if stock_pool and code not in stock_pool:
+            continue
+
+        # Initialize df.
+        df = prepare_each_stock(df)
+
+        if i>=num_p:
+            # print(i,num_p)
+            res = q_res.get()
+            q_res.put(p_pool.apply_async(func=FE_single_stock_d, args=(df, targets, start)))
+            df_single_stock_d_FE,cols_not_in_X = res.get()
+            df_stock_d_FE = df_stock_d_FE.append(df_single_stock_d_FE)
+            q_res.task_done()
+            count += 1
+        else:
+            q_res.put(p_pool.apply_async(func=FE_single_stock_d, args=(df, targets, start)))
+
+        if count%10==0 and count>0:
+            print("Finish processing {0} stocks in {1:.2f}s.".format(count, time.time() - start_time))
+
+    while not q_res.empty():
+        res = q_res.get()
+        df_single_stock_d_FE, cols_not_in_X = res.get()
+        df_stock_d_FE = df_stock_d_FE.append(df_single_stock_d_FE)
+        q_res.task_done()
+        count += 1
+    del q_res
+
+    p_pool.close()
+    print("Total processing time for {0} stocks:{1:.2f}s".format(count, time.time() - start_time))
+    print("Shape of df_stock_d_FE:",df_stock_d_FE.shape)
+    df_stock_d_FE.index.name = "date"
+
+    return df_stock_d_FE, cols_not_in_X
+
+
+def FE_index_d(df_idx_d: pd.DataFrame, start=None):
     df_idx_d = prepare_index_d(df_idx_d)
     cols_move = ["open", "high", "low", "close", "vol"]
     cols_roll = cols_move
@@ -438,17 +517,29 @@ def prepare_data(cursor, targets=None, start=None, lowerbound=None, stock_pool=N
     # Prepare df_stock_d_FE
     df_stock_d = dbop.create_df(cursor, const.STOCK_DAY[const.TABLE], lowerbound)
     print("min_date:", min(df_stock_d.date))
-    df_stock_d_FE, cols_future = proc_stck_d(df_stock_d,
-                                             stock_pool=stock_pool,
-                                             targets=targets,
-                                             start=start)
+    # if p_pool:
+    #     df_stock_d_FE, cols_future = FE_stock_d_mp(df_stock_d,
+    #                                         stock_pool=stock_pool,
+    #                                         targets=targets,
+    #                                         start=start, p_pool=p_pool)
+    # else:
+    #     df_stock_d_FE, cols_future = FE_stock_d(df_stock_d,
+    #                                                stock_pool=stock_pool,
+    #                                                targets=targets,
+    #                                                start=start)
+
+    df_stock_d_FE, cols_future = FE_stock_d_mp(df_stock_d,
+                                               stock_pool=stock_pool,
+                                               targets=targets,
+                                               start=start)
+
     df_stock_d_FE = df_stock_d_FE[df_stock_d_FE.index>=start]
     print(df_stock_d_FE.shape)
     print(df_stock_d_FE.index.name)
 
     # Prepare df_index_d_FE
     df_index_d = dbop.create_df(cursor, const.INDEX_DAY[const.TABLE], lowerbound)
-    df_index_d_FE = proc_idx_d(df_index_d,start=start)
+    df_index_d_FE = FE_index_d(df_index_d, start=start)
     df_index_d_FE = df_index_d_FE[df_index_d_FE>=start]
     print(df_index_d_FE.shape, len(df_index_d_FE.index.unique()))
     print(df_index_d_FE.index.name)
