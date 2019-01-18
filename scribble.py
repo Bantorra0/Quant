@@ -175,19 +175,20 @@ if __name__ == '__main__':
     t0 = time.time()
     # num_p = mp.cpu_count()
     # p_pool = mp.Pool(processes=mp.cpu_count())
-    df_all, cols_future, cols_category,cols_not_for_model,enc = ml_model.gen_data(
+    df_feature, df_not_in_X, cols_category, enc = ml_model.gen_data(
         targets=targets,
-                                            lower_bound=lower_bound,
-                                            start=train_bound,
-                                            stock_pool=None)
+        lower_bound=lower_bound,
+        start=train_bound,
+        stock_pool=None)
 
-    print("df_all:", df_all.shape)
-    trading_date_idxes = df_all.index.unique().sort_values(ascending=True)
+    print("df_all:", df_feature.shape)
+    trading_date_idxes = df_feature.index.unique().sort_values(ascending=True)
 
-    X = ml_model.gen_X(df_all, cols_future+cols_not_for_model)
+    X = ml_model.gen_X(df_feature, df_not_in_X.columns)
+    del df_feature
 
-    paras = [("y_l_rise", {"pred_period": 20, "is_high": True, "is_clf": False,"threshold":0.2}, df_all),
-             ("y_l_decline", {"pred_period": 20, "is_high": False, "is_clf": False, "threshold":0.2}, df_all),
+    paras = [("y_l_rise", {"pred_period": 20, "is_high": True, "is_clf": False,"threshold":0.2}, df_not_in_X),
+             ("y_l_decline", {"pred_period": 20, "is_high": False, "is_clf": False, "threshold":0.2}, df_not_in_X),
              # ("y_s_rise", {"pred_period": 5, "is_high": True, "is_clf": False,"threshold":0.1}, df_all),
              # ("y_s_decline", {"pred_period": 5, "is_high": False, "is_clf": False,"threshold":0.1}, df_all),
              ]

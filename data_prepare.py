@@ -154,7 +154,7 @@ def candle_stick(df:pd.DataFrame):
     df_result["upper_shadow/avg"] = (df[high] - stick_top) / df[avg]
     df_result["lower_shadow/avg"] = (stick_bottom - df[low]) / df[avg]
 
-    return df_result
+    return df_result.round(2).astype('float16')
 
 
 def k_MA(k:int, df:pd.DataFrame):
@@ -436,6 +436,9 @@ def FE_stock_d_mp(df_stock_d:pd.DataFrame, stock_pool=None, targets=None, start=
         if count%10==0 and count>0:
             print("Finish processing {0} stocks in {1:.2f}s.".format(count, time.time() - start_time))
 
+        if i>100:
+            break
+
     while not q_res.empty():
         res = q_res.get()
         df_single_stock_d_FE, cols_not_in_X = res.get()
@@ -502,12 +505,22 @@ def FE_index_d(df_idx_d: pd.DataFrame, start=None):
 def proc_stock_basic(df_stock_basic:pd.DataFrame):
     cols_category = ["area", "industry", "market", "exchange", "is_hs"]
     df_stock_basic = df_stock_basic[["code"] + cols_category].copy()
-    print(df_stock_basic[df_stock_basic[cols_category].isna().any(axis=1)][
-              cols_category])
+    # print(df_stock_basic[df_stock_basic[cols_category].isna().any(axis=1)][
+    #           cols_category])
     df_stock_basic.loc[:,cols_category] = df_stock_basic[cols_category].fillna("")
 
     enc = sk.preprocessing.OrdinalEncoder()
-    df_stock_basic.loc[:,cols_category] = enc.fit_transform(df_stock_basic[cols_category])
+    val_enc = enc.fit_transform(df_stock_basic[cols_category])
+
+    if np.max(val_enc)< 2**8:
+        df_stock_basic.loc[:,cols_category] = val_enc.astype("uint8")
+    elif np.max(val_enc) < 2**16:
+        df_stock_basic.loc[:, cols_category] = val_enc.astype("uint16")
+    elif np.max(val_enc) < 2**32:
+        df_stock_basic.loc[:, cols_category] = val_enc.astype("uint32")
+    elif np.max(val_enc) < 2**64:
+        df_stock_basic.loc[:, cols_category] = val_enc.astype("uint64")
+
     return df_stock_basic,cols_category,enc
 
 
@@ -523,17 +536,17 @@ def prepare_data(cursor, targets=None, start=None, lowerbound=None, stock_pool=N
     df_stock_d = dbop.create_df(cursor, const.STOCK_DAY[const.TABLE], lowerbound)
     print("min_date:", min(df_stock_d.date))
     # if p_pool:
-    #     df_stock_d_FE, cols_future = FE_stock_d_mp(df_stock_d,
+    #     df_stock_d_FE, cols_not_in_X = FE_stock_d_mp(df_stock_d,
     #                                         stock_pool=stock_pool,
     #                                         targets=targets,
     #                                         start=start, p_pool=p_pool)
     # else:
-    #     df_stock_d_FE, cols_future = FE_stock_d(df_stock_d,
+    #     df_stock_d_FE, cols_not_in_X = FE_stock_d(df_stock_d,
     #                                                stock_pool=stock_pool,
     #                                                targets=targets,
     #                                                start=start)
 
-    df_stock_d_FE, cols_future = FE_stock_d_mp(df_stock_d,
+    df_stock_d_FE, cols_not_in_X = FE_stock_d_mp(df_stock_d,
                                                stock_pool=stock_pool,
                                                targets=targets,
                                                start=start)
@@ -556,11 +569,11 @@ def prepare_data(cursor, targets=None, start=None, lowerbound=None, stock_pool=N
         .merge(df_stock_basic, on="code",how="left")\
         .set_index(["date"])
 
-    cols_not_for_model = list(df_stock_basic.columns.difference(
+    cols_not_in_X += list(df_stock_basic.columns.difference(
         cols_category+["code"]))
     print(df_all.shape)
 
-    return df_all, cols_future, cols_category, cols_not_for_model, enc
+    return df_all[df_all.columns.difference(cols_not_in_X)], df_all[cols_not_in_X+["code"]], cols_category, enc
 
 
 def feature_select(X, y):
