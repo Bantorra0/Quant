@@ -214,7 +214,9 @@ if __name__ == '__main__':
     for k,v in X_latest_day.isnull().sum().sort_index().iteritems():
         if v>0:
             print(k,v)
-    print(X_latest_day[X_latest_day.columns[X_latest_day.isnull().any(axis=0)]])
+    pd.set_option("display.max_columns",10)
+    print(X_latest_day[X_latest_day["(open/p40mv_10k_open-1)"].isnull()][[
+        "code","open","close","(open/p60max_open-1)","(open/p40mv_10k_open-1)"]])
 
 # ----------------------------
 # import collect
