@@ -189,8 +189,7 @@ def k_line(k:int, df:pd.DataFrame):
     df_result = pd.DataFrame(index=df.index)
     df = df.sort_index(ascending=True)
 
-    df_result["{}k_open".format(k)] = pd.Series(df["open"].iloc[:-k + 1],
-                                                index=df.index[k - 1:])
+    df_result["{}k_open".format(k)] = pd.Series(np.array(df["open"].iloc[:-k + 1]),index=df.index[k - 1:])
     df_result["{}k_high".format(k)] = df["high"].rolling(k).max()
     df_result["{}k_low".format(k)] = df["low"].rolling(k).min()
     df_result["{}k_close".format(k)]=df["close"]
@@ -436,7 +435,7 @@ def FE_stock_d_mp(df_stock_d:pd.DataFrame, stock_pool=None, targets=None, start=
         if count%10==0 and count>0:
             print("Finish processing {0} stocks in {1:.2f}s.".format(count, time.time() - start_time))
 
-        if i>100:
+        if i>10:
             break
 
     while not q_res.empty():
@@ -520,6 +519,8 @@ def proc_stock_basic(df_stock_basic:pd.DataFrame):
         df_stock_basic.loc[:, cols_category] = val_enc.astype("uint32")
     elif np.max(val_enc) < 2**64:
         df_stock_basic.loc[:, cols_category] = val_enc.astype("uint64")
+
+    print(df_stock_basic.dtypes)
 
     return df_stock_basic,cols_category,enc
 

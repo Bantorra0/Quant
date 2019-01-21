@@ -205,7 +205,16 @@ if __name__ == '__main__':
 
     print(time.time()-t0)
     print(X.info(memory_usage='deep'))
-
+    print("float64:",list(X.columns[X.dtypes=="float64"]))
+    print("int64:",list(X.columns[X.dtypes == "int64"]))
+    print("object:",list(X.columns[X.dtypes == "object"]))
+    X_latest_day = X.loc[trading_date_idxes[-1]]
+    print(sorted(X_latest_day.columns[X_latest_day.isnull().any(axis=0)]))
+    print(X_latest_day.shape)
+    for k,v in X_latest_day.isnull().sum().sort_index().iteritems():
+        if v>0:
+            print(k,v)
+    print(X_latest_day[X_latest_day.columns[X_latest_day.isnull().any(axis=0)]])
 
 # ----------------------------
 # import collect
