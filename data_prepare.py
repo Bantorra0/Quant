@@ -344,7 +344,7 @@ def FE_single_stock_d(df:pd.DataFrame, targets,start=None):
                         + df_change_move_k_line_list
                         + [df_not_in_X], axis=1, sort=False)
 
-    cols_not_in_X = list(df_not_in_X.columns)
+    cols_not_in_X = list(df_not_in_X.columns)+["code"]
 
     if start:
         df_stck = df_stck[df_stck.index >= start]
@@ -435,7 +435,7 @@ def FE_stock_d_mp(df_stock_d:pd.DataFrame, stock_pool=None, targets=None, start=
         if count%10==0 and count>0:
             print("Finish processing {0} stocks in {1:.2f}s.".format(count, time.time() - start_time))
 
-        if i>20:
+        if i>10:
             break
 
     while not q_res.empty():
@@ -574,7 +574,7 @@ def prepare_data(cursor, targets=None, start=None, lowerbound=None, stock_pool=N
         cols_category+["code"]))
     print(df_all.shape)
 
-    return df_all[df_all.columns.difference(cols_not_in_X)], df_all[cols_not_in_X+["code"]], cols_category, enc
+    return df_all[df_all.columns.difference(cols_not_in_X)], df_all[cols_not_in_X], cols_category, enc
 
 
 def feature_select(X, y):

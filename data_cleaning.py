@@ -6,7 +6,7 @@ import constants as const
 
 def fillna_single_stock_day(df_single_stock:pd.DataFrame, dates:[str]):
     dates = sorted(dates)
-    df_single_stock = df_single_stock.set_index("date").sort_index()
+    # df_single_stock = df_single_stock.sort_values("date")
 
     df_changed = pd.DataFrame(columns=df_single_stock.columns).set_index("date")
     code = df_single_stock["code"].iloc[0]
@@ -75,7 +75,7 @@ def fillna_single_stock_day(df_single_stock:pd.DataFrame, dates:[str]):
     return df_changed.reset_index()
 
 
-def fillna_stock_day(df_stock_day:pd.DataFrame=None,dates = None,start=None,db_type="sqlite3", conn=None):
+def fillna_stock_day(df_stock_day:pd.DataFrame=None,dates = None,start="2000-01-01",db_type="sqlite3", conn=None):
     # Connect database if no connect object is passed.
     if dates is None or df_stock_day is None:
         if not conn:
@@ -85,7 +85,8 @@ def fillna_stock_day(df_stock_day:pd.DataFrame=None,dates = None,start=None,db_t
         if df_stock_day is None:
             # Read table stock_day.
             df_stock_day = dbop.create_df(cursor,const.STOCK_DAY[const.TABLE], start=start)
-            print("\n",df_stock_day.shape)
+            print("\n"+"-"*10+"Data cleaning"+"-"*10)
+            print(df_stock_day.shape)
 
         # Get all trading dates.
         if dates is None:
