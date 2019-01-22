@@ -1,14 +1,15 @@
 import pandas as pd
 import db_operations as dbop
 from constants import STOCK_DAY, TABLE, COLUMNS
+import constants as const
 
 
 def fillna_single_stock_day(df_single_stock:pd.DataFrame, dates:[str]):
-    df_changed = pd.DataFrame(columns=df_single_stock.columns).set_index("date")
-
-    code = df_single_stock["code"].iloc[0]
-
+    dates = sorted(dates)
     df_single_stock = df_single_stock.set_index("date").sort_index()
+
+    df_changed = pd.DataFrame(columns=df_single_stock.columns).set_index("date")
+    code = df_single_stock["code"].iloc[0]
 
     # start_date is the first date on which the whole row is not null in the
     #  table.
@@ -47,8 +48,8 @@ def fillna_single_stock_day(df_single_stock:pd.DataFrame, dates:[str]):
         if d in df_single_stock.index:
             row = df_single_stock.loc[d].copy()
 
-            cnt_na = sum(df_single_stock.loc[d, cols].notnull())
-            if 0 < cnt_na < len(cols):
+            cnt_null = sum(df_single_stock.loc[d, cols].isnull())
+            if 0 < cnt_null < len(cols):
                 raise ValueError("Error row: {}".format(row))
 
             if df_single_stock.loc[d, cols].isnull().all().all():
@@ -83,15 +84,14 @@ def fillna_stock_day(df_stock_day:pd.DataFrame=None,dates = None,start=None,db_t
 
         if df_stock_day is None:
             # Read table stock_day.
-            cursor.execute("select * from {0}".format(STOCK_DAY[TABLE]))
-            df_stock_day = pd.DataFrame(cursor.fetchall())
-            df_stock_day.columns = dbop.cols_from_cur(cursor)
+            df_stock_day = dbop.create_df(cursor,const.STOCK_DAY[const.TABLE], start=start)
             print("\n",df_stock_day.shape)
 
         # Get all trading dates.
         if dates is None:
             dates = sorted(dbop.get_trading_dates(cursor=cursor))
 
+    dates = sorted(dates)
     if start:
         df_stock_day = df_stock_day[df_stock_day.index>=start]
         dates = dates[dates.index(start):]

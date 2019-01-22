@@ -160,12 +160,16 @@ if __name__ == '__main__':
         print(row)
 
 
-def create_df(cursor, table_name, start=None):
+def create_df(cursor, table_name, start=None, where_clause=None):
     if start:
-        sql_select = "select * from {0} where date>='{1}'".format(table_name,
-                                                                start)
+        start_cond = "date>='{0}'".format(start)
+        where_clause = where_clause+" and "+start_cond if where_clause else start_cond
+
+    if where_clause:
+        sql_select = "select * from {0}".format(table_name)+" where "+where_clause
     else:
         sql_select = "select * from {0}".format(table_name)
+
     cursor.execute(sql_select)
     df = pd.DataFrame(cursor.fetchall())
     df.columns = cols_from_cur(cursor)

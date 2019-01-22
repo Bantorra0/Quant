@@ -435,7 +435,7 @@ def FE_stock_d_mp(df_stock_d:pd.DataFrame, stock_pool=None, targets=None, start=
         if count%10==0 and count>0:
             print("Finish processing {0} stocks in {1:.2f}s.".format(count, time.time() - start_time))
 
-        if i>10:
+        if i>20:
             break
 
     while not q_res.empty():
