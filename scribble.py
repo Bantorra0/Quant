@@ -150,9 +150,6 @@ import multiprocessing as mp
 
 
 # --------------------------------
-
-
-
 if __name__ == '__main__':
 
     targets = [{"period": 20, "fun": "max", "col": "high"},
@@ -210,6 +207,7 @@ if __name__ == '__main__':
     print("float64:",list(X.columns[X.dtypes=="float64"]))
     print("int64:",list(X.columns[X.dtypes == "int64"]))
     print("object:",list(X.columns[X.dtypes == "object"]))
+    X["code"] = df_not_in_X["code"]
     X_latest_day = X.loc[trading_date_idxes[-1]]
     print(sorted(X_latest_day.columns[X_latest_day.isnull().any(axis=0)]))
     print(X_latest_day.shape)
@@ -218,7 +216,11 @@ if __name__ == '__main__':
             print(k,v)
     pd.set_option("display.max_columns",10)
     print(X_latest_day[X_latest_day["(open/p40mv_10k_open-1)"].isnull()][[
-        "open","close","(open/p60max_open-1)","(open/p40mv_10k_open-1)"]].join(df_not_in_X["code"]))
+        "code","open","close","(open/p60max_open-1)",
+        "(open/p40mv_10k_open-1)"]])
+
+
+
 
 
 # ----------------------------
@@ -284,6 +286,7 @@ if __name__ == '__main__':
 #     t0 = time.time()
 #     df = dbop.create_df(cursor,const.STOCK_DAY[const.TABLE], start="2018-10-01",where_clause="code='000008.SZ'")
 #     # df = dbop.create_df(cursor,const.STOCK_DAY[const.TABLE])
+#     pd.set_option("display.max_columns",10)
 #     print(df[df["code"]=="000008.SZ"][["code","date","open","high","low","close","vol","amt","adj_factor"]]
 #           .set_index("date")
 #           .sort_index(ascending=False)

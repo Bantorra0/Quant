@@ -2,19 +2,21 @@ import pandas as pd
 import db_operations as dbop
 from constants import STOCK_DAY, TABLE, COLUMNS
 import constants as const
+import numpy as np
 
 
 def fillna_single_stock_day(df_single_stock:pd.DataFrame, dates:[str]):
     dates = sorted(dates)
-    # df_single_stock = df_single_stock.sort_values("date")
-
     df_changed = pd.DataFrame(columns=df_single_stock.columns).set_index("date")
+    df_single_stock = df_single_stock.set_index("date")
+
     code = df_single_stock["code"].iloc[0]
 
     # start_date is the first date on which the whole row is not null in the
     #  table.
     # stock_dates are the dates on which the whole row is not null in the table.
-    stock_dates = df_single_stock.index[df_single_stock.notnull().all(axis=1)]
+    stock_dates = df_single_stock.index[df_single_stock.notnull().all(
+        axis=1)].sort_values()
     start_date = None
     na_dates = []
     for d in stock_dates:
@@ -75,7 +77,8 @@ def fillna_single_stock_day(df_single_stock:pd.DataFrame, dates:[str]):
     return df_changed.reset_index()
 
 
-def fillna_stock_day(df_stock_day:pd.DataFrame=None,dates = None,start="2000-01-01",db_type="sqlite3", conn=None):
+def fillna_stock_day(df_stock_day:pd.DataFrame=None,dates = None,start=None,
+                     db_type="sqlite3", conn=None):
     # Connect database if no connect object is passed.
     if dates is None or df_stock_day is None:
         if not conn:
@@ -84,7 +87,8 @@ def fillna_stock_day(df_stock_day:pd.DataFrame=None,dates = None,start="2000-01-
 
         if df_stock_day is None:
             # Read table stock_day.
-            df_stock_day = dbop.create_df(cursor,const.STOCK_DAY[const.TABLE], start=start)
+            df_stock_day = dbop.create_df(cursor,const.STOCK_DAY[
+                const.TABLE], start=start,where_clause=None)
             print("\n"+"-"*10+"Data cleaning"+"-"*10)
             print(df_stock_day.shape)
 
@@ -92,10 +96,11 @@ def fillna_stock_day(df_stock_day:pd.DataFrame=None,dates = None,start="2000-01-
         if dates is None:
             dates = sorted(dbop.get_trading_dates(cursor=cursor))
 
-    dates = sorted(dates)
+    dates = np.array(dates)
+    dates.sort()
     if start:
-        df_stock_day = df_stock_day[df_stock_day.index>=start]
-        dates = dates[dates.index(start):]
+        df_stock_day = df_stock_day[df_stock_day["date"]>=start]
+        dates = dates[dates>=start]
 
     # Check and fill null in table stock_day.
     print("start:", dates[0],", end:",dates[-1])
