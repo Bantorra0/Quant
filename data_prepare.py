@@ -344,7 +344,7 @@ def FE_single_stock_d(df:pd.DataFrame, targets,start=None):
                         + df_change_move_k_line_list
                         + [df_not_in_X], axis=1, sort=False)
 
-    cols_not_in_X = list(df_not_in_X.columns)+["code"]
+    cols_not_in_X = ["code"]+list(df_not_in_X.columns)
 
     if start:
         df_stck = df_stck[df_stck.index >= start]
@@ -410,32 +410,35 @@ def FE_stock_d_mp(df_stock_d:pd.DataFrame, stock_pool=None, targets=None, start=
     p_pool = mp.Pool(processes=mp.cpu_count())
     q_res = queue.Queue()
     start_time = time.time()
-    count = 0
+    count_in = 0
+    count_out = 0
     # df_stock_d_FE = pd.DataFrame()  # Initialize as an empty dataframe.
     df_stock_d_list = []
-    for i,(code, df) in enumerate(df_stock_d.groupby("code")):
+    for code, df in df_stock_d.groupby("code"):
         if stock_pool and code not in stock_pool:
+            print("skip")
             continue
+
+        # print("stocks:", len(stock_pool))
 
         # Initialize df.
         df = prepare_each_stock(df)
 
-        if i>=num_p:
-            # print(i,num_p)
+        q_res.put(p_pool.apply_async(func=FE_single_stock_d, args=(df, targets, start)))
+        count_in+=1
+
+        if count_in>=num_p:
             res = q_res.get()
-            q_res.put(p_pool.apply_async(func=FE_single_stock_d, args=(df, targets, start)))
             df_single_stock_d_FE,cols_not_in_X = res.get()
             # df_stock_d_FE = df_stock_d_FE.append(df_single_stock_d_FE)
             df_stock_d_list.append(df_single_stock_d_FE)
             q_res.task_done()
-            count += 1
-        else:
-            q_res.put(p_pool.apply_async(func=FE_single_stock_d, args=(df, targets, start)))
+            count_out += 1
 
-        if count%10==0 and count>0:
-            print("Finish processing {0} stocks in {1:.2f}s.".format(count, time.time() - start_time))
+        if count_out%2==0 and count_out>0:
+            print("Finish processing {0} stocks in {1:.2f}s.".format(count_out, time.time() - start_time))
 
-        if i>10:
+        if count_out>10:
             break
 
     while not q_res.empty():
@@ -444,12 +447,12 @@ def FE_stock_d_mp(df_stock_d:pd.DataFrame, stock_pool=None, targets=None, start=
         # df_stock_d_FE = df_stock_d_FE.append(df_single_stock_d_FE)
         df_stock_d_list.append(df_single_stock_d_FE)
         q_res.task_done()
-        count += 1
+        count_out += 1
     del q_res
 
     df_stock_d_FE = pd.concat(df_stock_d_list, sort=False)
     p_pool.close()
-    print("Total processing time for {0} stocks:{1:.2f}s".format(count, time.time() - start_time))
+    print("Total processing time for {0} stocks:{1:.2f}s".format(count_out, time.time() - start_time))
     print("Shape of df_stock_d_FE:",df_stock_d_FE.shape)
     df_stock_d_FE.index.name = "date"
 
@@ -503,22 +506,25 @@ def FE_index_d(df_idx_d: pd.DataFrame, start=None):
 
 def proc_stock_basic(df_stock_basic:pd.DataFrame):
     cols_category = ["area", "industry", "market", "exchange", "is_hs"]
-    df_stock_basic = df_stock_basic[["code"] + cols_category].copy()
+    df_stock_basic = df_stock_basic.copy()
     # print(df_stock_basic[df_stock_basic[cols_category].isna().any(axis=1)][
     #           cols_category])
     df_stock_basic.loc[:,cols_category] = df_stock_basic[cols_category].fillna("")
 
     enc = sk.preprocessing.OrdinalEncoder()
     val_enc = enc.fit_transform(df_stock_basic[cols_category])
+    df_stock_basic.loc[:, cols_category] = val_enc
+    print("basic:",np.max(val_enc))
+    print(val_enc[np.isnan(val_enc)])
 
     if np.max(val_enc)< 2**8:
-        df_stock_basic.loc[:,cols_category] = val_enc.astype("uint8")
+        df_stock_basic[cols_category] = df_stock_basic[cols_category].astype("uint8")
     elif np.max(val_enc) < 2**16:
-        df_stock_basic.loc[:, cols_category] = val_enc.astype("uint16")
+        df_stock_basic[cols_category] = df_stock_basic[cols_category].astype("uint16")
     elif np.max(val_enc) < 2**32:
-        df_stock_basic.loc[:, cols_category] = val_enc.astype("uint32")
+        df_stock_basic[cols_category] = df_stock_basic[cols_category].astype("uint32")
     elif np.max(val_enc) < 2**64:
-        df_stock_basic.loc[:, cols_category] = val_enc.astype("uint64")
+        df_stock_basic[cols_category] = df_stock_basic[cols_category].astype("uint64")
 
     print(df_stock_basic.dtypes)
 
@@ -531,7 +537,7 @@ def prepare_data(cursor, targets=None, start=None, lowerbound=None, stock_pool=N
     # Prepare df_stock_basic
     df_stock_basic = dbop.create_df(cursor, const.STOCK_BASIC[const.TABLE])
     df_stock_basic, cols_category, enc = proc_stock_basic(df_stock_basic)
-    print(df_stock_basic.iloc[:10])
+    print(df_stock_basic[cols_category].iloc[:10])
 
     # Prepare df_stock_d_FE
     df_stock_d = dbop.create_df(cursor, const.STOCK_DAY[const.TABLE], lowerbound)

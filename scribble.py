@@ -12,6 +12,7 @@ import xgboost.sklearn as xgb
 import lightgbm.sklearn as lgbm
 import sklearn.preprocessing as preproc
 import sklearn.metrics as metrics
+import sklearn as sk
 
 import datetime
 import time
@@ -151,18 +152,27 @@ import multiprocessing as mp
 
 # --------------------------------
 if __name__ == '__main__':
+    db_type = "sqlite3"
 
     targets = [{"period": 20, "fun": "max", "col": "high"},
                {"period": 20, "fun": "min", "col": "low"},
-               # {"period": 5, "fun": "max", "col": "high"},
-               # {"period": 5, "fun": "min", "col": "low"},
+               {"period": 5, "fun": "max", "col": "high"},
+               {"period": 5, "fun": "min", "col": "low"},
                # {"period": 20, "fun": "mean", "col": ""}
                ]
 
     time_delta = datetime.timedelta(days=1)
     test_start = "2018-09-01"
     train_length = 50
-    max_feature_length = 1000
+    max_feature_length = 50
+
+    cursor = dbop.connect_db(db_type=db_type).cursor()
+    num_files = 2
+
+    df_stock_basic = dbop.create_df(cursor, const.STOCK_BASIC[const.TABLE])
+    h_stock_pool = sorted(df_stock_basic[df_stock_basic["is_hs"] == "H"]["code"])
+    s_stock_pool = sorted(df_stock_basic[df_stock_basic["is_hs"] == "S"]["code"])
+    print(len(h_stock_pool),len(s_stock_pool))
 
     train_bound = datetime.datetime.strptime(test_start, const.DATE_FORMAT) - train_length * time_delta
     train_bound = datetime.datetime.strftime(train_bound, const.DATE_FORMAT)
@@ -183,13 +193,14 @@ if __name__ == '__main__':
     print("df_all:", df_feature.shape)
     trading_date_idxes = df_feature.index.unique().sort_values(ascending=True)
 
-    X = ml_model.gen_X(df_feature, df_not_in_X.columns)
-    del df_feature
+    # X = ml_model.gen_X(df_feature, df_not_in_X.columns)
+    X = df_feature
+
 
     paras = [("y_l_rise", {"pred_period": 20, "is_high": True, "is_clf": False,"threshold":0.2}, df_not_in_X),
              ("y_l_decline", {"pred_period": 20, "is_high": False, "is_clf": False, "threshold":0.2}, df_not_in_X),
-             # ("y_s_rise", {"pred_period": 5, "is_high": True, "is_clf": False,"threshold":0.1}, df_all),
-             # ("y_s_decline", {"pred_period": 5, "is_high": False, "is_clf": False,"threshold":0.1}, df_all),
+             ("y_s_rise", {"pred_period": 5, "is_high": True, "is_clf": False,"threshold":0.1}, df_not_in_X),
+             ("y_s_decline", {"pred_period": 5, "is_high": False, "is_clf": False,"threshold":0.1}, df_not_in_X),
              ]
 
     # paras = [("y_l", {"pred_period": 20, "is_high": True, "is_clf": False,
@@ -201,6 +212,12 @@ if __name__ == '__main__':
         lambda r:r["y_l_rise"] if r["y_l_rise"]> -r["y_l_decline"] else r["y_l_decline"],
         axis=1)
     print(X.shape, Y.shape, Y.columns)
+    with open(r"datasets/hgt_X.csv","w") as f:
+        X.to_csv(f)
+    with open(r"datasets/hgt_Y.csv","w") as f:
+        Y.to_csv(f)
+    with open(r"datasets/hgt_other_info.csv", "w") as f:
+        df_not_in_X.to_csv(f)
 
     print(time.time()-t0)
     print(X.info(memory_usage='deep'))
@@ -218,6 +235,12 @@ if __name__ == '__main__':
     print(X_latest_day[X_latest_day["(open/p40mv_10k_open-1)"].isnull()][[
         "code","open","close","(open/p60max_open-1)",
         "(open/p40mv_10k_open-1)"]])
+
+    reg = lgbm.LGBMRegressor(n_estimators=30,max_depth=8,min_child_samples=20)
+    del X["code"]
+    print(X.info(memory_usage='deep'))
+    print(Y.dtypes)
+    print(reg.fit(X, Y["y_l"]))
 
 
 
@@ -292,3 +315,4 @@ if __name__ == '__main__':
 #           .sort_index(ascending=False)
 #           .iloc[:60])
 #     print(time.time()-t0)
+

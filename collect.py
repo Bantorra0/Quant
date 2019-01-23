@@ -163,6 +163,9 @@ def download_single_stock_day(code, db_type: str, update=False,
                             "end_date":end}
         daily = pro.daily(**kwargs)
         adj_factor = pro.adj_factor(**kwargs)
+        if len(daily)==0 or len(adj_factor)==0:
+            print("daily.shape:",daily.shape, "adj_factor.shape:",adj_factor.shape)
+            return None
 
     except Exception as err:
         print(err)
@@ -234,12 +237,13 @@ def collect_single_stock_day(code, db_type: str, update=False,
     df_single_stock_day = download_single_stock_day(code=code, db_type=db_type,
                                                     update=update, start=start,
                                                     verbose=verbose)
-    if type(df_single_stock_day)!=bool:
+    if type(df_single_stock_day)==pd.DataFrame:
         conn, write_failure = dbop.write2db(df_single_stock_day,
                                             table=STOCK_DAY[TABLE],
                                             cols=STOCK_DAY[COLUMNS], conn=conn,
                                             close=False)
-    else:
+    elif not df_single_stock_day:
+        # df_single_stock_day==False, download fails.
         download_failure = 1
 
     if close_db:
