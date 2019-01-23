@@ -163,9 +163,6 @@ def download_single_stock_day(code, db_type: str, update=False,
                             "end_date":end}
         daily = pro.daily(**kwargs)
         adj_factor = pro.adj_factor(**kwargs)
-        if len(daily)==0 or len(adj_factor)==0:
-            print("daily.shape:",daily.shape, "adj_factor.shape:",adj_factor.shape)
-            return None
 
     except Exception as err:
         print(err)
@@ -178,11 +175,13 @@ def download_single_stock_day(code, db_type: str, update=False,
         if verbose > -1:
             print(daily["trade_date"].max(), str(adj_factor["trade_date"].max()))
 
-        end = min(daily["trade_date"].max(), adj_factor["trade_date"].max())
-        start = max(daily["trade_date"].min(), adj_factor["trade_date"].min())
+        if len(daily)>0 and len(adj_factor)>0:
+            # print("daily.shape:",daily.shape, "adj_factor.shape:",adj_factor.shape)
+            end = min(daily["trade_date"].max(), adj_factor["trade_date"].max())
+            start = max(daily["trade_date"].min(), adj_factor["trade_date"].min())
 
-        daily = daily[(daily["trade_date"] <= end) & (daily["trade_date"] >= start)]
-        adj_factor = adj_factor[(adj_factor["trade_date"] <= end) & (adj_factor["trade_date"] >= start)]
+            daily = daily[(daily["trade_date"] <= end) & (daily["trade_date"] >= start)]
+            adj_factor = adj_factor[(adj_factor["trade_date"] <= end) & (adj_factor["trade_date"] >= start)]
 
         # Join two dataframes.
         df = dfop.natural_join(daily, adj_factor, how="outer")
@@ -242,7 +241,7 @@ def collect_single_stock_day(code, db_type: str, update=False,
                                             table=STOCK_DAY[TABLE],
                                             cols=STOCK_DAY[COLUMNS], conn=conn,
                                             close=False)
-    elif not df_single_stock_day:
+    elif df_single_stock_day:
         # df_single_stock_day==False, download fails.
         download_failure = 1
 
