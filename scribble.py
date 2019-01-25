@@ -212,12 +212,21 @@ if __name__ == '__main__':
         lambda r:r["y_l_rise"] if r["y_l_rise"]> -r["y_l_decline"] else r["y_l_decline"],
         axis=1)
     print(X.shape, Y.shape, Y.columns)
+
     with open(r"datasets/hgt_X.csv","w") as f:
         X.to_csv(f)
     with open(r"datasets/hgt_Y.csv","w") as f:
         Y.to_csv(f)
     with open(r"datasets/hgt_other_info.csv", "w") as f:
         df_not_in_X.to_csv(f)
+
+    # X.to_hdf(r"datasets/hgt_X.hdf",key="X")
+
+
+
+    X.to_parquet(r"datasets/hgt_X.parquet",engine="fastparquet")
+    Y.to_parquet(r"datasets/hgt_Y.parquet",engine="fastparquet")
+    df_not_in_X.to_parquet(r"datasets/hgt_other_info.parquet",engine="fastparquet")
 
     print(time.time()-t0)
     print(X.info(memory_usage='deep'))
