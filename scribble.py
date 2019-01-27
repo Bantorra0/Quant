@@ -147,9 +147,6 @@ import multiprocessing as mp
 # print(close)
 
 
-
-
-
 # --------------------------------
 if __name__ == '__main__':
     db_type = "sqlite3"
@@ -162,9 +159,9 @@ if __name__ == '__main__':
                ]
 
     time_delta = datetime.timedelta(days=1)
-    test_start = "2018-09-01"
-    train_length = 50
-    max_feature_length = 50
+    test_start = "2018-01-01"
+    train_length = 3000
+    max_feature_length = 1000
 
     cursor = dbop.connect_db(db_type=db_type).cursor()
     num_files = 2
@@ -188,7 +185,7 @@ if __name__ == '__main__':
         targets=targets,
         lower_bound=lower_bound,
         start=train_bound,
-        stock_pool=None)
+        stock_pool=h_stock_pool)
 
     print("df_all:", df_feature.shape)
     trading_date_idxes = df_feature.index.unique().sort_values(ascending=True)
@@ -213,16 +210,14 @@ if __name__ == '__main__':
         axis=1)
     print(X.shape, Y.shape, Y.columns)
 
-    with open(r"datasets/hgt_X.csv","w") as f:
-        X.to_csv(f)
-    with open(r"datasets/hgt_Y.csv","w") as f:
-        Y.to_csv(f)
-    with open(r"datasets/hgt_other_info.csv", "w") as f:
-        df_not_in_X.to_csv(f)
+    # with open(r"datasets/hgt_X.csv","w") as f:
+    #     X.to_csv(f)
+    # with open(r"datasets/hgt_Y.csv","w") as f:
+    #     Y.to_csv(f)
+    # with open(r"datasets/hgt_other_info.csv", "w") as f:
+    #     df_not_in_X.to_csv(f)
 
     # X.to_hdf(r"datasets/hgt_X.hdf",key="X")
-
-
 
     X.to_parquet(r"datasets/hgt_X.parquet",engine="fastparquet")
     Y.to_parquet(r"datasets/hgt_Y.parquet",engine="fastparquet")
@@ -233,23 +228,23 @@ if __name__ == '__main__':
     print("float64:",list(X.columns[X.dtypes=="float64"]))
     print("int64:",list(X.columns[X.dtypes == "int64"]))
     print("object:",list(X.columns[X.dtypes == "object"]))
-    X["code"] = df_not_in_X["code"]
-    X_latest_day = X.loc[trading_date_idxes[-1]]
-    print(sorted(X_latest_day.columns[X_latest_day.isnull().any(axis=0)]))
-    print(X_latest_day.shape)
-    for k,v in X_latest_day.isnull().sum().sort_index().iteritems():
-        if v>0:
-            print(k,v)
-    pd.set_option("display.max_columns",10)
-    print(X_latest_day[X_latest_day["(open/p40mv_10k_open-1)"].isnull()][[
-        "code","open","close","(open/p60max_open-1)",
-        "(open/p40mv_10k_open-1)"]])
-
-    reg = lgbm.LGBMRegressor(n_estimators=30,max_depth=8,min_child_samples=20)
-    del X["code"]
-    print(X.info(memory_usage='deep'))
-    print(Y.dtypes)
-    print(reg.fit(X, Y["y_l"]))
+    # X["code"] = df_not_in_X["code"]
+    # X_latest_day = X.loc[trading_date_idxes[-1]]
+    # print(sorted(X_latest_day.columns[X_latest_day.isnull().any(axis=0)]))
+    # print(X_latest_day.shape)
+    # for k,v in X_latest_day.isnull().sum().sort_index().iteritems():
+    #     if v>0:
+    #         print(k,v)
+    # pd.set_option("display.max_columns",10)
+    # print(X_latest_day[X_latest_day["(open/p40mv_10k_open-1)"].isnull()][[
+    #     "code","open","close","(open/p60max_open-1)",
+    #     "(open/p40mv_10k_open-1)"]])
+    #
+    # reg = lgbm.LGBMRegressor(n_estimators=30,max_depth=8,min_child_samples=20)
+    # del X["code"]
+    # print(X.info(memory_usage='deep'))
+    # print(Y.dtypes)
+    # print(reg.fit(X, Y["y_l"]))
 
 
 

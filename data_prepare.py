@@ -435,11 +435,11 @@ def FE_stock_d_mp(df_stock_d:pd.DataFrame, stock_pool=None, targets=None, start=
             q_res.task_done()
             count_out += 1
 
-        if count_out%2==0 and count_out>0:
+        if count_out%10==0 and count_out>0:
             print("Finish processing {0} stocks in {1:.2f}s.".format(count_out, time.time() - start_time))
 
-        if count_out>10:
-            break
+        # if count_out>10:
+        #     break
 
     while not q_res.empty():
         res = q_res.get()
