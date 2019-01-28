@@ -271,7 +271,7 @@ if __name__ == '__main__':
     df_other_subsample = df_other.iloc[subsample_idxes]
     del df_other
 
-    test_start = "2018-06-01"
+    test_start = "2018-01-01"
     trading_dates = Y_subsample.index.unique().sort_values(ascending=True)
     train_dates = trading_dates[trading_dates<test_start][:-21]
     test_dates = trading_dates[trading_dates>=test_start]
@@ -287,7 +287,8 @@ if __name__ == '__main__':
     Y_test = Y_test[cond]
     print(X_train.shape,X_test.shape)
 
-    reg = lgbm.LGBMRegressor(n_estimators=30,num_leaves=31,max_depth=12,min_child_samples=20,random_state=0)
+    reg = lgbm.LGBMRegressor(n_estimators=50,num_leaves=31,max_depth=12,
+                             min_child_samples=30,random_state=0)
 
     train_start = time.time()
     reg.fit(X_train,Y_train[ycol])
@@ -298,9 +299,10 @@ if __name__ == '__main__':
     interval = 0.05
     n = int(1 / interval)
     x0 = np.arange(n + 1) * interval
-    y0 = np.ones(x0.shape) * Y_test[ycol].mean()
+    y01 = np.ones(x0.shape) * Y_test[ycol].mean()
 
     ycol2 = "y_l_rise"
+    y02 = np.ones(x0.shape) * Y_test[ycol2].mean()
 
     y1 = []
     y2 = []
@@ -323,9 +325,7 @@ if __name__ == '__main__':
     plt.bar(np.arange(-n, n) * interval + interval / 2, [mean for mean, _, _, _, _ in y1],
             width=0.8 * interval)
 
-    x0 = np.arange(-n, n + 1) * interval
-    y0 = np.ones(x0.shape) * Y_test[ycol2].mean()
-    plt.plot(x0, y0, color='r')
+    plt.plot(x0, y01, color='r')
     # plt.plot(x,y1,color='r')
     plt.xlim(-1, 1)
     plt.ylim(-0.5, 0.5)
@@ -336,7 +336,8 @@ if __name__ == '__main__':
     plt.figure()
     plt.bar(np.arange(-n, n) * interval + interval / 2, [mean for mean, _, _, _, _ in y2],
             width=0.8 * interval)
-    plt.plot(x0, y0, color='r')
+
+    plt.plot(x0, y02, color='r')
     # plt.plot(x,y1,color='r')
     plt.xlim(-1, 1)
     plt.ylim(-0.5, 0.5)
