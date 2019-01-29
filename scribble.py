@@ -17,6 +17,7 @@ import sklearn as sk
 import datetime
 import time
 import multiprocessing as mp
+import pickle
 
 # # figs, ax = plt.subplots()
 # # x = np.arange(100)
@@ -213,14 +214,14 @@ if __name__ == '__main__':
     # #     X.to_csv(f)
     # # with open(r"datasets/hgt_Y.csv","w") as f:
     # #     Y.to_csv(f)
-    # # with open(r"datasets/hgt_other_info.csv", "w") as f:
+    # # with open(r"datasets/hgt_other.csv", "w") as f:
     # #     df_not_in_X.to_csv(f)
     #
     # # X.to_hdf(r"datasets/hgt_X.hdf",key="X")
     #
     # X.to_parquet(r"datasets/hgt_X.parquet",engine="fastparquet")
     # Y.to_parquet(r"datasets/hgt_Y.parquet",engine="fastparquet")
-    # df_not_in_X.to_parquet(r"datasets/hgt_other_info.parquet",engine="fastparquet")
+    # df_not_in_X.to_parquet(r"datasets/hgt_other.parquet",engine="fastparquet")
     #
     # print(time.time()-t0)
     # print(X.info(memory_usage='deep'))
@@ -244,27 +245,36 @@ if __name__ == '__main__':
     # print(X.info(memory_usage='deep'))
     # print(Y.dtypes)
 
+    # N = len(Y.index)
+    # row_i_idxes = np.arange(N)
+    # for i in range(4):
+    #     np.random.shuffle(row_i_idxes)
+    #
+    # dataset_info = {"shuffle": row_i_idxes}
+    # with open(r"datasets/hgt_dataset_info", mode="wb") as f:
+    #     pickle.dump(dataset_info, f)
+
 
     files ={
         "Y":r"datasets/hgt_Y.parquet",
         "X":r"datasets/hgt_X.parquet",
-        "other":r"datasets/hgt_other_info.parquet"
+        "other":r"datasets/hgt_other.parquet"
     }
+
+    with open(r"datasets/hgt_dataset_info", mode="rb") as f:
+        dataset_info = pickle.load(f)
+    row_i_idxes = dataset_info["shuffle"]
+    N = len(row_i_idxes)
+    k_split = 100
+    print(row_i_idxes)
+    subsample_idxes = row_i_idxes[:(N // k_split)]
 
     t_start_read_Y = time.time()
     # X = pd.read_parquet(r"datasets/hgt_X.parquet",engine="fastparquet")
     Y = pd.read_parquet(files["Y"], engine="fastparquet")
     print("Reading parquet file {0} in {1:.2f}".format(files["Y"],time.time() - t_start_read_Y))
     print(Y.shape, Y.columns)
-    print(Y.iloc[:5])
-
-    N = len(Y.index)
-    row_i_idxes = np.arange(N)
-    for i in range(4):
-        np.random.shuffle(row_i_idxes)
-
-    k_split = 100
-    subsample_idxes = row_i_idxes[:(N // k_split)]
+    # print(Y.iloc[:5])
     Y_subsample = Y.iloc[subsample_idxes]
     del Y
 
@@ -275,7 +285,7 @@ if __name__ == '__main__':
     del X
 
     t_start_read_other = time.time()
-    df_other = pd.read_parquet(r"datasets/hgt_other_info.parquet",engine="fastparquet")
+    df_other = pd.read_parquet(r"datasets/hgt_other.parquet",engine="fastparquet")
     print("Reading parquet file {0} in {1:.2f}".format(files["other"],time.time() - t_start_read_other))
     df_other_subsample = df_other.iloc[subsample_idxes]
     del df_other
@@ -305,7 +315,11 @@ if __name__ == '__main__':
     print("Train time:", time.time() - train_start)
     print(reg.score(X_test,Y_test[ycol]))
     df_feature_importance = ml_model.get_feature_importance(reg,X_test.columns)
-    print(df_feature_importance)
+    pd.set_option("display.max_columns",10)
+    pd.set_option("display.max_rows",256)
+    print(df_feature_importance[df_feature_importance[
+        "importance_raw"]>0].round({
+        "importance_percent":2}))
 
     ycol2 = "y_l_rise"
     ml_model.pred_interval_summary(reg, X_test, Y_test[ycol])

@@ -345,11 +345,8 @@ def get_feature_importance(reg, features:list):
     feature_importance = [[features[i],importance] for i, importance in enumerate(reg.feature_importances_)]
     df = pd.DataFrame(feature_importance,columns=["feature","importance_raw"])
     tot = df["importance_raw"].sum()
-    df["importance_percent"] = df["importance_raw"]/tot
+    df["importance_percent"] = df["importance_raw"]/tot * 100
     return df.sort_values("importance_raw",ascending=False)
-    # for k, v in sorted(feature_importance.items(), key=lambda x: x[1], reverse=True):
-    #     if v > 0:
-    #         print("{0}:\t{1}".format(k, v))
 
 
 if __name__ == '__main__':
