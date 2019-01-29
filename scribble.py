@@ -312,55 +312,6 @@ if __name__ == '__main__':
     ml_model.pred_interval_summary(reg, X_test, Y_test[ycol2])
     plt.show()
 
-    # Y_test_pred_reg={ycol:reg.predict(X_test)}
-    #
-    # interval = 0.05
-    # n = int(1 / interval)
-    # x0 = np.arange(n + 1) * interval
-    # y01 = np.ones(x0.shape) * Y_test[ycol].mean()
-    #
-    # ycol2 = "y_l_rise"
-    # y02 = np.ones(x0.shape) * Y_test[ycol2].mean()
-    #
-    # y1 = []
-    # y2 = []
-    # cnt = []
-    # for i in range(-n, n):
-    #     p0 = i * interval
-    #     p1 = (i + 1) * interval
-    #     cond = (p0 < Y_test_pred_reg[ycol]) & (Y_test_pred_reg[ycol] <= p1)
-    #     cnt.append(sum(cond))
-    #     y1.append((Y_test[ycol][cond].mean(), Y_test[ycol][cond].median(),
-    #                Y_test[ycol][cond].std(), Y_test[ycol][cond].max(),
-    #                Y_test[ycol][cond].min()))
-    #     y2.append((Y_test[ycol2][cond].mean(), Y_test[ycol2][cond].median(),
-    #                Y_test[ycol2][cond].std(), Y_test[ycol2][cond].max(), Y_test[
-    #                    ycol2][cond].min()))
-    # for c, p in zip(cnt, y1):
-    #     print(c, p)
-    #
-    # plt.figure()
-    # plt.bar(np.arange(-n, n) * interval + interval / 2, [mean for mean, _, _, _, _ in y1],
-    #         width=0.8 * interval)
-    #
-    # plt.plot(x0, y01, color='r')
-    # # plt.plot(x,y1,color='r')
-    # plt.xlim(-1, 1)
-    # plt.ylim(-0.5, 0.5)
-    #
-    # print()
-    # for c, p in zip(cnt, y2):
-    #     print(c, p)
-    # plt.figure()
-    # plt.bar(np.arange(-n, n) * interval + interval / 2, [mean for mean, _, _, _, _ in y2],
-    #         width=0.8 * interval)
-    #
-    # plt.plot(x0, y02, color='r')
-    # # plt.plot(x,y1,color='r')
-    # plt.xlim(-1, 1)
-    # plt.ylim(-0.5, 0.5)
-    #
-    # plt.show()
 
 
 
