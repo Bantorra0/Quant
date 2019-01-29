@@ -238,6 +238,22 @@ def load_model(model_type:str, pred_period=20, is_high=True):
     return model
 
 
+def add_suffix_to_file_names(files:dict, suffix:str):
+    """
+    Add date suffix to given file names.
+
+    :param files: A dict of file names.
+    :param suffix:
+    :return: A dict of file names with date suffix.
+    """
+    files = files.copy()
+    for k in files.keys():
+        f_name = files[k]
+        idx = f_name.rindex(".")
+        files[k] = (f_name[:idx]+"_{0}"+f_name[idx:]).format(suffix)
+    return files
+
+
 def train_save(pred_period = 20,is_high = True, is_clf=False):
 
     data = gen_dataset(is_high=is_high,is_clf=is_clf,pred_period=pred_period)
@@ -285,6 +301,55 @@ def load_test(pred_period = 20,is_high = True, is_clf=False):
     y0,std0 = pred_vs_real(inc,y_pred)
 
     plt.show()
+
+
+def pred_interval_summary(reg, X_test, ss_eval:pd.Series, interval=0.05):
+    y_test_pred = reg.predict(X_test)
+
+    n = int(1 / interval)
+    x0 = np.arange(n + 1) * interval
+    y0 = np.ones(x0.shape) * ss_eval.mean()
+
+    df = pd.DataFrame(columns=["count",
+                               "eval_mean","eval_median","eval_std","eval_max","eval_min"])
+    df.index.name="pred_range"
+    for i in range(-n, n):
+        p0 = i * interval
+        p1 = (i + 1) * interval
+        cond = (p0 < y_test_pred) & (y_test_pred <= p1)
+        row = {"count": sum(cond),
+               "eval_mean": ss_eval[cond].mean(),
+               "eval_median": ss_eval[cond].median(),
+               "eval_std": ss_eval[cond].std(),
+               "eval_max": ss_eval[cond].max(),
+               "eval_min":ss_eval[cond].min()}
+        pred_range="({0:.2f},{1:.2f}]".format(p0, p1)
+        df.loc[pred_range]=row
+    df = df.astype({"count":int})
+    # for c, p in zip(cnt, y1):
+    #     print(c, p)
+    pd.set_option("display.max_columns",10)
+    print(df.round({col:3 for col in df.columns if col[:4]=="eval"}))
+
+    plt.figure()
+    plt.bar(np.arange(-n, n) * interval + interval / 2, df["eval_mean"],
+            width=0.8 * interval)
+
+    plt.plot(x0, y0, color='r')
+    plt.xlim(-1, 1)
+    plt.ylim(-0.5, 0.5)
+    return df
+
+
+def get_feature_importance(reg, features:list):
+    feature_importance = [[features[i],importance] for i, importance in enumerate(reg.feature_importances_)]
+    df = pd.DataFrame(feature_importance,columns=["feature","importance_raw"])
+    tot = df["importance_raw"].sum()
+    df["importance_percent"] = df["importance_raw"]/tot
+    return df.sort_values("importance_raw",ascending=False)
+    # for k, v in sorted(feature_importance.items(), key=lambda x: x[1], reverse=True):
+    #     if v > 0:
+    #         print("{0}:\t{1}".format(k, v))
 
 
 if __name__ == '__main__':

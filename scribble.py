@@ -240,16 +240,21 @@ if __name__ == '__main__':
     #     "code","open","close","(open/p60max_open-1)",
     #     "(open/p40mv_10k_open-1)"]])
     #
-    # reg = lgbm.LGBMRegressor(n_estimators=30,max_depth=8,min_child_samples=20)
     # del X["code"]
     # print(X.info(memory_usage='deep'))
     # print(Y.dtypes)
-    # print(reg.fit(X, Y["y_l"]))
 
-    t_read_start = time.time()
+
+    files ={
+        "Y":r"datasets/hgt_Y.parquet",
+        "X":r"datasets/hgt_X.parquet",
+        "other":r"datasets/hgt_other_info.parquet"
+    }
+
+    t_start_read_Y = time.time()
     # X = pd.read_parquet(r"datasets/hgt_X.parquet",engine="fastparquet")
-    Y = pd.read_parquet(r"datasets/hgt_Y.parquet", engine="fastparquet")
-    print("Reading parquet files in {0:.2f}", time.time() - t_read_start)
+    Y = pd.read_parquet(files["Y"], engine="fastparquet")
+    print("Reading parquet file {0} in {1:.2f}".format(files["Y"],time.time() - t_start_read_Y))
     print(Y.shape, Y.columns)
     print(Y.iloc[:5])
 
@@ -258,20 +263,24 @@ if __name__ == '__main__':
     for i in range(4):
         np.random.shuffle(row_i_idxes)
 
-    k_split = 4
+    k_split = 100
     subsample_idxes = row_i_idxes[:(N // k_split)]
     Y_subsample = Y.iloc[subsample_idxes]
     del Y
 
+    t_start_read_X = time.time()
     X = pd.read_parquet(r"datasets/hgt_X.parquet",engine="fastparquet")
+    print("Reading parquet file {0} in {1:.2f}".format(files["X"],time.time() - t_start_read_X))
     X_subsample = X.iloc[subsample_idxes]
     del X
 
+    t_start_read_other = time.time()
     df_other = pd.read_parquet(r"datasets/hgt_other_info.parquet",engine="fastparquet")
+    print("Reading parquet file {0} in {1:.2f}".format(files["other"],time.time() - t_start_read_other))
     df_other_subsample = df_other.iloc[subsample_idxes]
     del df_other
 
-    test_start = "2018-01-01"
+    test_start = "2018-08-01"
     trading_dates = Y_subsample.index.unique().sort_values(ascending=True)
     train_dates = trading_dates[trading_dates<test_start][:-21]
     test_dates = trading_dates[trading_dates>=test_start]
@@ -291,58 +300,67 @@ if __name__ == '__main__':
                              min_child_samples=30,random_state=0)
 
     train_start = time.time()
-    reg.fit(X_train,Y_train[ycol])
+    cols_category = ["area", "industry", "market", "exchange", "is_hs"]
+    reg.fit(X_train,Y_train[ycol],categorical_feature=cols_category)
     print("Train time:", time.time() - train_start)
     print(reg.score(X_test,Y_test[ycol]))
-    Y_test_pred_reg={ycol:reg.predict(X_test)}
-
-    interval = 0.05
-    n = int(1 / interval)
-    x0 = np.arange(n + 1) * interval
-    y01 = np.ones(x0.shape) * Y_test[ycol].mean()
+    df_feature_importance = ml_model.get_feature_importance(reg,X_test.columns)
+    print(df_feature_importance)
 
     ycol2 = "y_l_rise"
-    y02 = np.ones(x0.shape) * Y_test[ycol2].mean()
-
-    y1 = []
-    y2 = []
-    cnt = []
-    for i in range(-n, n):
-        p0 = i * interval
-        p1 = (i + 1) * interval
-        cond = (p0 < Y_test_pred_reg[ycol]) & (Y_test_pred_reg[ycol] <= p1)
-        cnt.append(sum(cond))
-        y1.append((Y_test[ycol][cond].mean(), Y_test[ycol][cond].median(),
-                   Y_test[ycol][cond].std(), Y_test[ycol][cond].max(),
-                   Y_test[ycol][cond].min()))
-        y2.append((Y_test[ycol2][cond].mean(), Y_test[ycol2][cond].median(),
-                   Y_test[ycol2][cond].std(), Y_test[ycol2][cond].max(), Y_test[
-                       ycol2][cond].min()))
-    for c, p in zip(cnt, y1):
-        print(c, p)
-
-    plt.figure()
-    plt.bar(np.arange(-n, n) * interval + interval / 2, [mean for mean, _, _, _, _ in y1],
-            width=0.8 * interval)
-
-    plt.plot(x0, y01, color='r')
-    # plt.plot(x,y1,color='r')
-    plt.xlim(-1, 1)
-    plt.ylim(-0.5, 0.5)
-
-    print()
-    for c, p in zip(cnt, y2):
-        print(c, p)
-    plt.figure()
-    plt.bar(np.arange(-n, n) * interval + interval / 2, [mean for mean, _, _, _, _ in y2],
-            width=0.8 * interval)
-
-    plt.plot(x0, y02, color='r')
-    # plt.plot(x,y1,color='r')
-    plt.xlim(-1, 1)
-    plt.ylim(-0.5, 0.5)
-
+    ml_model.pred_interval_summary(reg, X_test, Y_test[ycol])
+    ml_model.pred_interval_summary(reg, X_test, Y_test[ycol2])
     plt.show()
+
+    # Y_test_pred_reg={ycol:reg.predict(X_test)}
+    #
+    # interval = 0.05
+    # n = int(1 / interval)
+    # x0 = np.arange(n + 1) * interval
+    # y01 = np.ones(x0.shape) * Y_test[ycol].mean()
+    #
+    # ycol2 = "y_l_rise"
+    # y02 = np.ones(x0.shape) * Y_test[ycol2].mean()
+    #
+    # y1 = []
+    # y2 = []
+    # cnt = []
+    # for i in range(-n, n):
+    #     p0 = i * interval
+    #     p1 = (i + 1) * interval
+    #     cond = (p0 < Y_test_pred_reg[ycol]) & (Y_test_pred_reg[ycol] <= p1)
+    #     cnt.append(sum(cond))
+    #     y1.append((Y_test[ycol][cond].mean(), Y_test[ycol][cond].median(),
+    #                Y_test[ycol][cond].std(), Y_test[ycol][cond].max(),
+    #                Y_test[ycol][cond].min()))
+    #     y2.append((Y_test[ycol2][cond].mean(), Y_test[ycol2][cond].median(),
+    #                Y_test[ycol2][cond].std(), Y_test[ycol2][cond].max(), Y_test[
+    #                    ycol2][cond].min()))
+    # for c, p in zip(cnt, y1):
+    #     print(c, p)
+    #
+    # plt.figure()
+    # plt.bar(np.arange(-n, n) * interval + interval / 2, [mean for mean, _, _, _, _ in y1],
+    #         width=0.8 * interval)
+    #
+    # plt.plot(x0, y01, color='r')
+    # # plt.plot(x,y1,color='r')
+    # plt.xlim(-1, 1)
+    # plt.ylim(-0.5, 0.5)
+    #
+    # print()
+    # for c, p in zip(cnt, y2):
+    #     print(c, p)
+    # plt.figure()
+    # plt.bar(np.arange(-n, n) * interval + interval / 2, [mean for mean, _, _, _, _ in y2],
+    #         width=0.8 * interval)
+    #
+    # plt.plot(x0, y02, color='r')
+    # # plt.plot(x,y1,color='r')
+    # plt.xlim(-1, 1)
+    # plt.ylim(-0.5, 0.5)
+    #
+    # plt.show()
 
 
 
