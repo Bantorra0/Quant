@@ -416,7 +416,7 @@ def FE_stock_d_mp(df_stock_d:pd.DataFrame, stock_pool=None, targets=None, start=
     df_stock_d_list = []
     for code, df in df_stock_d.groupby("code"):
         if stock_pool and code not in stock_pool:
-            print("skip")
+            # print("skip")
             continue
 
         # print("stocks:", len(stock_pool))
@@ -438,8 +438,8 @@ def FE_stock_d_mp(df_stock_d:pd.DataFrame, stock_pool=None, targets=None, start=
         if count_out%10==0 and count_out>0:
             print("Finish processing {0} stocks in {1:.2f}s.".format(count_out, time.time() - start_time))
 
-        # if count_out>10:
-        #     break
+        if count_out>20:
+            break
 
     while not q_res.empty():
         res = q_res.get()
@@ -559,14 +559,14 @@ def prepare_data(cursor, targets=None, start=None, lowerbound=None, stock_pool=N
 
     df_stock_d_FE = df_stock_d_FE[df_stock_d_FE.index>=start]
     print(df_stock_d_FE.shape)
-    print(df_stock_d_FE.index.name)
+    # print(df_stock_d_FE.index.name)
 
     # Prepare df_index_d_FE
     df_index_d = dbop.create_df(cursor, const.INDEX_DAY[const.TABLE], lowerbound)
     df_index_d_FE = FE_index_d(df_index_d, start=start)
     df_index_d_FE = df_index_d_FE[df_index_d_FE>=start]
     print(df_index_d_FE.shape, len(df_index_d_FE.index.unique()))
-    print(df_index_d_FE.index.name)
+    # print(df_index_d_FE.index.name)
 
     # Merge three df.
     df_all = df_stock_d_FE.join(df_index_d_FE, how="left")

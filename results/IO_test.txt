@@ -1,0 +1,324 @@
+C:\ProgramData\Anaconda3\python.exe C:/Users/Administrator/Documents/Projects/Quant/DM/scribble.py
+578 859
+2018-01-01 2009-10-15 2007-01-19
+start: 2009-10-15 	lowerbound: 2007-01-19
+basic: 110.0
+[]
+code           object
+symbol         object
+name           object
+area            uint8
+industry        uint8
+fullname       object
+enname         object
+market          uint8
+exchange        uint8
+curr_type      object
+list_status    object
+list_date      object
+delist_date    object
+is_hs           uint8
+dtype: object
+   area  industry  market  exchange  is_hs
+0    21       106       2         1      2
+1    21         9       2         1      2
+2    21        70       2         1      1
+3    21        39       2         1      1
+4    21        22       2         1      2
+5    21       100       2         1      1
+6     4        97       2         1      2
+7    21        87       2         1      2
+8    21        37       2         1      1
+9    21        22       2         1      2
+min_date: 2007-01-19
+
+Finish processing 10 stocks in 43.16s.
+Finish processing 20 stocks in 51.78s.
+Total processing time for 24 stocks:54.71s
+Shape of df_stock_d_FE: (51309, 614)
+(51309, 614)
+(2263, 430) 2263
+(51309, 1057)
+df_all: (51309, 1030)
+
+(51309, 1030) (51309, 5) Index(['y_l_rise', 'y_l_decline', 'y_s_rise', 'y_s_decline', 'y_l'], dtype='object')
+Write X in hdf: 7.797999858856201
+Write Y in hdf: 0.39100003242492676
+C:\ProgramData\Anaconda3\lib\site-packages\pandas\core\generic.py:1996: PerformanceWarning:
+your performance may suffer as PyTables will pickle object types that it cannot
+map directly to c-types [inferred_type->mixed,key->block0_values] [items->['code', 'curr_type', 'delist_date', 'enname', 'fullname', 'list_date', 'list_status', 'name', 'symbol']]
+
+  return pytables.to_hdf(path_or_buf, key, self, **kwargs)
+Write other in hdf: 1.1990001201629639
+Write X in parquet with fastparquet 18.24999976158142
+Write Y in parquet with fastparquet 0.1119999885559082
+Write other in parquet with fastparquet 0.5959999561309814
+0.5969998836517334
+<class 'pandas.core.frame.DataFrame'>
+Index: 51309 entries, 2009-10-15 to 2019-01-29
+Columns: 1030 entries, (1MA/10MA-1) to vol0
+dtypes: float16(987), float64(38), uint8(5)
+memory usage: 115.0 MB
+None
+float64: ['adj_factor', 'amt', 'avg', 'close', 'close0', 'cyb_close', 'cyb_high', 'cyb_low', 'cyb_open', 'cyb_vol', 'high', 'high0', 'hs300_close', 'hs300_high', 'hs300_low', 'hs300_open', 'hs300_vol', 'low', 'low0', 'open', 'open0', 'sh_close', 'sh_high', 'sh_low', 'sh_open', 'sh_vol', 'sz50_close', 'sz50_high', 'sz50_low', 'sz50_open', 'sz50_vol', 'sz_close', 'sz_high', 'sz_low', 'sz_open', 'sz_vol', 'vol', 'vol0']
+int64: []
+object: []
+
+Index: 51309 entries, 2009-10-15 to 2019-01-29
+Columns: 1030 entries, (1MA/10MA-1) to vol0
+dtypes: float16(987), float64(38), uint8(5)
+memory usage: 116.2 MB
+None
+y_l_rise       float64
+y_l_decline    float64
+y_s_rise       float64
+y_s_decline    float64
+y_l            float64
+dtype: object
+Pickle dump time: 0.002000093460083008
+Read X in hdf5: 2.6700000762939453
+(51309, 1030)
+Read Y in hdf5: 0.17500019073486328
+(51309, 5)
+Read other info in hdf5: 0.3969998359680176
+(51309, 27)
+Read X in parquet: 1.316999912261963
+(51309, 1030)
+Read Y in parquet: 0.031000137329101562
+(51309, 5)
+Read other info in parquet: 0.10800004005432129
+(51309, 27)
+Read X in parquet,engine=fastparquet: 11.282999992370605
+<class 'pandas.core.frame.DataFrame'>
+Index: 51309 entries, 2009-10-15 to 2019-01-29
+Columns: 1030 entries, (1MA/10MA-1) to vol0
+dtypes: float32(987), float64(38), uint8(5)
+memory usage: 211.6 MB
+(51309, 1030) None
+Read Y in parquet,engine=fastparquet: 0.06599998474121094
+(51309, 5)
+Read other info in parquet,engine=fastparquet: 0.3879997730255127
+(51309, 27)
+
+Process finished with exit code 0
+
+
+
+
+
+
+
+
+
+
+
+-----------------------------------------------------------
+C:\ProgramData\Anaconda3\python.exe C:/Users/Administrator/Documents/Projects/Quant/DM/scribble.py
+578 859
+2018-01-01 2009-10-15 2007-01-19
+start: 2009-10-15 	lowerbound: 2007-01-19
+basic: 110.0
+[]
+code           object
+symbol         object
+name           object
+area            uint8
+industry        uint8
+fullname       object
+enname         object
+market          uint8
+exchange        uint8
+curr_type      object
+list_status    object
+list_date      object
+delist_date    object
+is_hs           uint8
+dtype: object
+   area  industry  market  exchange  is_hs
+0    21       106       2         1      2
+1    21         9       2         1      2
+2    21        70       2         1      1
+3    21        39       2         1      1
+4    21        22       2         1      2
+5    21       100       2         1      1
+6     4        97       2         1      2
+7    21        87       2         1      2
+8    21        37       2         1      1
+9    21        22       2         1      2
+min_date: 2007-01-19
+Finish processing 10 stocks in 41.28s.
+Finish processing 20 stocks in 46.24s.
+Total processing time for 24 stocks:48.66s
+Shape of df_stock_d_FE: (51309, 614)
+(51309, 614)
+(2263, 430) 2263
+(51309, 1057)
+df_all: (51309, 1030)
+y<-0.5: 0
+-0.50<=y<-0.40: 0
+-0.40<=y<-0.30: 0
+-0.30<=y<-0.20: 0
+-0.20<=y<-0.10: 0
+-0.10<=y<0.00: 0
+0.00<=y<0.10: 33417
+0.10<=y<0.20: 9175
+0.20<=y<0.30: 2452
+0.30<=y<0.40: 823
+0.40<=y<0.50: 352
+y>0.5 376
+mean: 0.08419745729791268 median: 0.05652173913043468 std: 0.09760138758933536
+过滤一字涨停项或停牌（最高价=最低价）： 30
+y<-0.5: 0
+-0.50<=y<-0.40: 0
+-0.40<=y<-0.30: 0
+-0.30<=y<-0.20: 0
+-0.20<=y<-0.10: 0
+-0.10<=y<0.00: 0
+0.00<=y<0.10: 33430
+0.10<=y<0.20: 9173
+0.20<=y<0.30: 2451
+0.30<=y<0.40: 823
+0.40<=y<0.50: 349
+y>0.5 369
+mean: 0.08401830579480658 median: 0.05645851154833181 std: 0.0970359582933186
+y<-0.5: 45
+-0.50<=y<-0.40: 147
+-0.40<=y<-0.30: 352
+-0.30<=y<-0.20: 1405
+-0.20<=y<-0.10: 7411
+-0.10<=y<0.00: 36577
+0.00<=y<0.10: 660
+0.10<=y<0.20: 0
+0.20<=y<0.30: 0
+0.30<=y<0.40: 0
+0.40<=y<0.50: 0
+y>0.5 0
+mean: -0.06489454269456574 median: -0.04664723032069973 std: 0.06483360365519852
+过滤一字涨停项或停牌（最高价=最低价）： 30
+y<-0.5: 45
+-0.50<=y<-0.40: 147
+-0.40<=y<-0.30: 351
+-0.30<=y<-0.20: 1403
+-0.20<=y<-0.10: 7406
+-0.10<=y<0.00: 36569
+0.00<=y<0.10: 676
+0.10<=y<0.20: 0
+0.20<=y<0.30: 0
+0.30<=y<0.40: 0
+0.40<=y<0.50: 0
+y>0.5 0
+mean: -0.06484894028811164 median: -0.04660194174757282 std: 0.06480635230110397
+y<-0.5: 0
+-0.50<=y<-0.40: 0
+-0.40<=y<-0.30: 0
+-0.30<=y<-0.20: 0
+-0.20<=y<-0.10: 0
+-0.10<=y<0.00: 0
+0.00<=y<0.10: 45889
+0.10<=y<0.20: 3188
+0.20<=y<0.30: 446
+0.30<=y<0.40: 89
+0.40<=y<0.50: 46
+y>0.5 10
+mean: 0.03860398791851233 median: 0.02522522522522519 std: 0.04428877839144597
+过滤一字涨停项或停牌（最高价=最低价）： 30
+y<-0.5: 0
+-0.50<=y<-0.40: 0
+-0.40<=y<-0.30: 0
+-0.30<=y<-0.20: 0
+-0.20<=y<-0.10: 0
+-0.10<=y<0.00: 0
+0.00<=y<0.10: 45904
+0.10<=y<0.20: 3185
+0.20<=y<0.30: 443
+0.30<=y<0.40: 87
+0.40<=y<0.50: 39
+y>0.5 10
+mean: 0.03849475061452982 median: 0.025187051030879704 std: 0.04393466053224728
+y<-0.5: 0
+-0.50<=y<-0.40: 2
+-0.40<=y<-0.30: 43
+-0.30<=y<-0.20: 228
+-0.20<=y<-0.10: 2098
+-0.10<=y<0.00: 45918
+0.00<=y<0.10: 1379
+0.10<=y<0.20: 0
+0.20<=y<0.30: 0
+0.30<=y<0.40: 0
+0.40<=y<0.50: 0
+y>0.5 0
+mean: -0.03340092300775158 median: -0.023255813953488413 std: 0.035077643530505125
+过滤一字涨停项或停牌（最高价=最低价）： 30
+y<-0.5: 0
+-0.50<=y<-0.40: 2
+-0.40<=y<-0.30: 43
+-0.30<=y<-0.20: 228
+-0.20<=y<-0.10: 2094
+-0.10<=y<0.00: 45907
+0.00<=y<0.10: 1394
+0.10<=y<0.20: 0
+0.20<=y<0.30: 0
+0.30<=y<0.40: 0
+0.40<=y<0.50: 0
+y>0.5 0
+mean: -0.03337470700434259 median: -0.02325581395348819 std: 0.03505920281647159
+(51309, 1030) (51309, 5) Index(['y_l_rise', 'y_l_decline', 'y_s_rise', 'y_s_decline', 'y_l'], dtype='object')
+Write X in hdf: 4.036999940872192
+Write Y in hdf: 0.14600014686584473
+C:\ProgramData\Anaconda3\lib\site-packages\pandas\core\generic.py:1996: PerformanceWarning:
+your performance may suffer as PyTables will pickle object types that it cannot
+map directly to c-types [inferred_type->mixed,key->block0_values] [items->['code', 'curr_type', 'delist_date', 'enname', 'fullname', 'list_date', 'list_status', 'name', 'symbol']]
+
+  return pytables.to_hdf(path_or_buf, key, self, **kwargs)
+Write other in hdf: 0.38899993896484375
+Write X in parquet with fastparquet 13.176999807357788
+Write Y in parquet with fastparquet 0.09599995613098145
+Write other in parquet with fastparquet 0.4870002269744873
+0.4870002269744873
+<class 'pandas.core.frame.DataFrame'>
+Index: 51309 entries, 2009-10-15 to 2019-01-29
+Columns: 1030 entries, (1MA/10MA-1) to vol0
+dtypes: float16(987), float64(38), uint8(5)
+memory usage: 115.0 MB
+None
+float64: ['adj_factor', 'amt', 'avg', 'close', 'close0', 'cyb_close', 'cyb_high', 'cyb_low', 'cyb_open', 'cyb_vol', 'high', 'high0', 'hs300_close', 'hs300_high', 'hs300_low', 'hs300_open', 'hs300_vol', 'low', 'low0', 'open', 'open0', 'sh_close', 'sh_high', 'sh_low', 'sh_open', 'sh_vol', 'sz50_close', 'sz50_high', 'sz50_low', 'sz50_open', 'sz50_vol', 'sz_close', 'sz_high', 'sz_low', 'sz_open', 'sz_vol', 'vol', 'vol0']
+int64: []
+object: []
+<class 'pandas.core.frame.DataFrame'>
+Index: 51309 entries, 2009-10-15 to 2019-01-29
+Columns: 1030 entries, (1MA/10MA-1) to vol0
+dtypes: float16(987), float64(38), uint8(5)
+memory usage: 115.0 MB
+None
+y_l_rise       float64
+y_l_decline    float64
+y_s_rise       float64
+y_s_decline    float64
+y_l            float64
+dtype: object
+Pickle dump time: 0.0
+Read X in hdf5: 0.315000057220459
+(51309, 1030)
+Read Y in hdf5: 0.1809999942779541
+(51309, 5)
+Read other info in hdf5: 0.2350001335144043
+(51309, 27)
+Read X in parquet: 1.4179999828338623
+(51309, 1030)
+Read Y in parquet: 0.029999971389770508
+(51309, 5)
+Read other info in parquet: 0.09100008010864258
+(51309, 27)
+Read X in parquet,engine=fastparquet: 11.438000202178955
+<class 'pandas.core.frame.DataFrame'>
+Index: 51309 entries, 2009-10-15 to 2019-01-29
+Columns: 1030 entries, (1MA/10MA-1) to vol0
+dtypes: float32(987), float64(38), uint8(5)
+memory usage: 211.6 MB
+(51309, 1030) None
+Read Y in parquet,engine=fastparquet: 0.056999921798706055
+(51309, 5)
+Read other info in parquet,engine=fastparquet: 0.2989997863769531
+(51309, 27)
+
+Process finished with exit code 0

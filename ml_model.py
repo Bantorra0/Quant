@@ -249,7 +249,10 @@ def add_suffix_to_file_names(files:dict, suffix:str):
     files = files.copy()
     for k in files.keys():
         f_name = files[k]
-        idx = f_name.rindex(".")
+        if '.' in f_name:
+            idx = f_name.rindex(".")
+        else:
+            idx = len(f_name)
         files[k] = (f_name[:idx]+"_{0}"+f_name[idx:]).format(suffix)
     return files
 
