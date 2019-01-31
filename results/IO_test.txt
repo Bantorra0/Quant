@@ -322,3 +322,84 @@ Read other info in parquet,engine=fastparquet: 0.2989997863769531
 (51309, 27)
 
 Process finished with exit code 0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-----------------------------------------
+# Test df.astype()
+for i in range(num_rows//interval):
+    tmp = df.iloc[:(i+1)*interval]
+    t0 = time.time()
+    tmp2 = tmp.astype("float16")
+    t1 = time.time()
+    print(t1-t0)
+    time_usage.append(t1-t0)
+    tmp2.info(memory_usage="deep")
+
+1.4040002822875977
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 20000 entries, 0 to 19999
+Columns: 1000 entries, 0 to 999
+dtypes: float16(1000)
+memory usage: 38.1 MB
+2.120000123977661
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 40000 entries, 0 to 39999
+Columns: 1000 entries, 0 to 999
+dtypes: float16(1000)
+memory usage: 76.3 MB
+14.16100001335144
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 60000 entries, 0 to 59999
+Columns: 1000 entries, 0 to 999
+dtypes: float16(1000)
+memory usage: 114.4 MB
+7.523000001907349
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 80000 entries, 0 to 79999
+Columns: 1000 entries, 0 to 999
+dtypes: float16(1000)
+memory usage: 152.6 MB
+13.180000066757202
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 100000 entries, 0 to 99999
+Columns: 1000 entries, 0 to 999
+dtypes: float16(1000)
+memory usage: 190.7 MB
+24.171000003814697
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 120000 entries, 0 to 119999
+Columns: 1000 entries, 0 to 999
+dtypes: float16(1000)
+memory usage: 228.9 MB
+29.439000129699707
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 140000 entries, 0 to 139999
+Columns: 1000 entries, 0 to 999
+dtypes: float16(1000)
+memory usage: 267.0 MB
+51.039000034332275
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 160000 entries, 0 to 159999
+Columns: 1000 entries, 0 to 999
+dtypes: float16(1000)
+memory usage: 305.2 MB
+73.4740002155304
+<class 'pandas.core.frame.DataFrame'>
+RangeIndex: 180000 entries, 0 to 179999
+Columns: 1000 entries, 0 to 999
+dtypes: float16(1000)
+memory usage: 343.3 MB
+153.24000000953674

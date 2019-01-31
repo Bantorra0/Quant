@@ -16,14 +16,14 @@ from data_prepare import prepare_data, feature_select
 from constants import FLOAT_DELTA, MODEL_DIR
 
 
-def gen_data(targets=None, lower_bound="2011-01-01", start="2014-01-01",
+def gen_data(targets=None, lower_bound="2011-01-01", start="2014-01-01", end=None,
              stock_pool=None):
     db_type = "sqlite3"
     conn = dbop.connect_db(db_type)
     cursor = conn.cursor()
 
     df_all, cols_not_in_X, cols_category,enc = \
-        prepare_data(cursor, targets=targets,start=start,lowerbound=lower_bound, stock_pool=stock_pool)
+        prepare_data(cursor, targets=targets,start=start,lowerbound=lower_bound, end=end,stock_pool=stock_pool)
 
     df_all = df_all[df_all.index >= start]
     return df_all, cols_not_in_X, cols_category,enc

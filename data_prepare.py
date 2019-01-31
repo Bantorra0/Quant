@@ -530,7 +530,7 @@ def proc_stock_basic(df_stock_basic:pd.DataFrame):
     return df_stock_basic,cols_category,enc
 
 
-def prepare_data(cursor, targets=None, start=None, lowerbound=None, stock_pool=None):
+def prepare_data(cursor, targets=None, start=None, lowerbound=None, end=None,stock_pool=None):
     print("start:",start,"\tlowerbound:", lowerbound)
 
     # Prepare df_stock_basic
@@ -539,19 +539,12 @@ def prepare_data(cursor, targets=None, start=None, lowerbound=None, stock_pool=N
     print(df_stock_basic[cols_category].iloc[:10])
 
     # Prepare df_stock_d_FE
-    df_stock_d = dbop.create_df(cursor, const.STOCK_DAY[const.TABLE], lowerbound)
+    if end:
+        where_clause = "date<'{0}'".format(end)
+        df_stock_d = dbop.create_df(cursor, const.STOCK_DAY[const.TABLE], lowerbound,where_clause=where_clause)
+    else:
+        df_stock_d = dbop.create_df(cursor, const.STOCK_DAY[const.TABLE], lowerbound)
     print("min_date:", min(df_stock_d.date))
-    # if p_pool:
-    #     df_stock_d_FE, cols_not_in_X = FE_stock_d_mp(df_stock_d,
-    #                                         stock_pool=stock_pool,
-    #                                         targets=targets,
-    #                                         start=start, p_pool=p_pool)
-    # else:
-    #     df_stock_d_FE, cols_not_in_X = FE_stock_d(df_stock_d,
-    #                                                stock_pool=stock_pool,
-    #                                                targets=targets,
-    #                                                start=start)
-
     df_stock_d_FE, cols_not_in_X = FE_stock_d_mp(df_stock_d,
                                                stock_pool=stock_pool,
                                                targets=targets,
