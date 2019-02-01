@@ -244,7 +244,7 @@ def prepare_each_stock(df_stock_d, qfq_type="hfq"):
     return df_stock_d
 
 
-def FE_single_stock_d(df:pd.DataFrame, targets,start=None):
+def FE_single_stock_d(df:pd.DataFrame, targets,start=None,end=None):
     df = df.sort_index(ascending=False)
 
     # Parameter setting
@@ -348,6 +348,8 @@ def FE_single_stock_d(df:pd.DataFrame, targets,start=None):
 
     if start:
         df_stck = df_stck[df_stck.index >= start]
+    if end:
+        df_stck = df_stck[df_stck.index < end]
 
     return df_stck, cols_not_in_X
 
@@ -390,7 +392,7 @@ def FE_stock_d(df_stock_d:pd.DataFrame, stock_pool=None, targets=None, start=Non
     return df_stock_d_FE, cols_not_in_X
 
 
-def FE_stock_d_mp(df_stock_d:pd.DataFrame, stock_pool=None, targets=None, start=None):
+def FE_stock_d_mp(df_stock_d:pd.DataFrame, stock_pool=None, targets=None, start=None,end=None):
     """
     A variant of FE_stock_d using multiprocessing.Pool.
     Experiment shows that speed increases nearly num_process times
@@ -424,7 +426,7 @@ def FE_stock_d_mp(df_stock_d:pd.DataFrame, stock_pool=None, targets=None, start=
         # Initialize df.
         df = prepare_each_stock(df)
 
-        q_res.put(p_pool.apply_async(func=FE_single_stock_d, args=(df, targets, start)))
+        q_res.put(p_pool.apply_async(func=FE_single_stock_d, args=(df, targets, start,end)))
         count_in+=1
 
         if count_in>=num_p:
@@ -530,7 +532,7 @@ def proc_stock_basic(df_stock_basic:pd.DataFrame):
     return df_stock_basic,cols_category,enc
 
 
-def prepare_data(cursor, targets=None, start=None, lowerbound=None, end=None,stock_pool=None):
+def prepare_data(cursor, targets=None, start=None, lowerbound=None, end=None,upper_bound=None,stock_pool=None):
     print("start:",start,"\tlowerbound:", lowerbound)
 
     # Prepare df_stock_basic
@@ -540,7 +542,7 @@ def prepare_data(cursor, targets=None, start=None, lowerbound=None, end=None,sto
 
     # Prepare df_stock_d_FE
     if end:
-        where_clause = "date<'{0}'".format(end)
+        where_clause = "date<'{0}'".format(upper_bound)
         df_stock_d = dbop.create_df(cursor, const.STOCK_DAY[const.TABLE], lowerbound,where_clause=where_clause)
     else:
         df_stock_d = dbop.create_df(cursor, const.STOCK_DAY[const.TABLE], lowerbound)
@@ -548,7 +550,7 @@ def prepare_data(cursor, targets=None, start=None, lowerbound=None, end=None,sto
     df_stock_d_FE, cols_not_in_X = FE_stock_d_mp(df_stock_d,
                                                stock_pool=stock_pool,
                                                targets=targets,
-                                               start=start)
+                                               start=start,end=end)
 
     df_stock_d_FE = df_stock_d_FE[df_stock_d_FE.index>=start]
     print(df_stock_d_FE.shape)
