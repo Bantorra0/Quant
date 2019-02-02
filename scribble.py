@@ -210,12 +210,11 @@ if __name__ == '__main__':
         axis=1)
     print(X.shape, Y.shape, Y.columns)
 
-    # with open(r"datasets/hgt_X.csv","w") as f:
-    #     X.to_csv(f)
-    # with open(r"datasets/hgt_Y.csv","w") as f:
-    #     Y.to_csv(f)
-    # with open(r"datasets/hgt_other.csv", "w") as f:
-    #     df_not_in_X.to_csv(f)
+    # print(X.info(memory_usage='deep'))
+    # print("float64:",list(X.columns[X.dtypes=="float64"]))
+    # print("int64:",list(X.columns[X.dtypes == "int64"]))
+    # print("object:",list(X.columns[X.dtypes == "object"]))
+
 
     # X.to_hdf(r"datasets/hgt_X.hdf",key="X")
 
@@ -223,119 +222,115 @@ if __name__ == '__main__':
     # Y.to_parquet(r"datasets/hgt_Y.parquet",engine="fastparquet")
     # df_not_in_X.to_parquet(r"datasets/hgt_other.parquet",engine="fastparquet")
 
-    files = {0:r"datasets/hgt.hdf"}
-    suffix = datetime.datetime.now().strftime('%Y-%m-%d')
-    f_hdf_name = ml_model.add_suffix_to_file_names(files, suffix)[0]
-
-    t0=time.time()
-    X.to_hdf(f_hdf_name, key="X")
-    print("Write X in hdf:",time.time()-t0)
-
-    t0 = time.time()
-    Y.to_hdf(f_hdf_name, key="Y")
-    print("Write Y in hdf:",time.time()-t0)
-
-    t0 = time.time()
-    df_not_in_X.to_hdf(f_hdf_name, key="other")
-    print("Write other in hdf:",time.time()-t0)
-
-
-    files = {
-        "Y": r"datasets/hgt_Y.parquet",
-        "X": r"datasets/hgt_X.parquet",
-        "other": r"datasets/hgt_other.parquet"
-    }
-
-    files = ml_model.add_suffix_to_file_names(files, suffix)
-
-    t0 = time.time()
-    X.to_parquet(files["X"], engine="fastparquet")
-    print("Write X in parquet with fastparquet",time.time()-t0)
-
-    t0=time.time()
-    Y.to_parquet(files["Y"], engine="fastparquet")
-    print("Write Y in parquet with fastparquet", time.time() - t0)
-
-    t0=time.time()
-    df_not_in_X.to_parquet(files["other"], engine="fastparquet")
-    print("Write other in parquet with fastparquet", time.time() - t0)
-
-    dataset_info = {"feature_names": list(X.columns), "target_names": list(Y.columns),
-                    "other_names": list(df_not_in_X.columns)}
-
-    print(time.time()-t0)
-    print(X.info(memory_usage='deep'))
-    print("float64:",list(X.columns[X.dtypes=="float64"]))
-    print("int64:",list(X.columns[X.dtypes == "int64"]))
-    print("object:",list(X.columns[X.dtypes == "object"]))
-
-    # X["code"] = df_not_in_X["code"]
-    # X_latest_day = X.loc[trading_date_idxes[-1]]
-    # print(sorted(X_latest_day.columns[X_latest_day.isnull().any(axis=0)]))
-    # print(X_latest_day.shape)
-    # for k,v in X_latest_day.isnull().sum().sort_index().iteritems():
-    #     if v>0:
-    #         print(k,v)
-    # pd.set_option("display.max_columns",10)
-    # print(X_latest_day[X_latest_day["(open/p40mv_10k_open-1)"].isnull()][[
-    #     "code","open","close","(open/p60max_open-1)",
-    #     "(open/p40mv_10k_open-1)"]])
-    # del X["code"]
-
-    print(X.info(memory_usage='deep'))
-    print(Y.dtypes)
-
-    N = len(Y.index)
-    row_i_idxes = np.arange(N)
-    for i in range(4):
-        np.random.shuffle(row_i_idxes)
-
-    dataset_info["shuffle"]= row_i_idxes
-    f_pickle_name = r"datasets/hgt_dataset_info"
-    f_pickle_name = ml_model.add_suffix_to_file_names({0:f_pickle_name},suffix)[0]
-    with open(f_pickle_name, mode="wb") as f:
-        t0 = time.time()
-        pickle.dump(dataset_info, f)
-        print("Pickle dump time:",time.time()-t0)
-
-    t0 = time.time()
-    X=pd.read_hdf(f_hdf_name, "X")
-    print("Read X in hdf5:",time.time()-t0)
-    print(X.shape)
-    t0 = time.time()
-    Y=pd.read_hdf(f_hdf_name, "Y")
-    print("Read Y in hdf5:",time.time()-t0)
-    print(Y.shape)
-    t0 = time.time()
-    df_other_info = pd.read_hdf(f_hdf_name, "other")
-    print("Read other info in hdf5:", time.time() - t0)
-    print(df_other_info.shape)
-
-    t0 = time.time()
-    X = pd.read_parquet(files["X"])
-    print("Read X in parquet:", time.time() - t0)
-    print(X.shape)
-    t0 = time.time()
-    Y = pd.read_parquet(files["Y"])
-    print("Read Y in parquet:", time.time() - t0)
-    print(Y.shape)
-    t0 = time.time()
-    df_other_info = pd.read_parquet(files["other"])
-    print("Read other info in parquet:", time.time() - t0)
-    print(df_other_info.shape)
-
-    t0 = time.time()
-    X = pd.read_parquet(files["X"],engine="fastparquet")
-    print("Read X in parquet,engine=fastparquet:", time.time() - t0)
-    print(X.shape,X.info(memory_usage="deep"))
-    t0 = time.time()
-    Y = pd.read_parquet(files["Y"],engine="fastparquet")
-    print("Read Y in parquet,engine=fastparquet:", time.time() - t0)
-    print(Y.shape)
-    t0 = time.time()
-    df_other_info = pd.read_parquet(files["other"],engine="fastparquet")
-    print("Read other info in parquet,engine=fastparquet:", time.time() - t0)
-    print(df_other_info.shape)
+    # files = {0:r"datasets/hgt.hdf"}
+    # suffix = datetime.datetime.now().strftime('%Y-%m-%d')
+    # f_hdf_name = ml_model.add_suffix_to_file_names(files, suffix)[0]
+    #
+    # t0=time.time()
+    # X.to_hdf(f_hdf_name, key="X")
+    # print("Write X in hdf:",time.time()-t0)
+    #
+    # t0 = time.time()
+    # Y.to_hdf(f_hdf_name, key="Y")
+    # print("Write Y in hdf:",time.time()-t0)
+    #
+    # t0 = time.time()
+    # df_not_in_X.to_hdf(f_hdf_name, key="other")
+    # print("Write other in hdf:",time.time()-t0)
+    #
+    #
+    # files = {
+    #     "Y": r"datasets/hgt_Y.parquet",
+    #     "X": r"datasets/hgt_X.parquet",
+    #     "other": r"datasets/hgt_other.parquet"
+    # }
+    #
+    # files = ml_model.add_suffix_to_file_names(files, suffix)
+    #
+    # t0 = time.time()
+    # X.to_parquet(files["X"], engine="fastparquet")
+    # print("Write X in parquet with fastparquet",time.time()-t0)
+    #
+    # t0=time.time()
+    # Y.to_parquet(files["Y"], engine="fastparquet")
+    # print("Write Y in parquet with fastparquet", time.time() - t0)
+    #
+    # t0=time.time()
+    # df_not_in_X.to_parquet(files["other"], engine="fastparquet")
+    # print("Write other in parquet with fastparquet", time.time() - t0)
+    #
+    # dataset_info = {"feature_names": list(X.columns), "target_names": list(Y.columns),
+    #                 "other_names": list(df_not_in_X.columns)}
+    #
+    # print(time.time()-t0)
+    #
+    # # X["code"] = df_not_in_X["code"]
+    # # X_latest_day = X.loc[trading_date_idxes[-1]]
+    # # print(sorted(X_latest_day.columns[X_latest_day.isnull().any(axis=0)]))
+    # # print(X_latest_day.shape)
+    # # for k,v in X_latest_day.isnull().sum().sort_index().iteritems():
+    # #     if v>0:
+    # #         print(k,v)
+    # # pd.set_option("display.max_columns",10)
+    # # print(X_latest_day[X_latest_day["(open/p40mv_10k_open-1)"].isnull()][[
+    # #     "code","open","close","(open/p60max_open-1)",
+    # #     "(open/p40mv_10k_open-1)"]])
+    # # del X["code"]
+    #
+    # print(X.info(memory_usage='deep'))
+    # print(Y.dtypes)
+    #
+    # N = len(Y.index)
+    # row_i_idxes = np.arange(N)
+    # for i in range(4):
+    #     np.random.shuffle(row_i_idxes)
+    #
+    # dataset_info["shuffle"]= row_i_idxes
+    # f_pickle_name = r"datasets/hgt_dataset_info"
+    # f_pickle_name = ml_model.add_suffix_to_file_names({0:f_pickle_name},suffix)[0]
+    # with open(f_pickle_name, mode="wb") as f:
+    #     t0 = time.time()
+    #     pickle.dump(dataset_info, f)
+    #     print("Pickle dump time:",time.time()-t0)
+    #
+    # t0 = time.time()
+    # X=pd.read_hdf(f_hdf_name, "X")
+    # print("Read X in hdf5:",time.time()-t0)
+    # print(X.shape)
+    # t0 = time.time()
+    # Y=pd.read_hdf(f_hdf_name, "Y")
+    # print("Read Y in hdf5:",time.time()-t0)
+    # print(Y.shape)
+    # t0 = time.time()
+    # df_other_info = pd.read_hdf(f_hdf_name, "other")
+    # print("Read other info in hdf5:", time.time() - t0)
+    # print(df_other_info.shape)
+    #
+    # t0 = time.time()
+    # X = pd.read_parquet(files["X"])
+    # print("Read X in parquet:", time.time() - t0)
+    # print(X.shape)
+    # t0 = time.time()
+    # Y = pd.read_parquet(files["Y"])
+    # print("Read Y in parquet:", time.time() - t0)
+    # print(Y.shape)
+    # t0 = time.time()
+    # df_other_info = pd.read_parquet(files["other"])
+    # print("Read other info in parquet:", time.time() - t0)
+    # print(df_other_info.shape)
+    #
+    # t0 = time.time()
+    # X = pd.read_parquet(files["X"],engine="fastparquet")
+    # print("Read X in parquet,engine=fastparquet:", time.time() - t0)
+    # print(X.shape,X.info(memory_usage="deep"))
+    # t0 = time.time()
+    # Y = pd.read_parquet(files["Y"],engine="fastparquet")
+    # print("Read Y in parquet,engine=fastparquet:", time.time() - t0)
+    # print(Y.shape)
+    # t0 = time.time()
+    # df_other_info = pd.read_parquet(files["other"],engine="fastparquet")
+    # print("Read other info in parquet,engine=fastparquet:", time.time() - t0)
+    # print(df_other_info.shape)
 
 
 

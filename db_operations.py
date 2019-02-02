@@ -153,13 +153,6 @@ def write2db(df:pd.DataFrame, table, cols, db_type="sqlite3",
     return conn,write_failure
 
 
-if __name__ == '__main__':
-    cursor = connect_db("sqlite3").cursor()
-    cursor.execute("select * from stock_day where date>='2018-08-15'")
-    for row in cursor.fetchall():
-        print(row)
-
-
 def create_df(cursor, table_name, start=None, where_clause=None):
     if start:
         start_cond = "date>='{0}'".format(start)
@@ -174,3 +167,10 @@ def create_df(cursor, table_name, start=None, where_clause=None):
     df = pd.DataFrame(cursor.fetchall())
     df.columns = cols_from_cur(cursor)
     return df
+
+
+if __name__ == '__main__':
+    cursor = connect_db("sqlite3").cursor()
+    cursor.execute("select * from stock_day where date>='2018-08-15'")
+    for row in cursor.fetchall():
+        print(row)

@@ -454,6 +454,7 @@ def FE_stock_d_mp(df_stock_d:pd.DataFrame, stock_pool=None, targets=None, start=
 
     df_stock_d_FE = pd.concat(df_stock_d_list, sort=False)
     print("Total processing time for {0} stocks:{1:.2f}s".format(count_out, time.time() - start_time))
+    print("in",count_in,"out",count_out)
     print("Shape of df_stock_d_FE:",df_stock_d_FE.shape)
     df_stock_d_FE.index.name = "date"
 

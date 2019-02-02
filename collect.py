@@ -1,6 +1,7 @@
 import datetime
 import time
 import multiprocessing as mp
+import pickle
 
 import numpy as np
 import pandas as pd
@@ -10,11 +11,10 @@ import constants as const
 import data_cleaning as dc
 import db_operations as dbop
 import df_operations as dfop
-from constants import TOKEN, STOCK_DAY, INDEX_DAY, TABLE, COLUMNS
 
 
 def stck_pools():
-    api = _init_api(TOKEN)
+    api = _init_api(const.TOKEN)
     hgt_stcks = api.stock_basic(is_hs="H")
     sgt_stcks = api.stock_basic(is_hs="S")
 
@@ -56,7 +56,7 @@ def idx_pools():
     return ["sh", "sz", "hs300", "sz50", "cyb"]
 
 
-def _init_api(token=TOKEN):
+def _init_api(token=const.TOKEN):
     # 设置tushare pro的token并获取连接
     ts.set_token(token)
     return ts.pro_api()
@@ -116,7 +116,7 @@ def download_single_index_day(code, db_type: str, update=False,
     try:
         # Set start to the newest date in table if update is true.
         if update:
-            latest_date = dbop.get_latest_date(INDEX_DAY[TABLE], code, db_type)
+            latest_date = dbop.get_latest_date(const.INDEX_DAY[const.TABLE], code, db_type)
             if latest_date:
                 start = latest_date
         if verbose > -1:
@@ -141,11 +141,11 @@ def download_single_index_day(code, db_type: str, update=False,
 
 def download_single_stock_day(code, db_type: str, update=False,
                               start="2000-01-01", end=None, verbose=0):
-    pro = _init_api(TOKEN)
+    pro = _init_api(const.TOKEN)
     try:
         # Set start to the newest date in table if update is true.
         if update:
-            latest_date = dbop.get_latest_date(STOCK_DAY[TABLE], code, db_type)
+            latest_date = dbop.get_latest_date(const.STOCK_DAY[const.TABLE], code, db_type)
             if latest_date:
                 start = datetime.datetime.strptime(latest_date, "%Y-%m-%d") - datetime.timedelta(days=5)
                 start = start.strftime('%Y-%m-%d')
@@ -201,7 +201,7 @@ def download_single_stock_day(code, db_type: str, update=False,
 
 
 def download_stock_basic(db_type: str):
-    pro = _init_api(TOKEN)
+    pro = _init_api(const.TOKEN)
     download_failure = 0
     status_list = ["L", "D", "P"]  # L上市，D退市，P暂停上市。
     fields = ['ts_code', 'symbol', 'name', 'area', 'industry', 'fullname',
@@ -238,8 +238,8 @@ def collect_single_stock_day(code, db_type: str, update=False,
                                                     verbose=verbose)
     if type(df_single_stock_day)==pd.DataFrame:
         conn, write_failure = dbop.write2db(df_single_stock_day,
-                                            table=STOCK_DAY[TABLE],
-                                            cols=STOCK_DAY[COLUMNS], conn=conn,
+                                            table=const.STOCK_DAY[const.TABLE],
+                                            cols=const.STOCK_DAY[const.COLUMNS], conn=conn,
                                             close=False)
     elif df_single_stock_day:
         # df_single_stock_day==False, download fails.
@@ -260,8 +260,8 @@ def collect_single_index_day(code:str, db_type: str, update=False,
                                                     verbose=verbose)
     if type(df_single_index_day)!=bool:
         conn, write_failure = dbop.write2db(df_single_index_day,
-                                            table=INDEX_DAY[TABLE],
-                                            cols=INDEX_DAY[COLUMNS], conn=conn,
+                                            table=const.INDEX_DAY[const.TABLE],
+                                            cols=const.INDEX_DAY[const.COLUMNS], conn=conn,
                                             close=False)
     else:
         download_failure = 1
@@ -396,6 +396,22 @@ def update_stock_basic(db_type="sqlite3", initialize=False):
         download_failure, write_failure = collect_stock_basic(db_type,
                                                               update=True)
 
+def update_stock_list(stock_pool=None, db_type="sqlite3",cursor=None):
+    if stock_pool is None:
+        if cursor is None:
+            cursor = dbop.connect_db(db_type).cursor()
+        stock_pool = dbop.get_all_stocks(db_type, cursor)
+    stock_pool = set(stock_pool)
+    print("Stocks in table stock_d:", len(stock_pool))
+    with open(r"database\stock_d_stock_list","wb") as f:
+        pickle.dump(set(stock_pool),f)
+
+
+def get_stock_pool():
+    with open(r"database\stock_d_stock_list","rb") as f:
+        stock_pool = pickle.load(f)
+    return stock_pool
+
 
 if __name__ == '__main__':
     # stocks = ["002410.SZ", "300383.SZ","600845.SH","002463.SZ","600305.SH",
@@ -408,13 +424,15 @@ if __name__ == '__main__':
 
     db_type = "sqlite3"
 
-    index_pool = dbop.get_all_indexes()
-    update_indexes(index_pool,db_type)
+    # index_pool = dbop.get_all_indexes()
+    # update_indexes(index_pool,db_type)
 
-    cursor = dbop.connect_db(db_type).cursor()
-    df_stock_basic = dbop.create_df(cursor, const.STOCK_BASIC[const.TABLE])
-    stock_pool = sorted(df_stock_basic[df_stock_basic["is_hs"] != "N"]["code"])
-    update_stocks(stock_pool, db_type=db_type)
+    # cursor = dbop.connect_db(db_type).cursor()
+    # df_stock_basic = dbop.create_df(cursor, const.STOCK_BASIC[const.TABLE])
+    # stock_pool = sorted(df_stock_basic[df_stock_basic["is_hs"] != "N"]["code"])
+    update_stock_list()
+
+    # update_stocks(stock_pool, db_type=db_type)
 
     # dc.fillna_stock_day(db_type=db_type,start="2000-01-01")
 
