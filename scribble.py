@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import constants as const
 import db_operations as dbop
 import data_prepare as dp
+import io_operations
 import ml_model
 import customized_obj as cus_obj
 
@@ -159,33 +160,52 @@ if __name__ == '__main__':
                # {"period": 20, "fun": "mean", "col": ""}
                ]
 
-    time_delta = datetime.timedelta(days=1)
-    test_start = "2018-01-01"
-    train_length = 3000
-    max_feature_length = 1000
+    # time_delta = datetime.timedelta(days=1)
+    # test_start = "2018-01-01"
+    # train_length = 3000
+    # max_feature_length = 1000
 
     cursor = dbop.connect_db(db_type=db_type).cursor()
-    num_files = 2
 
     df_stock_basic = dbop.create_df(cursor, const.STOCK_BASIC[const.TABLE])
     h_stock_pool = sorted(df_stock_basic[df_stock_basic["is_hs"] == "H"]["code"])
     s_stock_pool = sorted(df_stock_basic[df_stock_basic["is_hs"] == "S"]["code"])
     print(len(h_stock_pool),len(s_stock_pool))
 
-    train_bound = datetime.datetime.strptime(test_start, const.DATE_FORMAT) - train_length * time_delta
-    train_bound = datetime.datetime.strftime(train_bound, const.DATE_FORMAT)
+    # train_bound = datetime.datetime.strptime(test_start, const.DATE_FORMAT) - train_length * time_delta
+    # train_bound = datetime.datetime.strftime(train_bound, const.DATE_FORMAT)
+    # lower_bound = datetime.datetime.strptime(train_bound, const.DATE_FORMAT) - max_feature_length * time_delta
+    # lower_bound = datetime.datetime.strftime(lower_bound, const.DATE_FORMAT)
+    # print(test_start,train_bound,lower_bound)
 
-    lower_bound = datetime.datetime.strptime(train_bound, const.DATE_FORMAT) - max_feature_length * time_delta
-    lower_bound = datetime.datetime.strftime(lower_bound, const.DATE_FORMAT)
-    print(test_start,train_bound,lower_bound)
+    history_length = 10
+    start_year = 2016
+    end_year = 2018
+    dates = ["01-01","07-01"]
+    # for i in range(start_year,end_year+1):
+    #     for i,date in enumerate(dates):
+    #         start = str(start_year)+"-"+date
+    #         if i==len(dates)-1:
+    #             end = str(start_year+1)+"-"+dates[0]
+    #         else:
+    #             end = str(start_year)+"-"+dates[i+1]
+    #         upper_bound =
+
+
+    lower_bound="2013-01-01"
+    start = "2018-01-01"
+    end = "2018-07-01"
+    upper_bound="2019-01-01"
 
     t0 = time.time()
     # num_p = mp.cpu_count()
     # p_pool = mp.Pool(processes=mp.cpu_count())
     df_feature, df_not_in_X, cols_category, enc = ml_model.gen_data(
         targets=targets,
-        lower_bound=lower_bound,
-        start=train_bound,
+        lowerbound=lower_bound,
+        start=start,
+        end=end,
+        upperbound=upper_bound,
         stock_pool=h_stock_pool)
 
     print("df_all:", df_feature.shape)
@@ -210,17 +230,43 @@ if __name__ == '__main__':
         axis=1)
     print(X.shape, Y.shape, Y.columns)
 
-    # print(X.info(memory_usage='deep'))
-    # print("float64:",list(X.columns[X.dtypes=="float64"]))
-    # print("int64:",list(X.columns[X.dtypes == "int64"]))
-    # print("object:",list(X.columns[X.dtypes == "object"]))
+    print(X.info(memory_usage='deep'))
+    print("float64:",list(X.columns[X.dtypes=="float64"]))
+    print("int64:",list(X.columns[X.dtypes == "int64"]))
+    print("object:",list(X.columns[X.dtypes == "object"]))
+
+    f_path = r"datasets/stock_d.hdf"
+    f_path = io_operations.add_suffix_to_file_names(
+        f_path, datetime.datetime.now().strftime("%Y-%m-%d"))
+    year = start[:4]
+    start_M_D = start[5:].replace("-", "")
+    end_M_D = end[5:].replace("-", "")
+    key = "{0}/{1}-{2}".format(year, start_M_D, end_M_D)
+    print(key)
+    print(f_path)
+
+    X.to_hdf(f_path,key="X/"+key)
+    Y.to_hdf(f_path,key="Y/"+key)
+
+    print(df_not_in_X.info(memory_usage="deep"))
+    pd.set_option("display.max_columns",10)
+    print(df_not_in_X.iloc[np.array(df_not_in_X.isnull().any(axis=1)),
+                           np.array(df_not_in_X.isnull().any(axis=0))])
+    print(df_not_in_X[["code","qfq_open","qfq_close","qfq_vol",
+                       "qfq_avg",
+                       "f1mv_qfq_avg"]].iloc[np.array(df_not_in_X[["qfq_avg", "f1mv_qfq_avg"]].isnull().any(axis=1))])
+    df_not_in_X[["qfq_avg", "f1mv_qfq_avg"]] = df_not_in_X[["qfq_avg",
+                                                            "f1mv_qfq_avg"]].fillna(-1)
+    df_not_in_X["delist_date"] = df_not_in_X["delist_date"].fillna("")
+    df_not_in_X.to_hdf(f_path,key="other/"+key)
+
+    store = pd.HDFStore(f_path)
+    print(store.keys())
+    print(store["X/"+key].shape)
+    print(store["Y/" + key].shape)
+    print(store["other/" + key].shape)
 
 
-    # X.to_hdf(r"datasets/hgt_X.hdf",key="X")
-
-    # X.to_parquet(r"datasets/hgt_X.parquet",engine="fastparquet")
-    # Y.to_parquet(r"datasets/hgt_Y.parquet",engine="fastparquet")
-    # df_not_in_X.to_parquet(r"datasets/hgt_other.parquet",engine="fastparquet")
 
     # files = {0:r"datasets/hgt.hdf"}
     # suffix = datetime.datetime.now().strftime('%Y-%m-%d')

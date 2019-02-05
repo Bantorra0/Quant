@@ -13,10 +13,10 @@ from matplotlib import pyplot as plt
 import db_operations as dbop
 from data_prepare import prepare_data, feature_select
 
-from constants import FLOAT_DELTA, MODEL_DIR
+from constants import MODEL_DIR
 
 
-def gen_data(targets=None, start="2014-01-01", lower_bound="2011-01-01", end=None,upper_bound=None,
+def gen_data(targets=None, start="2014-01-01", lowerbound="2011-01-01", end=None, upperbound=None,
              stock_pool=None):
     db_type = "sqlite3"
     conn = dbop.connect_db(db_type)
@@ -24,15 +24,15 @@ def gen_data(targets=None, start="2014-01-01", lower_bound="2011-01-01", end=Non
 
     df_all, cols_not_in_X, cols_category,enc = \
         prepare_data(cursor, targets=targets,
-                     start=start,lowerbound=lower_bound,
-                     end=end,upper_bound=upper_bound,
+                     start=start, lowerbound=lowerbound,
+                     end=end, upper_bound=upperbound,
                      stock_pool=stock_pool)
 
     df_all = df_all[df_all.index >= start]
     return df_all, cols_not_in_X, cols_category,enc
 
 
-def y_distribution(y):
+def y_distribution(y,plot=False):
     y = y.copy().dropna()
     # print distribution of y
     print("y<-0.5:", sum(y < -0.5))
@@ -46,8 +46,9 @@ def y_distribution(y):
         print("{0:.2f}<=y<{1:.2f}:".format(i * 0.1, (i + 1) * 0.1), sum(tmp))
     print("y>0.5", sum(y > 0.5))
     print("mean:",y.mean(),"median:",y.median(),"std:",y.std())
-    plt.figure()
-    plt.hist(y, bins=np.arange(-10, 11) * 0.1)
+    if plot:
+        plt.figure()
+        plt.hist(y, bins=np.arange(-10, 11) * 0.1)
 
 
 def gen_y(df_all: pd.DataFrame, pred_period=10, threshold=0.1, is_high=True,
@@ -239,25 +240,6 @@ def load_model(model_type:str, pred_period=20, is_high=True):
     with open(os.path.join(os.getcwd(),MODEL_DIR, f_name), "rb") as f:
         model = pickle.load(f)
     return model
-
-
-def add_suffix_to_file_names(files:dict, suffix:str):
-    """
-    Add date suffix to given file names.
-
-    :param files: A dict of file names.
-    :param suffix:
-    :return: A dict of file names with date suffix.
-    """
-    files = files.copy()
-    for k in files.keys():
-        f_name = files[k]
-        if '.' in f_name:
-            idx = f_name.rindex(".")
-        else:
-            idx = len(f_name)
-        files[k] = (f_name[:idx]+"_{0}"+f_name[idx:]).format(suffix)
-    return files
 
 
 def train_save(pred_period = 20,is_high = True, is_clf=False):

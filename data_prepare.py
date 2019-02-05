@@ -125,7 +125,7 @@ def change_rate(df1: pd.DataFrame, df2: pd.DataFrame, cols1=None,
     cols = ["({1}/{0}-1)".format(c1, c2) for c1, c2 in zip(cols1, cols2)]
     df3.columns = cols
     # Round to two decimals and convert to float16 to save memory.
-    return df3.round(2).astype('float16')
+    return df3.round(2).fillna(float("inf")).astype('float16')
 
 
 def candle_stick(df:pd.DataFrame):
@@ -239,7 +239,8 @@ def prepare_each_stock(df_stock_d, qfq_type="hfq"):
     df_stock_d.loc[:, fq_cols[4]] = df_stock_d[fq_cols[4]] / fq_factor[:, 0]
     # Calculate stocks' avg day prices.
     # vol's unit is "手", while amt's unit is "1000yuan", so 10 is multiplied.
-    df_stock_d["avg"] = df_stock_d["amt"]/df_stock_d["vol"]*10
+    df_stock_d["avg"] = (df_stock_d["amt"]/df_stock_d["vol"]*10).fillna(
+        float("inf"))
 
     return df_stock_d
 
@@ -271,6 +272,7 @@ def FE_single_stock_d(df:pd.DataFrame, targets,start=None,end=None):
 
     df_qfq = df[cols_fq] / df["adj_factor"].iloc[0]
     df_qfq.columns = ["qfq_" + col for col in cols_fq]
+    df_qfq["qfq_vol"]=df["vol"]*df["adj_factor"].iloc[0]
     df_tomorrow_qfq = move(-1, df_qfq)
 
     df_targets_list = []
@@ -440,7 +442,7 @@ def FE_stock_d_mp(df_stock_d:pd.DataFrame, stock_pool=None, targets=None, start=
         if count_out%10==0 and count_out>0:
             print("Finish processing {0} stocks in {1:.2f}s.".format(count_out, time.time() - start_time))
 
-        if count_out>20:
+        if count_in>10:
             break
 
     while not q_res.empty():

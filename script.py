@@ -54,7 +54,7 @@ if __name__ == '__main__':
     # p_pool = mp.Pool(processes=mp.cpu_count())
     df_feature, df_not_in_X, cols_category, enc = ml_model.gen_data(
         targets=targets,
-        lower_bound=lower_bound,
+        lowerbound=lower_bound,
         start=train_bound,
         stock_pool=h_stock_pool)
 

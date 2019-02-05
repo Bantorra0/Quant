@@ -414,28 +414,22 @@ def get_stock_pool():
 
 
 if __name__ == '__main__':
-    # stocks = ["002410.SZ", "300383.SZ","600845.SH","002463.SZ","600305.SH",
-    #           "002507.SZ", "601006.SH"]
-    # add_stock(stocks)
-
-    # update()
+    db_type = "sqlite3"
 
     # update_stock_basic()
 
-    db_type = "sqlite3"
-
-    index_pool = dbop.get_all_indexes()
-    update_indexes(index_pool,db_type)
+    # index_pool = dbop.get_all_indexes()
+    # update_indexes(index_pool,db_type)
 
     # cursor = dbop.connect_db(db_type).cursor()
     # df_stock_basic = dbop.create_df(cursor, const.STOCK_BASIC[const.TABLE])
     # stock_pool = sorted(df_stock_basic[df_stock_basic["is_hs"] != "N"]["code"])
     # update_stock_list()
 
-    stock_pool = get_stock_pool()
-    update_stocks(stock_pool, db_type=db_type)
+    # stock_pool = get_stock_pool()
+    # update_stocks(stock_pool, db_type=db_type)
 
-    # dc.fillna_stock_day(db_type=db_type,start="2000-01-01")
+    dc.fillna_stock_day(db_type=db_type,start="2000-01-01")
 
 
     # p = mp.Process(target=collect_single_stock_day, kwargs=kwargs)

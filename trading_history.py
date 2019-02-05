@@ -409,7 +409,7 @@ class BackTest:
                    {"period": 5, "fun": "max", "col": "high"},
                    {"period": 5, "fun": "min", "col": "low"}]
         df_all, cols_future = ml_model.gen_data(targets=targets,
-                                                lower_bound= lower_bound,
+                                                lowerbound= lower_bound,
                                                 start=training_bound,
                                                 stock_pool=training_stock_pool)
         # df_all2, cols_future2 = ml_model.gen_data(pred_period=5,
