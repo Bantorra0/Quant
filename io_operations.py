@@ -1,9 +1,11 @@
+import numpy as np
 import pandas as pd
 import datetime
 import pickle
 import os
 
 import ml_model
+
 
 
 def get_interval_dates(slice_length=6):
@@ -76,58 +78,162 @@ def get_time_kwargs(key):
     return {"start":start,"end":end,"lowerbound":lowerbound,"upperbound":upperbound}
 
 
-def dataset2hdf5(targets, paras, start_year:int, start_index:int, end_year:int,
-                  end_index:int, slice_length=None, stock_pool=None):
+def save_dataset_in_hdf5(targets, paras, start_year:int, start_index:int, end_year:int,
+                         end_index:int, slice_length=None, stock_pool=None,
+                         version=None, base_dir=r"datasets",f_info_name="stock_d_info"):
     hdf5_keys,slice_length = get_hdf5_keys(
         start_year=start_year,start_index=start_index,
         end_year=end_year,end_index=end_index,slice_length=slice_length)
 
-    current_date = datetime.datetime.now().strftime("%Y-%m-%d")
-    f_path = r"datasets/stock_d.hdf"
-    f_path = add_suffix_to_file_names(f_path, current_date)
-    length = {}
-    columns= None
+    if version is None:
+        version = datetime.datetime.now().strftime("%Y-%m-%d")
+    f_hdf_name = "stock_d.hdf"
+    f_hdf_name = _add_suffix_to_file_names(f_hdf_name, version)
+    f_hdf_path = os.path.join(base_dir,f_hdf_name)
+    if f_hdf_name in os.listdir(base_dir):
+        store = pd.HDFStore(f_hdf_path)
+    else:
+        store = None
+    # print("store",store)
+
+    if f_info_name is None:
+        f_info_name = "stock_d_info"
+    f_info_name = _add_suffix_to_file_names(f_info_name, version)
+    f_info_path = os.path.join(base_dir,f_info_name)
+    if f_info_name in os.listdir(base_dir):
+        with open(f_info_path,"rb") as f_info:
+            d_info = pickle.load(f_info)
+    else:
+        d_info = {"slice_length": slice_length, "length": {},
+                  "columns": None, "categorical_features": None,
+                  "encoder": None}
     for key in hdf5_keys:
-        kwargs = get_time_kwargs(key)
-        df_feature, df_not_in_X, cols_category, enc = ml_model.gen_data(
-            targets=targets, stock_pool=stock_pool,**kwargs)
+        print("key:",key)
+        skip = False
 
-        X = ml_model.gen_X(df_feature, df_not_in_X.columns)
-        # X = df_feature
+        if store is not None \
+                and "/X/"+key in store.keys() \
+                and "/Y/"+key in store.keys() \
+                and "/other/"+key in store.keys():
+                # X,Y,df_other = store["X/"+key],store["Y/"+key],store["other/"+key]
+            skip = True
 
-        Y = pd.concat([ml_model.gen_y(df_not_in_X, **v) for k, v in paras]
-                      ,axis=1)
-        Y.columns = [k for k, _ in paras]
-        Y.index = X.index
-        Y["y_l"] = Y.apply(
-            lambda r: r["y_l_rise"] if r["y_l_rise"] > -r["y_l_decline"] else
-            r["y_l_decline"], axis=1)
-        print(X.shape, Y.shape, Y.columns)
+        if not skip:
+            kwargs = get_time_kwargs(key)
+            X, df_other, cols_category, enc = ml_model.gen_data(
+                targets=targets, stock_pool=stock_pool, **kwargs)
+            # X = ml_model.gen_X(df_feature, df_other.columns)
 
-        # df_not_in_X[["qfq_avg", "f1mv_qfq_avg"]] = df_not_in_X[
-        #     ["qfq_avg", "f1mv_qfq_avg"]].fillna(float("inf"))
-        df_not_in_X["delist_date"] = df_not_in_X["delist_date"].fillna("")
+            Y = pd.concat([ml_model.gen_y(df_other, **v) for k, v in paras],
+                          axis=1)
+            Y.columns = [k for k, _ in paras]
+            Y.index = X.index
+            Y["y_l"] = Y.apply(lambda r: r["y_l_rise"] if r["y_l_rise"] > -r[
+                "y_l_decline"] else r["y_l_decline"], axis=1)
+            print(X.shape, Y.shape, Y.columns)
 
-        length[key]=len(X)
-        if columns is None:
-            columns = {"X":X.columns,"Y":Y.columns,"other":df_not_in_X.columns}
-        X.to_hdf(f_path, key="X/" + key)
-        Y.to_hdf(f_path, key="Y/" + key)
-        df_not_in_X.to_hdf(f_path, key="other/" + key)
+            # df_other[["qfq_avg", "f1mv_qfq_avg"]] = df_other[
+            #     ["qfq_avg", "f1mv_qfq_avg"]].fillna(float("inf"))
+            df_other["delist_date"] = df_other["delist_date"].fillna("")
 
+            d_info["length"][key] = len(X)
+            if d_info["columns"] is None:
+                d_info["columns"] = {"X": X.columns, "Y": Y.columns,
+                                     "other": df_other.columns}
+            if d_info["categorical_features"] is None:
+                d_info["categorical_features"] = cols_category
+            if d_info["encoder"] is None:
+                d_info["encoder"] = enc
 
-    store = pd.HDFStore(f_path)
+            X.to_hdf(f_hdf_path, key="X/" + key)
+            Y.to_hdf(f_hdf_path, key="Y/" + key)
+            df_other.to_hdf(f_hdf_path, key="other/" + key)
+            del X,Y,df_other
+        else:
+            print("skip:", key)
+            # d_info["length"][key] = len(store["/X/"+key])
+
+    if store is None:
+        store = pd.HDFStore(f_hdf_path)
     print(store.keys())
     for key in sorted(store.keys()):
         print(key,store[key].shape)
+    store.close()
 
-    d_info = {"slice_length":slice_length, "length":length,"columns":columns}
-    f_path = add_suffix_to_file_names(r"datasets/stock_d_info",current_date)
-    with open(f_path,"wb") as file:
-        pickle.dump(d_info,file)
+    print(d_info)
+    with open(f_info_path,"wb") as f_info:
+        pickle.dump(d_info,f_info)
 
 
-def read_hdf5(start,end=None,version=None):
+def fill_paras(**kwargs):
+    paras = kwargs.copy()
+    if "base_dir" not in kwargs or kwargs["base_dir"] is None:
+        paras["base_dir"] = "datasets"
+
+    if "f_info_name" not in kwargs or kwargs["f_info_name"] is None:
+        paras["f_info_name"] = "stock_d_info"
+
+    if "version" not in kwargs or kwargs["version"] is None:
+        paras["version"] = get_latest_version(paras["base_dir"],
+                                              paras["f_info_name"])
+
+    return paras
+
+
+def get_f_info_path(version=None, base_dir=None,
+                      f_info_name=None):
+    paras = fill_paras(version=version,base_dir=base_dir,
+                      f_info_name=f_info_name)
+    f_info_name = paras["f_info_name"]
+    version = paras["version"]
+    base_dir = paras["base_dir"]
+
+    f_info_name = _add_suffix_to_file_names(f_info_name, version)
+    f_info_path = os.path.join(base_dir, f_info_name)
+    return f_info_path,f_info_name
+
+
+def load_dataset_info(version=None, base_dir=None,
+                      f_info_name=None):
+    paras = fill_paras(version=version, base_dir=base_dir,
+                       f_info_name=f_info_name)
+    f_info_name = paras["f_info_name"]
+    version = paras["version"]
+    base_dir = paras["base_dir"]
+
+    f_info_path,f_info_name = get_f_info_path(version,base_dir,f_info_name)
+    if f_info_name not in os.listdir(base_dir):
+        raise ValueError("{0} not is directory {1}".format(f_info_name,base_dir))
+    with open(f_info_path,"rb") as f_info:
+        d_info = pickle.load(f_info)
+    return d_info
+
+
+def save_dataset_info(d_info,version=None, base_dir=None,
+                      f_info_name=None):
+    f_info_path,_ = get_f_info_path(version,base_dir,f_info_name)
+    with open(f_info_path, "wb") as f_info:
+        pickle.dump(d_info, f_info)
+
+
+def save_shuffle_info(n=4,version=None, base_dir=None,
+                      f_info_name=None):
+    d_info = load_dataset_info(version,base_dir,f_info_name)
+
+    shuffles = {}
+    for k,v in d_info["length"].items():
+        a = np.arange(v)
+        for i in range(n):
+            np.random.shuffle(a)
+        shuffles[k] = a
+
+    d_info["shuffle"] = shuffles
+    print(d_info)
+    save_dataset_info(d_info,version,base_dir,f_info_name)
+
+
+def read_hdf5(start,end=None,version=None,base_dir = None,
+              f_info_name=None, subsample=None):
     """
 
     :param start: Inclusive start date of desired time slice, formatted as
@@ -142,30 +248,25 @@ def read_hdf5(start,end=None,version=None):
     start_day = start[8:10]
 
     if end is None:
-        now = datetime.datetime.now().strftime("%Y-%m-%d")
-        end_yr, end_mon, end_day = now.split("-")
+        end = datetime.datetime.now().strftime("%Y-%m-%d")
+        end_yr, end_mon, end_day = end.split("-")
     else:
-        end_time = datetime.datetime.strptime(end,
-                                          "%Y-%m-%d")-datetime.timedelta(
-            days=1)
+        end_time = datetime.datetime.strptime(end,"%Y-%m-%d")\
+                   -datetime.timedelta(days=1)
         end = datetime.datetime.strftime(end_time,"%Y-%m-%d")  # Inclusive.
         end_yr = end[:4]
         end_mon = end[5:7]
         end_day = end[8:10]
+    print(start,end)
 
-    base_dir = r"datasets/"
-    if version is None:
-        # version is None, choose the latest info file.
-        f_list = os.listdir(base_dir)
-        info_file = sorted([f for f in f_list if f[:12]=="stock_d_info"])[-1]
-        version = info_file[-10:]
-    else:
-        info_file = "stock_d_info_{0}".format(version)
+    paras = fill_paras(version=version, base_dir=base_dir,
+                       f_info_name=f_info_name)
+    f_info_name = paras["f_info_name"]
+    version = paras["version"]
+    base_dir = paras["base_dir"]
 
-    with open(os.path.join(base_dir,info_file),"rb") as f:
-        d_info = pickle.load(f)
-
-    print(d_info)
+    d_info = load_dataset_info(version,base_dir,f_info_name)
+    # print(d_info)
 
     slice_length = d_info["slice_length"]
     dates = get_interval_dates(slice_length)
@@ -177,28 +278,46 @@ def read_hdf5(start,end=None,version=None):
     start_key = start_yr+"/"+"-".join(start_interval)
     end_key = end_yr +"/"+"-".join(end_interval)
 
-
     store = pd.HDFStore(os.path.join(base_dir,"stock_d_{0}.hdf".format(version)))
     keys = sorted([key[-14:] for key in store.keys() if key[-14:]>=start_key
-            and key[-14:]<=end_key])
+            and key[-14:]<=end_key and key[1]=="X"])
+    print("Time slice keys in hdf5:",",".join(keys))
+
     X_list = []
     Y_list = []
     other_list = []
-    for k in keys:
-        print(k)
-        print(store["X/"+k].shape)
-        X_list.append(store["X/"+k])
-        Y_list.append(store["Y/"+k])
-        other_list.append(store["other/"+k])
+    for key in keys:
+        print("\nCurrent key:",key)
+        print("Current slice size(length):",store["X/"+key].shape[0])
+        if subsample is None:
+            X, Y,df_other=store["X/"+key],store["Y/"+key],store["other/"+key]
+        else:
+            k,ith = tuple(map(int,subsample.split("-")))
+            shuffle = d_info["shuffle"][key]
+            length = d_info["length"][key]
+            n = length//k
+            if k-1==ith:
+                idx = shuffle[ith * n:]
+            else:
+                idx = shuffle[ith*n:(ith+1)*n]
+            X = store["X/"+key].iloc[idx]
+            Y = store["Y/"+key].iloc[idx]
+            df_other = store["other/"+key].iloc[idx]
+            print("Current subsample size(length):",len(idx))
+        X_list.append(X)
+        Y_list.append(Y)
+        other_list.append(df_other)
+    store.close()
     X = pd.concat(X_list)
-    print(X.shape)
+    print("\nTotal concatenating size:",X.shape[0])
     Y = pd.concat(Y_list)
     other = pd.concat(other_list)
     date_index = X.index[(X.index>=start) & (X.index<end)].unique()
+    print("Result dataset size:",len(Y.loc[date_index]))
     return X.loc[date_index],Y.loc[date_index],other.loc[date_index]
 
 
-def add_suffix_to_file_names(files, suffix:str):
+def _add_suffix_to_file_names(files, suffix:str):
     """
     Add date suffix to given file names.
 
@@ -216,23 +335,26 @@ def add_suffix_to_file_names(files, suffix:str):
     elif type(files)==dict:
         files = files.copy()
         for k in files.keys():
-            f_name = files[k]
-            if '.' in f_name:
-                idx = f_name.rindex(".")
-            else:
-                idx = len(f_name)
-            files[k] = (f_name[:idx]+"_{0}"+f_name[idx:]).format(suffix)
+            files[k] = _add_suffix_to_file_names(files[k], suffix)
         return files
     else:
         raise ValueError("files:{} is not supported!".format(type(files)))
 
 
+def get_latest_version(base_dir=r"datasets",
+                      f_info_name="stock_d_info"):
+    if base_dir is None:
+        base_dir = r"datasets"
+    if f_info_name is None:
+        f_info_name = "stock_d_info"
+
+    f_list = os.listdir(base_dir)
+    info_file = sorted([f for f in f_list if f[:12] == f_info_name])[-1]
+    version = info_file[-10:]
+    return version
+
+
 if __name__ == '__main__':
-    # keys,_ = get_hdf5_keys(2016,0,2018,0)
-    # print(keys)
-    #
-    # print(get_time_kwargs(keys[0]))
-    #
     # targets = [{"period": 20, "fun": "max", "col": "high"},
     #            {"period": 20, "fun": "min", "col": "low"},
     #            {"period": 5, "fun": "max", "col": "high"},
@@ -252,12 +374,27 @@ if __name__ == '__main__':
     #           {"pred_period": 5,"is_high": False,"is_clf": False,
     #            "threshold": 0.1}), ]
     #
-    # dataset2hdf5(targets=targets,paras=paras,
-    #              start_year=2016,start_index=0,end_year=2018,end_index=0)
-    # read_hdf5(start="2016-01-01",end="2018-01-01")
+    # save_dataset_in_hdf5(targets=targets, paras=paras,
+    #                      start_year=2013, start_index=0, end_year=2019,
+    #                      end_index=0,
+    #                      version="2019-02-06")
 
-    X,Y,other = read_hdf5(start="2016-07-01",end="2017-01-01")
-    print(X.shape,Y.shape,other.shape)
+
+    # X,Y,other = read_hdf5(start="2016-07-01",end="2017-01-01")
+    d_info = load_dataset_info()
+    # for k,v in sorted(d_info["shuffle"].items()):
+    #     print(k,v)
+    for k,v in sorted(d_info["length"].items()):
+        print(k,v)
+
+    X, Y, df_other = read_hdf5(start="2016-07-01", end="2017-01-01",
+                               subsample="10-5")
+    print(X.shape, Y.shape, df_other.shape)
     print(X.index.max(),X.index.min())
     print(Y.index.max(), Y.index.min())
-    print(other.index.max(), other.index.min())
+    print(df_other.index.max(), df_other.index.min())
+
+    # save_shuffle_info()
+
+
+
