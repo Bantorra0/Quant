@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 
 def sigmoid_linear_transform(x, a,b):
@@ -55,4 +56,30 @@ def smooth_l1_obj_generator(k):
     def smooth_l1_obj(y_true,y_pred):
         return smooth_l1(y_true,y_pred,k)
     return smooth_l1_obj
+
+
+def custom_revenue_obj(y_true,y_pred):
+    y_true = pd.Series(y_true)
+    r = y_true.copy(deep=True)
+    idx = y_true.index[y_true <= -10]
+    r.iloc[idx] = -10
+    idx = y_true.index[y_true > -10]
+    r.iloc[idx] = y_true.iloc[idx] * 0.7
+
+    sigmoid = 1/(1+np.exp(-y_pred))
+    grad = -r *sigmoid*(1-sigmoid)
+    hess = np.ones(shape=y_true.shape)
+    return grad,hess
+
+
+def get_revenue(y_true,y_pred):
+    y_true = pd.Series(y_true)
+    r = y_true.copy(deep=True)
+    idx = y_true.index[y_true<=-10]
+    r.iloc[idx] = -10
+    idx = y_true.index[y_true>-10]
+    r.iloc[idx] = y_true.iloc[idx] * 0.7
+
+    revenue = r /(1+np.exp(-y_pred))
+    return r,revenue,sum(revenue)
 

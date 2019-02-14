@@ -8,6 +8,7 @@ import db_operations as dbop
 import multiprocessing as mp
 import time
 import queue
+import datetime
 
 
 def _check_int(arg):
@@ -442,8 +443,8 @@ def FE_stock_d_mp(df_stock_d:pd.DataFrame, stock_pool=None, targets=None, start=
         if count_out%10==0 and count_out>0:
             print("Finish processing {0} stocks in {1:.2f}s.".format(count_out, time.time() - start_time))
 
-        # if count_in>10:
-        #     break
+        if count_in>=10:
+            break
 
     while not q_res.empty():
         res = q_res.get()
@@ -573,9 +574,19 @@ def prepare_data(cursor, targets=None, start=None, lowerbound=None, end=None,upp
         .merge(df_stock_basic, on="code",how="left")\
         .set_index(["date"])
 
+    df_all["list_days"] = -1
+    col_index = list(df_all.columns).index("list_days")
+    for i in range(len(df_all.index)):
+        date = datetime.datetime.strptime(df_all.index[i],"%Y-%m-%d")
+        row = df_all.iloc[i]
+        list_date = datetime.datetime.strptime(row["list_date"],"%Y%m%d")
+        delta = date - list_date
+        df_all.iloc[i,col_index] = delta.days
+
     cols_not_in_X += list(df_stock_basic.columns.difference(
         cols_category+["code"]))
     print(df_all.shape)
+    print(df_all[df_all["list_days"]<0][["code","list_date","list_days"]])
 
     return df_all[df_all.columns.difference(cols_not_in_X)], df_all[cols_not_in_X], cols_category, enc
 
