@@ -61,9 +61,9 @@ def smooth_l1_obj_generator(k):
 def custom_revenue_obj(y_true,y_pred):
     y_true = pd.Series(y_true)
     r = y_true.copy(deep=True)
-    idx = y_true.index[y_true <= -10]
-    r.iloc[idx] = -10
-    idx = y_true.index[y_true > -10]
+    idx = np.nonzero(y_true <= -0.1)
+    r.iloc[idx] = -0.1
+    idx = np.nonzero(y_true > -0.1)
     r.iloc[idx] = y_true.iloc[idx] * 0.7
 
     sigmoid = 1/(1+np.exp(-y_pred))
@@ -75,9 +75,9 @@ def custom_revenue_obj(y_true,y_pred):
 def get_revenue(y_true,y_pred):
     y_true = pd.Series(y_true)
     r = y_true.copy(deep=True)
-    idx = y_true.index[y_true<=-10]
-    r.iloc[idx] = -10
-    idx = y_true.index[y_true>-10]
+    idx = np.nonzero(y_true<=-0.1)
+    r.iloc[idx] = -0.1
+    idx = np.nonzero(y_true>-0.1)
     r.iloc[idx] = y_true.iloc[idx] * 0.7
 
     revenue = r /(1+np.exp(-y_pred))

@@ -419,9 +419,9 @@ if __name__ == '__main__':
     #
 
     X, Y, _ = IO_op.read_hdf5(start="2013-01-01",end="2018-01-01",
-                                     subsample="2-0")
+                                     subsample="10-0")
     print(X.info(memory_usage="deep"))
-    # del X["industry"]
+    del X["industry"]
     test_start = "2017-07-01"
     trading_dates = Y.index.unique().sort_values(ascending=True)
     train_dates = trading_dates[trading_dates<test_start][:-21]
@@ -439,25 +439,71 @@ if __name__ == '__main__':
     Y_test = Y_test[cond]
     print(X_train.shape,X_test.shape)
 
-    reg = lgbm.LGBMRegressor(n_estimators=50,num_leaves=32,max_depth=12,
-                             min_child_samples=30,random_state=0)
+    reg1 = lgbm.LGBMRegressor(n_estimators=50, num_leaves=32, max_depth=12,
+                              min_child_samples=30, random_state=0)
 
     train_start = time.time()
     cols_category = ["area", "industry", "market", "exchange", "is_hs"]
     # cols_category = ["area", "market", "exchange", "is_hs"]
-    reg.fit(X_train,Y_train[ycol],categorical_feature=cols_category)
+    reg1.fit(X_train, Y_train[ycol], categorical_feature=cols_category)
     print("Train time:", time.time() - train_start)
-    print(reg.score(X_test,Y_test[ycol]))
-    df_feature_importance = ml_model.get_feature_importance(reg,X_test.columns)
+    print(reg1.score(X_test, Y_test[ycol]))
+    df_feature_importance = ml_model.get_feature_importance(reg1, X_test.columns)
     pd.set_option("display.max_columns",10)
     pd.set_option("display.max_rows",256)
     print(df_feature_importance[df_feature_importance[
         "importance_raw"]>0].round({
-        "importance_percent":2}))
+        "importance_percent":2}).iloc[:10])
 
     ycol2 = "y_l_rise"
-    ml_model.pred_interval_summary(reg, X_test, Y_test[ycol])
-    ml_model.pred_interval_summary(reg, X_test, Y_test[ycol2])
+    ml_model.pred_interval_summary(reg1, X_test, Y_test[ycol])
+    ml_model.pred_interval_summary(reg1, X_test, Y_test[ycol2])
+
+    # Reg2, learn buy pct.
+    y_test = Y_test[ycol]
+    reg2 = lgbm.LGBMRegressor(n_estimators=200,num_leaves=32,max_depth=12,
+                             min_child_samples=30,random_state=0,
+                              objective=cus_obj.custom_revenue_obj)
+    t0 = time.time()
+    reg2.fit(X_train, Y_train[ycol], categorical_feature=cols_category)
+    print("Training time: {0}".format(time.time()-t0))
+
+    y_pred2 = reg2.predict(X_test)
+    sigmoid = pd.Series(1 / (1 + np.exp(-y_pred2)))
+    plt.figure()
+    plt.hist(sigmoid)
+    idx = sigmoid.index[sigmoid > 0.8]
+    result2 = pd.DataFrame()
+    result2["buy_pct"] = sigmoid
+    result2["min_max"] = Y_test[ycol].values
+    result2["increase"] = Y_test[ycol2].values
+    r, revenue, tot_revenue = cus_obj.get_revenue(Y_test[ycol], y_pred2)
+    result2["return_rate"] = r.values
+    result2["revenue"] = revenue.values
+    print(result2[result2["buy_pct"] > 0.8])
+
+    print(reg2)
+    print(tot_revenue, sum(r * 0.5))
+    for i in range(1, 10):
+        threshold = i * 0.1
+        print(">{0}:".format(threshold),
+              result2[result2["buy_pct"] > threshold]["revenue"].sum(),
+              sum(result2["buy_pct"] > threshold))
+
+    # Show reg1, learn y_l.
+    y_pred1 = reg1.predict(X_test)
+
+    result1 = pd.DataFrame()
+    result1["increase"] = Y_test[ycol]
+    result1["pred"] = y_pred1
+    result1["return_rate"] = r
+    for i in range(0, 11):
+        threshold = i * 0.05
+        print("\n>{0}:".format(threshold))
+        print(result1[result1["pred"] > threshold])
+        print(result1[result1["pred"] > threshold]["return_rate"].sum(), "\n")
+
+
     plt.show()
 
 

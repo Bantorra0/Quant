@@ -5,12 +5,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def custom_obj(y_true,y_pred):
+def custom_revenue_obj(y_true,y_pred):
     y_true = pd.Series(y_true)
     r = y_true.copy(deep=True)
-    idx = y_true.index[y_true <= -10]
-    r.iloc[idx] = -10
-    idx = y_true.index[y_true > -10]
+    idx = np.nonzero(y_true <= -0.1)
+    r.iloc[idx] = -0.1
+    idx = np.nonzero(y_true > -0.1)
     r.iloc[idx] = y_true.iloc[idx] * 0.7
 
     sigmoid = 1/(1+np.exp(-y_pred))
@@ -22,9 +22,9 @@ def custom_obj(y_true,y_pred):
 def get_revenue(y_true,y_pred):
     y_true = pd.Series(y_true)
     r = y_true.copy(deep=True)
-    idx = y_true.index[y_true<=-10]
-    r.iloc[idx] = -10
-    idx = y_true.index[y_true>-10]
+    idx = np.nonzero(y_true<=-0.1)
+    r.iloc[idx] = -0.1
+    idx = np.nonzero(y_true>-0.1)
     r.iloc[idx] = y_true.iloc[idx] * 0.7
 
     plt.figure()
@@ -60,7 +60,7 @@ if __name__ == '__main__':
     y3 = (1-y1) * np.random.normal(-10,10,size=n_samples)/4 + (1-y1) * np.random.normal(-5,20,size=n_samples)*0.75
     print("y3==0:",sum(y3==0))
 
-    t = y3 + y2
+    t = (y3 + y2)/100
 
     plt.figure()
     plt.hist(y0,bins=np.arange(-20,21)*0.5)
@@ -69,36 +69,58 @@ if __name__ == '__main__':
     plt.figure()
     plt.hist(y3)
     plt.figure()
-    plt.hist(t,bins=np.arange(-70,70,5))
+    plt.hist(t,bins=np.arange(-70,70,5)/100)
 
     split_point = int(n_samples*0.7)
     X_train,X_test = X[:split_point],X[split_point:]
     t_train,t_test = t[:split_point],t[split_point:]
     print(X_train.shape,X_test.shape)
-    print("feature count:",sum(y1[split_point:]))
+    print("feature count:",sum(y1),sum(y1[split_point:]))
 
-    reg = lgbm.LGBMRegressor(num_leaves=16,max_depth=6,n_estimators=700,min_child_samples=5,objective=custom_obj)
+    reg1 = lgbm.LGBMRegressor(num_leaves=16, max_depth=6, n_estimators=700,
+                              min_child_samples=5, objective=custom_revenue_obj)
+    reg1.fit(X_train, t_train)
 
-    reg.fit(X_train,t_train)
-
-    y_pred = reg.predict(X_test)
-    sigmoid = pd.Series(1/(1+np.exp(-y_pred)))
+    y_pred1 = reg1.predict(X_test)
+    sigmoid = pd.Series(1 / (1 + np.exp(-y_pred1)))
     plt.figure()
     plt.hist(sigmoid)
     idx = sigmoid.index[sigmoid>0.8]
-    result = pd.DataFrame()
-    result["buy_pct"] = sigmoid
-    result["increase"] = t_test
-    r,revenue,tot_revenue = get_revenue(t_test,y_pred)
-    result["return_rate"] = r
-    result["revenue"] = revenue
-    print(result[result["buy_pct"]>0.8])
+    result1 = pd.DataFrame()
+    result1["buy_pct"] = sigmoid
+    result1["increase"] = t_test
+    r,revenue,tot_revenue = get_revenue(t_test, y_pred1)
+    result1["return_rate"] = r
+    result1["revenue"] = revenue
+    print(result1[result1["buy_pct"] > 0.8])
 
-    print(reg)
-    print(tot_revenue,result[result["buy_pct"]>0.8]["revenue"].sum())
-    print(sum(r*0.5))
+    print(reg1)
+    print(tot_revenue,sum(r*0.5))
+    for i in range(1,10):
+        threshold = i*0.1
+        print(">{0}:".format(threshold), result1[result1["buy_pct"] > threshold][
+            "revenue"].sum(), sum(result1["buy_pct"] > threshold))
+
+    reg2 = lgbm.LGBMRegressor(num_leaves=16, max_depth=6, n_estimators=400,
+                              min_child_samples=5)
+    reg2.fit(X_train,t_train)
+    y_pred2 = reg2.predict(X_test)
+
+    result2 = pd.DataFrame()
+    result2["increase"] = t_test
+    result2["pred"] = y_pred2
+    result2["return_rate"] = r
+    for i in range(0,11):
+        threshold = i*0.05
+        print("\n>{0}:".format(threshold))
+        print(result2[result2["pred"]> threshold])
+        print(result2[result2["pred"] > threshold]["return_rate"].sum(),"\n")
+
     feature = derive_feature(X_test)
-    print(sum(np.where((feature>1.5),1,0)*result["return_rate"]),sum(np.where((feature>1.5),1,0)))
+    filtered_feature = np.where(((feature > 1.5) & (feature < 2)), 1, 0)
+    print(sum(np.where(((feature > 1.5)), 1, 0)*result1["return_rate"]),
+        sum(filtered_feature * result1["return_rate"]),
+        sum(filtered_feature))
 
     plt.show()
 
