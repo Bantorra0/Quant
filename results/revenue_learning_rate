@@ -1,0 +1,57 @@
+LGBMRegressor(boosting_type='gbdt', class_weight=None, colsample_bytree=1.0,
+       learning_rate=20, max_depth=6, min_child_samples=5,
+       min_child_weight=0.001, min_split_gain=0.0, n_estimators=400,
+       n_jobs=-1, num_leaves=16,
+       objective=<function custom_revenue_obj at 0x0000000002487730>,
+       random_state=None, reg_alpha=0.0, reg_lambda=0.0, silent=True,
+       subsample=1.0, subsample_for_bin=200000, subsample_freq=0)
+14.726180923710153 -27.288046786060757
+>0.1: 15.374978646967081 511
+>0.2: 15.240495903860518 443
+>0.30000000000000004: 15.379730999521831 400
+>0.4: 15.12669740406512 355
+>0.5: 15.34800720357256 327
+>0.6000000000000001: 15.302376191913579 294
+>0.7000000000000001: 14.674164157060256 256
+>0.8: 13.772433858681598 222
+>0.9: 12.608696057397243 184
+
+
+LGBMRegressor(boosting_type='gbdt', class_weight=None, colsample_bytree=1.0,
+       learning_rate=30, max_depth=6, min_child_samples=5,
+       min_child_weight=0.001, min_split_gain=0.0, n_estimators=400,
+       n_jobs=-1, num_leaves=16,
+       objective=<function custom_revenue_obj at 0x0000000002627730>,
+       random_state=None, reg_alpha=0.0, reg_lambda=0.0, silent=True,
+       subsample=1.0, subsample_for_bin=200000, subsample_freq=0)
+14.508694703432349 -27.288046786060757
+>0.1: 15.032114764618349 534
+>0.2: 15.01839166829466 443
+>0.30000000000000004: 15.019961962779124 398
+>0.4: 15.367141149093424 361
+>0.5: 14.632149673202036 333
+>0.6000000000000001: 14.457719600171707 301
+>0.7000000000000001: 13.523488518429032 268
+>0.8: 13.410665714072024 233
+>0.9: 11.424116568246792 186
+
+
+
+decay
+LGBMRegressor(boosting_type='gbdt', class_weight=None, colsample_bytree=1.0,
+       learning_rate=30, max_depth=6, min_child_samples=5,
+       min_child_weight=0.001, min_split_gain=0.0, n_estimators=400,
+       n_jobs=-1, num_leaves=16,
+       objective=<function custom_revenue_obj at 0x0000000002187730>,
+       random_state=None, reg_alpha=0.0, reg_lambda=0.0, silent=True,
+       subsample=1.0, subsample_for_bin=200000, subsample_freq=0)
+15.56861420556755 -27.288046786060757
+>0.1: 16.868492095188806 539
+>0.2: 16.90826830382604 454
+>0.30000000000000004: 16.741273204029447 401
+>0.4: 16.810226118345156 360
+>0.5: 16.605105956211464 324
+>0.6000000000000001: 16.881761645961056 297
+>0.7000000000000001: 16.04897803059999 264
+>0.8: 15.242762875272483 233
+>0.9: 12.695577552055576 187
