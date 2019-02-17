@@ -11,7 +11,7 @@ import customized_obj as cus_obj
 import io_operations as IO_op
 
 import xgboost.sklearn as xgb
-import lightgbm.sklearn as lgbm
+import lightgbm as lgbm
 import sklearn.preprocessing as preproc
 import sklearn.metrics as metrics
 import sklearn as sk
@@ -418,11 +418,11 @@ if __name__ == '__main__':
     # del df_other
     #
 
-    X, Y, _ = IO_op.read_hdf5(start="2013-01-01",end="2018-01-01",
-                                     subsample="10-0")
+    X, Y, _ = IO_op.read_hdf5(start="2013-01-01",end="2019-01-01",
+                                     subsample="5-0")
     print(X.info(memory_usage="deep"))
     del X["industry"]
-    test_start = "2017-07-01"
+    test_start = "2018-07-01"
     trading_dates = Y.index.unique().sort_values(ascending=True)
     train_dates = trading_dates[trading_dates<test_start][:-21]
     test_dates = trading_dates[trading_dates>=test_start][:-21]
@@ -443,8 +443,8 @@ if __name__ == '__main__':
                               min_child_samples=30, random_state=0)
 
     train_start = time.time()
-    cols_category = ["area", "industry", "market", "exchange", "is_hs"]
-    # cols_category = ["area", "market", "exchange", "is_hs"]
+    # cols_category = ["area", "industry", "market", "exchange", "is_hs"]
+    cols_category = ["area", "market", "exchange", "is_hs"]
     reg1.fit(X_train, Y_train[ycol], categorical_feature=cols_category)
     print("Train time:", time.time() - train_start)
     print(reg1.score(X_test, Y_test[ycol]))
@@ -458,14 +458,23 @@ if __name__ == '__main__':
     ycol2 = "y_l_rise"
     ml_model.pred_interval_summary(reg1, X_test, Y_test[ycol])
     ml_model.pred_interval_summary(reg1, X_test, Y_test[ycol2])
+    y_pred1 = reg1.predict(X_test)
 
     # Reg2, learn buy pct.
     y_test = Y_test[ycol]
-    reg2 = lgbm.LGBMRegressor(n_estimators=200,num_leaves=32,max_depth=12,
+    initial_learning_rate = 0.5
+    decay_learning_rate = lambda n: initial_learning_rate / (1 + n / 25)
+    f = lgbm.reset_parameter(learning_rate=decay_learning_rate)
+    reg2 = lgbm.LGBMRegressor(n_estimators=400,num_leaves=32,max_depth=8,
                              min_child_samples=30,random_state=0,
+                              learning_rate=initial_learning_rate,
                               objective=cus_obj.custom_revenue_obj)
     t0 = time.time()
-    reg2.fit(X_train, Y_train[ycol], categorical_feature=cols_category)
+    X_train["pred"] = reg1.predict(X_train)
+    X_test["pred"] = reg1.predict(X_test)
+    reg2.fit(X_train, Y_train[ycol], categorical_feature=cols_category,
+             callbacks=[f]
+             )
     print("Training time: {0}".format(time.time()-t0))
 
     y_pred2 = reg2.predict(X_test)
@@ -484,6 +493,10 @@ if __name__ == '__main__':
 
     print(reg2)
     print(tot_revenue, sum(r * 0.5))
+    y_train_pred2 = reg2.predict(X_train)
+    r_train,revenue_train,tot_revenue_train = cus_obj.get_revenue(Y_train[
+                                                                      ycol],y_train_pred2)
+    print("train:", tot_revenue_train, sum(r_train*0.5))
     for i in range(1, 10):
         threshold = i * 0.1
         print(">{0}:".format(threshold),
@@ -491,18 +504,20 @@ if __name__ == '__main__':
               sum(result2["buy_pct"] > threshold))
 
     # Show reg1, learn y_l.
-    y_pred1 = reg1.predict(X_test)
-
     result1 = pd.DataFrame()
-    result1["increase"] = Y_test[ycol]
     result1["pred"] = y_pred1
-    result1["return_rate"] = r
+    result1["increase"] = Y_test[ycol].values
+    result1["return_rate"] = r.values
     for i in range(0, 11):
         threshold = i * 0.05
         print("\n>{0}:".format(threshold))
-        print(result1[result1["pred"] > threshold])
-        print(result1[result1["pred"] > threshold]["return_rate"].sum(), "\n")
+        # print(result1[result1["pred"] > threshold])
+        print(result1[result1["pred"] > threshold]["return_rate"].sum(),sum(result1["pred"] > threshold))
+        cond1 = (result1["pred"] > threshold) & (result2["buy_pct"]>0.8)
+        print(result1[cond1]["return_rate"].sum(),sum(cond1))
 
+        cond2 = (result1["pred"] > threshold) & (result2["buy_pct"] > 0.9)
+        print(result1[cond2]["return_rate"].sum(), sum(cond2))
 
     plt.show()
 

@@ -19,6 +19,27 @@ def custom_revenue_obj(y_true,y_pred):
     return grad,hess
 
 
+def custom_revenue_obj2(y_true,y_pred):
+    y_true = pd.Series(y_true)
+    r = y_true.copy(deep=True)
+    idx = np.nonzero(y_true <= -0.1)
+    r.iloc[idx] = -0.1
+    idx = np.nonzero(y_true > -0.1)
+    r.iloc[idx] = y_true.iloc[idx] * 0.7
+
+    y_pred = pd.Series(y_pred)
+    y_pred[y_pred>1]=1
+    y_pred[y_pred<0]=0
+
+    sign = r.copy()
+    sign[sign>0]=1
+    sign[sign<0]=0
+
+    grad = -r *np.abs(sign-y_pred)
+    hess = np.ones(shape=y_true.shape)
+    return grad,hess
+
+
 def get_revenue(y_true,y_pred):
     y_true = pd.Series(y_true)
     r = y_true.copy(deep=True)
@@ -31,6 +52,29 @@ def get_revenue(y_true,y_pred):
     plt.hist(r)
 
     revenue = r /(1+np.exp(-y_pred))
+    return r,revenue,sum(revenue)
+
+
+def get_revenue2(y_true,y_pred):
+    y_true = pd.Series(y_true)
+    r = y_true.copy(deep=True)
+    idx = np.nonzero(y_true<=-0.1)
+    r.iloc[idx] = -0.1
+    idx = np.nonzero(y_true>-0.1)
+    r.iloc[idx] = y_true.iloc[idx] * 0.7
+
+    plt.figure()
+    plt.hist(r)
+
+    y_pred = pd.Series(y_pred)
+    y_pred[y_pred > 1] = 1
+    y_pred[y_pred < 0] = 0
+
+    # sign = r.copy()
+    # sign[sign > 0] = 1
+    # sign[sign < 0] = 0
+
+    revenue = r * y_pred
     return r,revenue,sum(revenue)
 
 
@@ -85,8 +129,8 @@ if __name__ == '__main__':
     print(X_train.shape,X_test.shape)
     print("feature count:",sum(y1),sum(y1[split_point:]))
 
-    initial_learning_rate = 30
-    reg1 = lgbm.LGBMRegressor(num_leaves=16, max_depth=6, n_estimators=400,
+    initial_learning_rate = 15
+    reg1 = lgbm.LGBMRegressor(num_leaves=16, max_depth=6, n_estimators=800,
                               min_child_samples=5, objective=custom_revenue_obj,learning_rate=initial_learning_rate)
     decay_learning_rate = lambda n:initial_learning_rate/(1+n/50)
     f = lgbm.reset_parameter(learning_rate=decay_learning_rate)
@@ -106,7 +150,6 @@ if __name__ == '__main__':
     result1["revenue"] = revenue
     print(result1[result1["buy_pct"] > 0.8])
 
-
     print(reg1)
     print(tot_revenue,sum(r*0.5))
     for i in range(1,10):
@@ -114,6 +157,39 @@ if __name__ == '__main__':
         print(">{0}:".format(threshold), result1[result1["buy_pct"] > threshold][
             "revenue"].sum(), sum(result1["buy_pct"] > threshold))
 
+
+    # Try revenue obj2
+    reg3 = lgbm.LGBMRegressor(num_leaves=16, max_depth=6, n_estimators=400,
+                              min_child_samples=5,
+                              objective=custom_revenue_obj2,learning_rate=2)
+    decay_learning_rate = lambda n: initial_learning_rate / (1 + n / 50)
+    # f = lgbm.reset_parameter(learning_rate=decay_learning_rate)
+    # reg3.fit(X_train, t_train,callbacks=[f])
+    reg3.fit(X_train, t_train)
+    y_pred3 = reg3.predict(X_test)
+
+    plt.figure()
+    plt.hist(y_pred3)
+    plt.title("y_pred3")
+    result3 = pd.DataFrame()
+    result3["buy_pct"] = y_pred3
+    result3["increase"] = t_test
+    r, revenue, tot_revenue = get_revenue2(t_test, y_pred3)
+    result3["return_rate"] = r
+    result3["revenue"] = revenue
+
+    print("\n"+"-"*10+"\nPredict buy_pct using revenue_obj2:")
+    print(result3[result3["buy_pct"] > 0.8])
+    print(reg3)
+    print(tot_revenue, sum(r * 0.5))
+    for i in range(1, 10):
+        threshold = i * 0.1
+        print(">{0}:".format(threshold),
+              result3[result3["buy_pct"] > threshold]["revenue"].sum(),
+              sum(result3["buy_pct"] > threshold))
+
+
+    # Try normal reg.
     reg2 = lgbm.LGBMRegressor(num_leaves=16, max_depth=6, n_estimators=400,
                               min_child_samples=5)
     reg2.fit(X_train,t_train)
@@ -135,6 +211,9 @@ if __name__ == '__main__':
     print(sum(np.where(((feature > 1.5)), 1, 0)*result1["return_rate"]),
         sum(filtered_feature * result1["return_rate"]),
         sum(filtered_feature))
+
+
+
 
     plt.show()
 
