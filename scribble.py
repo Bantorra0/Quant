@@ -1,25 +1,13 @@
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
+import time
 
-import constants as const
-import db_operations as dbop
-import data_prepare as dp
-import io_operations
-import ml_model
+import lightgbm as lgbm
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+
 import customized_obj as cus_obj
 import io_operations as IO_op
-
-import xgboost.sklearn as xgb
-import lightgbm as lgbm
-import sklearn.preprocessing as preproc
-import sklearn.metrics as metrics
-import sklearn as sk
-
-import datetime
-import time
-import multiprocessing as mp
-import pickle
+import ml_model
 
 # # figs, ax = plt.subplots()
 # # x = np.arange(100)
@@ -154,11 +142,11 @@ import pickle
 if __name__ == '__main__':
     # db_type = "sqlite3"
     #
-    # targets = [{"period": 20, "fun": "max", "col": "high"},
-    #            {"period": 20, "fun": "min", "col": "low"},
-    #            {"period": 5, "fun": "max", "col": "high"},
-    #            {"period": 5, "fun": "min", "col": "low"},
-    #            # {"period": 20, "fun": "mean", "col": ""}
+    # targets = [{"period": 20, "func": "max", "col": "high"},
+    #            {"period": 20, "func": "min", "col": "low"},
+    #            {"period": 5, "func": "max", "col": "high"},
+    #            {"period": 5, "func": "min", "col": "low"},
+    #            # {"period": 20, "func": "mean", "col": ""}
     #            ]
     #
     # # time_delta = datetime.timedelta(days=1)
@@ -418,10 +406,11 @@ if __name__ == '__main__':
     # del df_other
     #
 
-    X, Y, _ = IO_op.read_hdf5(start="2013-01-01",end="2019-01-01",
-                                     subsample="5-0")
+    X, Y, _ = IO_op.read_hdf5(start="2016-01-01",end="2019-01-01",
+                                     subsample="100-0")
     print(X.info(memory_usage="deep"))
     del X["industry"]
+    cols_category = ["area", "market", "exchange", "is_hs"]
     test_start = "2018-07-01"
     trading_dates = Y.index.unique().sort_values(ascending=True)
     train_dates = trading_dates[trading_dates<test_start][:-21]
@@ -439,85 +428,92 @@ if __name__ == '__main__':
     Y_test = Y_test[cond]
     print(X_train.shape,X_test.shape)
 
-    reg1 = lgbm.LGBMRegressor(n_estimators=50, num_leaves=32, max_depth=12,
-                              min_child_samples=30, random_state=0)
+    # reg1 = lgbm.LGBMRegressor(n_estimators=50, num_leaves=32, max_depth=12,
+    #                           min_child_samples=30, random_state=0)
+    #
+    # train_start = time.time()
+    # # cols_category = ["area", "industry", "market", "exchange", "is_hs"]
+    # reg1.fit(X_train, Y_train[ycol], categorical_feature=cols_category)
+    # print("Train time:", time.time() - train_start)
+    # print(reg1.score(X_test, Y_test[ycol]))
+    # df_feature_importance = ml_model.get_feature_importance(reg1, X_test.columns)
+    # pd.set_option("display.max_columns",10)
+    # pd.set_option("display.max_rows",256)
+    # print(df_feature_importance[df_feature_importance[
+    #     "importance_raw"]>0].round({
+    #     "importance_percent":2}).iloc[:10])
+    #
+    # ycol2 = "y_l_rise"
+    # ml_model.pred_interval_summary(reg1, X_test, Y_test[ycol])
+    # ml_model.pred_interval_summary(reg1, X_test, Y_test[ycol2])
+    # y_pred1 = reg1.predict(X_test)
 
-    train_start = time.time()
-    # cols_category = ["area", "industry", "market", "exchange", "is_hs"]
-    cols_category = ["area", "market", "exchange", "is_hs"]
-    reg1.fit(X_train, Y_train[ycol], categorical_feature=cols_category)
-    print("Train time:", time.time() - train_start)
-    print(reg1.score(X_test, Y_test[ycol]))
-    df_feature_importance = ml_model.get_feature_importance(reg1, X_test.columns)
-    pd.set_option("display.max_columns",10)
-    pd.set_option("display.max_rows",256)
-    print(df_feature_importance[df_feature_importance[
-        "importance_raw"]>0].round({
-        "importance_percent":2}).iloc[:10])
-
-    ycol2 = "y_l_rise"
-    ml_model.pred_interval_summary(reg1, X_test, Y_test[ycol])
-    ml_model.pred_interval_summary(reg1, X_test, Y_test[ycol2])
-    y_pred1 = reg1.predict(X_test)
 
     # Reg2, learn buy pct.
     y_test = Y_test[ycol]
     initial_learning_rate = 0.5
     decay_learning_rate = lambda n: initial_learning_rate / (1 + n / 25)
     f = lgbm.reset_parameter(learning_rate=decay_learning_rate)
-    reg2 = lgbm.LGBMRegressor(n_estimators=400,num_leaves=32,max_depth=8,
+    reg2 = lgbm.LGBMRegressor(n_estimators=10,num_leaves=32,max_depth=8,
                              min_child_samples=30,random_state=0,
                               learning_rate=initial_learning_rate,
                               objective=cus_obj.custom_revenue_obj)
     t0 = time.time()
-    X_train["pred"] = reg1.predict(X_train)
-    X_test["pred"] = reg1.predict(X_test)
     reg2.fit(X_train, Y_train[ycol], categorical_feature=cols_category,
              callbacks=[f]
              )
     print("Training time: {0}".format(time.time()-t0))
+    paras2 = {"target":"y_l",
+              "output": "sigmoid_buy_pct",
+              "reg_info": "custom_revenue_obj2, y_l",
+              "intervals":
+                  list(zip(np.arange(10) * 0.1, np.arange(1, 11) * 0.1))}
+    ml_model.assess_by_revenue(reg2,X_test,Y_test,cus_obj.custom_revenue,
+                               paras2)
 
-    y_pred2 = reg2.predict(X_test)
-    sigmoid = pd.Series(1 / (1 + np.exp(-y_pred2)))
-    plt.figure()
-    plt.hist(sigmoid)
-    idx = sigmoid.index[sigmoid > 0.8]
-    result2 = pd.DataFrame()
-    result2["buy_pct"] = sigmoid
-    result2["min_max"] = Y_test[ycol].values
-    result2["increase"] = Y_test[ycol2].values
-    r, revenue, tot_revenue = cus_obj.get_revenue(Y_test[ycol], y_pred2)
-    result2["return_rate"] = r.values
-    result2["revenue"] = revenue.values
-    print(result2[result2["buy_pct"] > 0.8])
+    # y_pred2 = reg2.predict(X_test)
+    # sigmoid = pd.Series(1 / (1 + np.exp(-y_pred2)))
+    # plt.figure()
+    # plt.hist(sigmoid)
+    # idx = sigmoid.index[sigmoid > 0.8]
+    # result2 = pd.DataFrame()
+    # result2["buy_pct"] = sigmoid
+    # result2["min_max"] = Y_test[ycol].values
+    # result2["increase"] = Y_test[ycol2].values
+    # r, revenue, tot_revenue = cus_obj.custom_revenue(Y_test[ycol], y_pred2)
+    # result2["return_rate"] = r.values
+    # result2["revenue"] = revenue.values
+    # print(result2[result2["buy_pct"] > 0.8])
+    #
+    # print(reg2)
+    # print(tot_revenue, sum(r * 0.5))
+    # y_train_pred2 = reg2.predict(X_train)
+    # r_train,revenue_train,tot_revenue_train = cus_obj.custom_revenue(Y_train[ycol], y_train_pred2)
+    # print("train:", tot_revenue_train, sum(r_train*0.5))
+    # for i in range(1, 10):
+    #     threshold = i * 0.1
+    #     print(">{0}:".format(threshold),
+    #           result2[result2["buy_pct"] > threshold]["revenue"].sum(),
+    #           sum(result2["buy_pct"] > threshold))
 
-    print(reg2)
-    print(tot_revenue, sum(r * 0.5))
-    y_train_pred2 = reg2.predict(X_train)
-    r_train,revenue_train,tot_revenue_train = cus_obj.get_revenue(Y_train[
-                                                                      ycol],y_train_pred2)
-    print("train:", tot_revenue_train, sum(r_train*0.5))
-    for i in range(1, 10):
-        threshold = i * 0.1
-        print(">{0}:".format(threshold),
-              result2[result2["buy_pct"] > threshold]["revenue"].sum(),
-              sum(result2["buy_pct"] > threshold))
 
-    # Show reg1, learn y_l.
-    result1 = pd.DataFrame()
-    result1["pred"] = y_pred1
-    result1["increase"] = Y_test[ycol].values
-    result1["return_rate"] = r.values
-    for i in range(0, 11):
-        threshold = i * 0.05
-        print("\n>{0}:".format(threshold))
-        # print(result1[result1["pred"] > threshold])
-        print(result1[result1["pred"] > threshold]["return_rate"].sum(),sum(result1["pred"] > threshold))
-        cond1 = (result1["pred"] > threshold) & (result2["buy_pct"]>0.8)
-        print(result1[cond1]["return_rate"].sum(),sum(cond1))
 
-        cond2 = (result1["pred"] > threshold) & (result2["buy_pct"] > 0.9)
-        print(result1[cond2]["return_rate"].sum(), sum(cond2))
+
+    # # Show reg1, learn y_l.
+    # result1 = pd.DataFrame()
+    # result1["pred"] = y_pred1
+    # result1["increase"] = Y_test[ycol].values
+    # result1["return_rate"] = r.values
+    # for i in range(0, 11):
+    #     threshold = i * 0.05
+    #     print("\n>{0}:".format(threshold))
+    #     # print(result1[result1["pred"] > threshold])
+    #     print(result1[result1["pred"] > threshold]["return_rate"].sum(),sum(result1["pred"] > threshold))
+    #     cond1 = (result1["pred"] > threshold) & (result2["buy_pct"]>0.8)
+    #     print(result1[cond1]["return_rate"].sum(),sum(cond1))
+    #
+    #     cond2 = (result1["pred"] > threshold) & (result2["buy_pct"] > 0.9)
+    #     print(result1[cond2]["return_rate"].sum(), sum(cond2))
 
     plt.show()
 

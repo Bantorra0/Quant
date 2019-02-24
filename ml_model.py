@@ -2,6 +2,7 @@ import os
 import pickle
 import re
 import time
+import copy
 
 import lightgbm.sklearn as lgbm
 import numpy as np
@@ -11,9 +12,10 @@ import xgboost.sklearn as xgb
 from matplotlib import pyplot as plt
 
 import db_operations as dbop
-from data_prepare import prepare_data, feature_select
-
 from constants import MODEL_DIR
+from data_prepare import prepare_data, feature_select
+import customized_obj as cus_obj
+import io_operations as IO_op
 
 
 def gen_data(targets=None, start="2014-01-01", lowerbound="2011-01-01", end=None, upperbound=None,
@@ -52,8 +54,9 @@ def y_distribution(y,plot=False):
 
 
 def gen_y(df_all: pd.DataFrame, pred_period=10, threshold=0.1, is_high=True,
-          is_clf=False):
-    target_col = get_target_col(pred_period, is_high)
+          is_clf=False, target_col = None):
+    if target_col is None:
+        target_col = get_target_col(pred_period, is_high)
     y = df_all[target_col] / df_all["f1mv_open"] - 1
 
     y_distribution(y)
@@ -291,8 +294,10 @@ def load_test(pred_period = 20,is_high = True, is_clf=False):
     plt.show()
 
 
-def pred_interval_summary(reg, X_test, ss_eval:pd.Series, interval=0.05):
-    y_test_pred = reg.predict(X_test)
+def pred_interval_summary(reg, X_test, ss_eval:pd.Series, interval=0.05,
+                          y_test_pred=None):
+    if y_test_pred is None:
+        y_test_pred = reg.predict(X_test)
 
     n = int(1 / interval)
     x0 = np.arange(n + 1) * interval
@@ -329,6 +334,57 @@ def pred_interval_summary(reg, X_test, ss_eval:pd.Series, interval=0.05):
     return df
 
 
+def assess_by_revenue(Y_test, f_revenue, paras: dict, y_pred=None,reg=None,
+                      X_test=None):
+
+    result = pd.DataFrame()
+    if y_pred is None and reg is not None and X_test is not None:
+        y_pred = reg.predict(X_test)
+    elif y_pred is None:
+        raise ValueError("Cannot obtain y_pred, args missing!")
+
+    result["y_pred"] = y_pred
+    y_test = Y_test[paras["target"]].values
+    result[paras["target"]] = y_test
+    output, r, revenue, tot_revenue = f_revenue(y_test,y_pred)
+    result[paras["output"]] = output
+    result["return_rate"] = r.values
+    result["revenue"] = revenue.values
+    for col in Y_test.columns:
+        result[col] = Y_test[col].values
+
+    plt.figure()
+    plt.hist(output)
+
+    print("\n"+"-"*10+paras["reg_info"]+"-"*10)
+    if reg is not None:
+        print(reg)
+    print("Model total revenue:",tot_revenue)
+    print("Random total revenue",sum(r * 0.5))
+    df = pd.DataFrame(
+        columns=["revenue_sum","revenue_mean","revenue_median","revenue_max",
+                 "revenue_min","revenue_std","count"])
+    df.index.name = "{0}".format(paras["output"])
+    for left,right in paras["intervals"]:
+        cond = (result[paras["output"]] >= left) \
+               & (result[paras["output"]] < right)
+        df.loc["[{0:.2f}-{1:.2f}]:".format(left,right)]=\
+            {"revenue_sum": result[cond]["revenue"].sum(),
+             "revenue_mean": result[cond]["revenue"].mean(),
+             "revenue_median": result[cond]["revenue"].median(),
+             "revenue_max": result[cond]["revenue"].max(),
+             "revenue_min": result[cond]["revenue"].min(),
+             "revenue_std": result[cond]["revenue"].std(),
+             "count": result[cond]["revenue"].count(),
+        }
+    df = df.astype({"count": int})
+    pd.set_option("display.max_columns", 10)
+    # pd.set_option("display.max_colwidth",500)
+    print(df.round({col: 3 for col in df.columns if col[:4] == "eval"}))
+
+    return df
+
+
 def get_feature_importance(reg, features:list):
     feature_importance = [[features[i],importance] for i, importance in enumerate(reg.feature_importances_)]
     df = pd.DataFrame(feature_importance,columns=["feature","importance_raw"])
@@ -337,9 +393,245 @@ def get_feature_importance(reg, features:list):
     return df.sort_values("importance_raw",ascending=False)
 
 
+class RegressorNetwork:
+    def __init__(self):
+        self.layers = []
+        self.is_trained = False
+
+    def insert_layer(self,layer:list):
+        self.layers.append(layer)
+        self.is_trained = False
+
+    def insert_multiple_layers(self,layers):
+        """
+        Insert multiple layers into the network.
+
+        :param layers: [{"name":(reg,paras)}]
+        :return:
+        """
+        self.layers.extend(layers)
+        self.is_trained = False
+
+    def insert_reg(self,reg,paras,i):
+        self.layers[i][paras["name"]] = (reg,paras)
+        self.is_trained = False
+
+    def get_num_layers(self):
+        return len(self.layers)
+
+    def remove_layer(self,i):
+        self.layers.remove(self.layers[i])
+        self.is_trained = False
+
+    def remove_reg(self,i,name):
+        del self.layers[i][name]
+        self.is_trained = False
+
+
+    def gen_new_features(self,reg,X,reg_prefix,reg_paras):
+        new_features = pd.DataFrame(index=X.index)
+
+        y_pred = reg.predict(X)
+        new_features[reg_prefix + "_pred"] = y_pred
+
+        output, _, _, tot_revenue = reg_paras["f_revenue"](y, y_pred)
+        new_features[reg_prefix + "_output"] = output
+        print("Training tot revenue: {0}".format(tot_revenue))
+
+        leaves = pd.DataFrame(reg.predict(X, pred_leaf=True),index=X.index)
+        leaf_columns = [reg_prefix + "_tree{}_leaf".format(i) for i in
+                        range(leaves.shape[1])]
+        leaves.columns = leaf_columns
+        new_features = pd.concat([new_features,leaves],axis=1)
+        categorical_features = leaf_columns
+        return new_features,categorical_features
+
+
+    def fit_layer(self, i, X, y, **paras):
+        print("\n"+"-"*10+"Train layer {0:d}".format(i)+"-"*10)
+        new_features = pd.DataFrame(index=X.index)
+        paras_next_layer = copy.deepcopy(paras)
+        layer_prefix = "layer{0}".format(i)
+        train_slice = slice(*paras["train_indexes"])
+        print(train_slice)
+
+        for reg_name,(reg,reg_paras) in self.layers[i].items():
+            reg_prefix = layer_prefix + "_" + reg_name
+
+            print("\nTrain "+reg_name)
+            t0 = time.time()
+            reg.fit(X.iloc[train_slice],y.iloc[train_slice],**paras["fit"])
+            print("Time usage: {0:.2f}s".format(time.time()-t0))
+            print(reg)
+
+            df_feature_importance = get_feature_importance(reg, X.columns)
+            print(df_feature_importance[
+                      df_feature_importance["importance_raw"] > 0].round(
+                {"importance_percent": 2}).iloc[:20])
+
+            if paras["is_predict"]==True:
+
+                y_pred = reg.predict(X)
+                new_features[reg_prefix+"_pred"] = y_pred
+
+                output,_,_,tot_revenue = reg_paras["f_revenue"](y,
+                                                                y_pred)
+                new_features[reg_prefix + "_output"] = output
+                print("Training tot revenue: {0}".format(tot_revenue))
+
+                leaves = reg.predict(X, pred_leaf=True)
+                trees = leaves.shape[1]
+                for i in range(trees):
+                    col = reg_prefix + "_tree{}_leaf".format(i)
+                    new_features[col]=leaves[:, i]
+                    paras_next_layer["fit"]["categorical_feature"].append(col)
+        X_next_layer = pd.concat([X,new_features],axis=1)
+
+        return X_next_layer,y,paras_next_layer
+
+
+    def fit(self, X, y, **paras):
+        print("\n" + "-" * 20 + "Train network" + "-" * 20)
+        num_layers = self.get_num_layers()
+        n = len(X)
+        sample_size = n//num_layers
+        split_points = list(range(0,num_layers*sample_size,sample_size))+[None]
+
+        for i in range(num_layers):
+            print("\n",X.shape,y.shape,paras)
+            paras["train_indexes"] = (split_points[i],split_points[i+1])
+            if i<num_layers-1:
+                paras["is_predict"] = True
+            else:
+                paras["is_predict"] = False
+            # print(paras)
+            X,y,paras = self.fit_layer(i, X, y, **paras)
+
+        self.is_trained = True
+
+
+    def predict_layer(self,i,X,y=None, is_output_layer=False,**paras):
+        print("\n" + "-" * 10 + "Layer {0:d} predicts".format(i) + "-" * 10)
+        new_features = pd.DataFrame(index=X.index)
+        paras_next_layer  = copy.deepcopy(paras)
+        layer_prefix = "layer{0}".format(i)
+        result = pd.DataFrame(index=X.index)
+        for reg_name, (reg, reg_paras) in self.layers[i].items():
+            reg_prefix = layer_prefix + "_" + reg_name
+
+            y_pred = reg.predict(X,**paras)
+            result[reg_prefix + "_pred"] = y_pred
+
+            if y is None:
+                output, _, _, tot_revenue = reg_paras["f_revenue"](y_pred, y_pred)
+            else:
+                output, _, _, tot_revenue = reg_paras["f_revenue"](y, y_pred)
+                print(layer_prefix,reg_name,"tot_revenue:",tot_revenue)
+
+            result[reg_prefix + "_output"] = output
+            if not is_output_layer:
+                leaves = reg.predict(X, pred_leaf=True)
+                trees = leaves.shape[1]
+                for i in range(trees):
+                    col = reg_prefix + "_tree{}_leaf".format(i)
+                    new_features[col] = leaves[:, i]
+
+        print(new_features.shape, result.shape)
+        X_next_layer = pd.concat([X,new_features,result],axis=1)
+        return X_next_layer,paras_next_layer,y,result
+
+
+    def predict(self,X,**paras):
+        if not self.is_trained:
+            raise ValueError("Network need to be trained first.")
+        print("\n" + "-" * 20 + "Predict" + "-" * 20)
+        result = None
+        for i in range(len(self.layers)):
+            X,paras,y,result = self.predict_layer(i,X,**paras)
+        return result
+
+
 if __name__ == '__main__':
     # train_save(pred_period=5, is_high=True, is_clf=False)
     # train_save(pred_period=5, is_high=False, is_clf=False)
 
     # load_test(pred_period=5, is_high=False, is_clf=False)
-    load_test(pred_period=5, is_high=True, is_clf=False)
+    # load_test(pred_period=5, is_high=True, is_clf=False)
+
+    pd.set_option("display.max_columns", 10)
+    pd.set_option("display.max_rows", 256)
+    X, Y, _ = IO_op.read_hdf5(start="2013-01-01", end="2019-01-01",
+                              subsample="3-0")
+    print(X.info(memory_usage="deep"))
+    del X["industry"]
+    cols_category = ["area", "market", "exchange", "is_hs"]
+    test_start = "2018-07-01"
+    trading_dates = Y.index.unique().sort_values(ascending=True)
+    train_dates = trading_dates[trading_dates < test_start][:-21]
+    test_dates = trading_dates[trading_dates >= test_start][:-21]
+
+    X_train = X.loc[train_dates]
+    Y_train = Y.loc[train_dates]
+    X_test = X.loc[test_dates]
+    Y_test = Y.loc[test_dates]
+    del X, Y
+
+    ycol = "y_l"
+    cond = Y_test[ycol].notnull()
+    X_test = X_test[cond]
+    Y_test = Y_test[cond]
+    print(X_train.shape, X_test.shape)
+
+    lgbm_reg_net = RegressorNetwork()
+    layers = [
+        {"custom_revenue_y_l":
+            (lgbm.LGBMRegressor(n_estimators=10,learning_rate=2,
+                                num_leaves=15,max_depth=8,
+                                objective=cus_obj.custom_revenue_obj,
+                                min_child_samples=30,
+                                random_state=0,),
+             {"f_revenue":cus_obj.custom_revenue}),
+         "custom_revenue2_y_l": (
+             lgbm.LGBMRegressor(n_estimators=10, learning_rate=2,
+                                num_leaves=15,max_depth=8,
+                                objective=cus_obj.custom_revenue_obj2,
+                                min_child_samples=30,
+                                random_state=0,),
+             {"f_revenue": cus_obj.custom_revenue2}),
+         "l2_y_l":
+             (lgbm.LGBMRegressor(n_estimators=25, num_leaves=15, max_depth=8,
+                                 min_child_samples=40,
+                                 learning_rate= 0.2,
+                                 random_state=0,),
+              {"f_revenue": cus_obj.l2_revenue}),
+         },
+
+        {"l2_y_l":
+             (lgbm.LGBMRegressor(n_estimators=50, num_leaves=31, max_depth=12,
+                                 min_child_samples=30,
+                                 random_state=0),
+              {"f_revenue": cus_obj.l2_revenue})
+         }
+    ]
+
+    lgbm_reg_net.insert_multiple_layers(layers)
+
+    paras = {"fit":{"categorical_feature":cols_category}}
+    lgbm_reg_net.fit(X_train, Y_train[ycol], **paras)
+    result = lgbm_reg_net.predict(X_test)
+    start_idx, end_idx = -6,6
+    assess_paras = {"target":"y_l",
+              "output": "y_l_pred",
+              "reg_info": "l2, y_l",
+              "intervals":
+                  list(zip(np.arange(start_idx,end_idx) * 0.1, np.arange(
+                      start_idx+1, end_idx+1) * 0.1))}
+    col = "layer{0:d}_l2_y_l_pred".format(len(lgbm_reg_net.layers)-1)
+    assess_by_revenue(y_pred=result[col], Y_test=Y_test,
+                      f_revenue=cus_obj.l2_revenue, paras=assess_paras)
+
+    pred_interval_summary(lgbm_reg_net,X_test,Y_test[
+        "y_l_rise"],y_test_pred=result[col])
+    pred_interval_summary(lgbm_reg_net, X_test, Y_test["y_l"],y_test_pred=result[col])
+
+    plt.show()

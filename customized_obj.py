@@ -58,13 +58,18 @@ def smooth_l1_obj_generator(k):
     return smooth_l1_obj
 
 
-def custom_revenue_obj(y_true,y_pred):
-    y_true = pd.Series(y_true)
+def get_return_rate(y_true):
     r = y_true.copy(deep=True)
     idx = np.nonzero(y_true <= -0.1)
     r.iloc[idx] = -0.1
     idx = np.nonzero(y_true > -0.1)
     r.iloc[idx] = y_true.iloc[idx] * 0.7
+    return np.array(r)
+
+
+def custom_revenue_obj(y_true,y_pred):
+    y_true = pd.Series(y_true)
+    r = get_return_rate(y_true)
 
     sigmoid = 1/(1+np.exp(-y_pred))
     grad = -r *sigmoid*(1-sigmoid)
@@ -72,14 +77,48 @@ def custom_revenue_obj(y_true,y_pred):
     return grad,hess
 
 
-def get_revenue(y_true,y_pred):
+def custom_revenue(y_true, y_pred):
+    y_true = pd.Series(y_true)
+    r = get_return_rate(y_true)
+    sigmoid = 1 /(1+np.exp(-y_pred))
+
+    revenue = r * sigmoid
+    return sigmoid,r,revenue,sum(revenue)
+
+
+def custom_revenue_obj2(y_true,y_pred):
+    y_true = pd.Series(y_true)
+    r = get_return_rate(y_true)
+
+    y_pred = pd.Series(y_pred)
+    y_pred[y_pred>1]=1
+    y_pred[y_pred<0]=0
+
+    sign = r.copy()
+    sign[sign>0]=1
+    sign[sign<0]=0
+
+    grad = -r *np.abs(sign-y_pred)
+    hess = np.ones(shape=y_true.shape)
+    return grad,hess
+
+
+def custom_revenue2(y_true, y_pred):
+    y_true = pd.Series(y_true)
+    r = get_return_rate(y_true)
+
+    y_pred = pd.Series(y_pred)
+    y_pred[y_pred > 1] = 1
+    y_pred[y_pred < 0] = 0
+
+    revenue = r * y_pred
+    return y_pred,r,revenue,sum(revenue)
+
+
+def l2_revenue(y_true,y_pred):
     y_true = pd.Series(y_true)
     r = y_true.copy(deep=True)
-    idx = np.nonzero(y_true<=-0.1)
-    r.iloc[idx] = -0.1
-    idx = np.nonzero(y_true>-0.1)
-    r.iloc[idx] = y_true.iloc[idx] * 0.7
 
-    revenue = r /(1+np.exp(-y_pred))
-    return r,revenue,sum(revenue)
+    return y_pred,r,r,sum(r)
+
 

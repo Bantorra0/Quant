@@ -355,29 +355,33 @@ def get_latest_version(base_dir=r"datasets",
 
 
 if __name__ == '__main__':
-    # targets = [{"period": 20, "fun": "max", "col": "high"},
-    #            {"period": 20, "fun": "min", "col": "low"},
-    #            {"period": 5, "fun": "max", "col": "high"},
-    #            {"period": 5, "fun": "min", "col": "low"},
-    #            # {"period": 20, "fun": "mean", "col": ""}
-    #            ]
-    # paras = [("y_l_rise",
-    #           {"pred_period": 20, "is_high": True, "is_clf": False,
-    #            "threshold": 0.2}),
-    #          ("y_l_decline",
-    #           {"pred_period": 20, "is_high": False, "is_clf": False,
-    #            "threshold": 0.2}),
-    #          ("y_s_rise",
-    #           {"pred_period": 5, "is_high": True,"is_clf": False,
-    #            "threshold": 0.1}),
-    #          ("y_s_decline",
-    #           {"pred_period": 5,"is_high": False,"is_clf": False,
-    #            "threshold": 0.1}), ]
-    #
-    # save_dataset_in_hdf5(targets=targets, paras=paras,
-    #                      start_year=2013, start_index=0, end_year=2019,
-    #                      end_index=0,
-    #                      version="2019-02-06")
+    targets = [{"period": 20, "func": "max", "col": "high"},
+               {"period": 20, "func": "min", "col": "low"},
+               {"period": 5, "func": "max", "col": "high"},
+               {"period": 5, "func": "min", "col": "low"},
+               {"period": 20, "func": "mean", "col": ""},
+               ]
+    paras = [("y_l_rise",
+              {"pred_period": 20, "is_high": True, "is_clf": False,
+               "threshold": 0.2}),
+             ("y_l_decline",
+              {"pred_period": 20, "is_high": False, "is_clf": False,
+               "threshold": 0.2}),
+             ("y_s_rise",
+              {"pred_period": 5, "is_high": True,"is_clf": False,
+               "threshold": 0.1}),
+             ("y_s_decline",
+              {"pred_period": 5,"is_high": False,"is_clf": False,
+               "threshold": 0.1}),
+             ("y_l_avg",
+              {"pred_period": 20, "is_high": True,
+               "is_clf": False, "threshold": 0.2,"target_col":""}),
+             ]
+
+    save_dataset_in_hdf5(targets=targets, paras=paras,
+                         start_year=2013, start_index=0, end_year=2019,
+                         end_index=0,
+                         version="2019-02-06")
 
 
     # X,Y,other = read_hdf5(start="2016-07-01",end="2017-01-01")

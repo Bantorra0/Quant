@@ -75,6 +75,9 @@ def rolling(rolling_type, days, df: pd.DataFrame, cols=None,
         df_rolling = df[cols].rolling(window=abs(days)).min()
     elif rolling_type == "mean":
         df_rolling = df[cols].rolling(window=abs(days)).mean()
+    elif rolling_type == "sum":
+        df_rolling = df[cols].rolling(window=abs(days)).sum()
+
     else:
         raise ValueError(
             "rolling_type='{}' is not supported.".format(rolling_type))
@@ -279,24 +282,29 @@ def FE_single_stock_d(df:pd.DataFrame, targets,start=None,end=None):
     df_targets_list = []
     for t in targets:
         pred_period = t["period"]
-        if t["fun"] == "min":
-            df_target = rolling(t["fun"], pred_period, move(-1, df, cols=t["col"]))
-        elif t["fun"] == "max":
-            # df_target = rolling(t["fun"],pred_period - 1, move(-2, df, cols=t["col"]))
-            df_target = rolling(t["fun"], pred_period, move(-1, df, cols=t["col"]))
-        elif t["fun"] == "mean":
-            # df_target = rolling(t["fun"], pred_period - 1, move(-2, df, cols=t["col"]))
-            df_target = rolling(t["fun"], pred_period, move(-1, df, cols=t["col"]))
+        if t["func"] == "min":
+            df_target = rolling(t["func"], pred_period, move(-1, df, cols=t["col"]))
+        elif t["func"] == "max":
+            # df_target = rolling(t["func"],pred_period - 1, move(-2, df, cols=t["col"]))
+            df_target = rolling(t["func"], pred_period, move(-1, df, cols=t["col"]))
+        elif t["func"] == "mean":
+            # df_target = rolling(t["func"], pred_period - 1, move(-2, df, cols=t["col"]))
+            df_target = rolling(t["func"], pred_period, move(-1, df, cols=t["col"]))
 
             # p1 = (pred_period - 1) // 3
             # p2 = p1
             # p3 = pred_period - 1 - p1 - p2
-            # df_period_mean1 = rolling(t["fun"], p1, move(-2, df, t["col"]))
-            # df_period_mean2 = rolling(t["fun"], p2, move(-2 - p1, df, t["col"]))
-            # df_period_mean3 = rolling(t["fun"], p3, move(-2 - p1 - p2, df, t["col"]))
+            # df_period_mean1 = rolling(t["func"], p1, move(-2, df, t["col"]))
+            # df_period_mean2 = rolling(t["func"], p2, move(-2 - p1, df, t["col"]))
+            # df_period_mean3 = rolling(t["func"], p3, move(-2 - p1 - p2, df, t["col"]))
             # df_targets_list.extend([df_period_mean1,df_period_mean2,df_period_mean3])
+        elif t["func"] == "avg":
+            df_target = rolling("sum", pred_period,
+                                move(-1, df, cols=["vol","amt"]),prefix=False)
+            df_target = pd.DataFrame(df_target["amt"]/df_target["vol"]*10,
+                                     columns=["f{}avg_f1mv".format(pred_period)])
         else:
-            raise ValueError("Fun type {} is not supported!".format(t["fun"]))
+            raise ValueError("Fun type {} is not supported!".format(t["func"]))
         df_targets_list.append(df_target)
 
     df_move_list = [move(i, df, cols_move) for i in move_mv_list]
