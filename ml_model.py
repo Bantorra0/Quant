@@ -396,11 +396,11 @@ def get_feature_importance(reg, features:list):
 class RegressorNetwork:
     def __init__(self):
         self.layers = []
-        self.is_trained = False
+        self.is_trained = [False]
 
     def insert_layer(self,layer:list):
         self.layers.append(layer)
-        self.is_trained = False
+        self.is_trained.append(False)
 
     def insert_multiple_layers(self,layers):
         """
@@ -410,46 +410,48 @@ class RegressorNetwork:
         :return:
         """
         self.layers.extend(layers)
-        self.is_trained = False
+        self.is_trained.extend([False]*len(layers))
 
     def insert_reg(self,reg,paras,i):
         self.layers[i][paras["name"]] = (reg,paras)
-        self.is_trained = False
+        self.is_trained = self.is_trained[:i] \
+                          + [False] * len(self.is_trained[i:])
 
     def get_num_layers(self):
         return len(self.layers)
 
     def remove_layer(self,i):
         self.layers.remove(self.layers[i])
-        self.is_trained = False
+        self.is_trained = self.is_trained[:i] \
+                          + [False] * len(self.is_trained[i+1:])
 
     def remove_reg(self,i,name):
         del self.layers[i][name]
-        self.is_trained = False
+        self.is_trained = self.is_trained[:i+1] \
+                          + [False] * len(self.is_trained[i+1:])
 
-
-    def gen_new_features(self,reg,X,reg_prefix,reg_paras):
-        new_features = pd.DataFrame(index=X.index)
+    def gen_features(self, reg, X, reg_prefix, reg_paras):
+        features = pd.DataFrame(index=X.index)
 
         y_pred = reg.predict(X)
-        new_features[reg_prefix + "_pred"] = y_pred
+        features[reg_prefix + "_pred"] = y_pred
 
-        output, _, _, tot_revenue = reg_paras["f_revenue"](y, y_pred)
-        new_features[reg_prefix + "_output"] = output
-        print("Training tot revenue: {0}".format(tot_revenue))
+        if "y_transform" in reg_paras:
+            output = reg_paras["y_transform"](y_pred)
+            features[reg_prefix + "_output"] = output
 
         leaves = pd.DataFrame(reg.predict(X, pred_leaf=True),index=X.index)
         leaf_columns = [reg_prefix + "_tree{}_leaf".format(i) for i in
                         range(leaves.shape[1])]
         leaves.columns = leaf_columns
-        new_features = pd.concat([new_features,leaves],axis=1)
+        features = pd.concat([features,leaves],axis=1)
         categorical_features = leaf_columns
-        return new_features,categorical_features
+        return features,categorical_features
 
 
     def fit_layer(self, i, X, y, **paras):
         print("\n"+"-"*10+"Train layer {0:d}".format(i)+"-"*10)
-        new_features = pd.DataFrame(index=X.index)
+        features_list = []
         paras_next_layer = copy.deepcopy(paras)
         layer_prefix = "layer{0}".format(i)
         train_slice = slice(*paras["train_indexes"])
@@ -471,22 +473,13 @@ class RegressorNetwork:
 
             if paras["is_predict"]==True:
 
-                y_pred = reg.predict(X)
-                new_features[reg_prefix+"_pred"] = y_pred
+                reg_features, categorical_features=self.gen_features(reg,X,
+                                                               reg_prefix,reg_paras)
+                features_list.append(reg_features)
 
-                output,_,_,tot_revenue = reg_paras["f_revenue"](y,
-                                                                y_pred)
-                new_features[reg_prefix + "_output"] = output
-                print("Training tot revenue: {0}".format(tot_revenue))
-
-                leaves = reg.predict(X, pred_leaf=True)
-                trees = leaves.shape[1]
-                for i in range(trees):
-                    col = reg_prefix + "_tree{}_leaf".format(i)
-                    new_features[col]=leaves[:, i]
-                    paras_next_layer["fit"]["categorical_feature"].append(col)
-        X_next_layer = pd.concat([X,new_features],axis=1)
-
+                paras_next_layer["fit"]["categorical_feature"].extend(categorical_features)
+        X_next_layer = pd.concat([X]+features_list,axis=1)
+        self.is_trained[i] = True
         return X_next_layer,y,paras_next_layer
 
 
@@ -504,49 +497,42 @@ class RegressorNetwork:
                 paras["is_predict"] = True
             else:
                 paras["is_predict"] = False
-            # print(paras)
             X,y,paras = self.fit_layer(i, X, y, **paras)
 
-        self.is_trained = True
 
-
-    def predict_layer(self,i,X,y=None, is_output_layer=False,**paras):
+    def predict_layer(self,i,X,y=None, **paras):
         print("\n" + "-" * 10 + "Layer {0:d} predicts".format(i) + "-" * 10)
-        new_features = pd.DataFrame(index=X.index)
-        paras_next_layer  = copy.deepcopy(paras)
+        features_list = []
+        paras_next_layer = copy.deepcopy(paras)
         layer_prefix = "layer{0}".format(i)
-        result = pd.DataFrame(index=X.index)
         for reg_name, (reg, reg_paras) in self.layers[i].items():
             reg_prefix = layer_prefix + "_" + reg_name
 
             y_pred = reg.predict(X,**paras)
-            result[reg_prefix + "_pred"] = y_pred
 
-            if y is None:
-                output, _, _, tot_revenue = reg_paras["f_revenue"](y_pred, y_pred)
-            else:
-                output, _, _, tot_revenue = reg_paras["f_revenue"](y, y_pred)
+            if y is not None:
+                _, _, _, tot_revenue = reg_paras["f_revenue"](y, y_pred)
                 print(layer_prefix,reg_name,"tot_revenue:",tot_revenue)
 
-            result[reg_prefix + "_output"] = output
-            if not is_output_layer:
-                leaves = reg.predict(X, pred_leaf=True)
-                trees = leaves.shape[1]
-                for i in range(trees):
-                    col = reg_prefix + "_tree{}_leaf".format(i)
-                    new_features[col] = leaves[:, i]
+            reg_features, _ = self.gen_features(reg, X,reg_prefix,reg_paras)
+            features_list.append(reg_features)
 
-        print(new_features.shape, result.shape)
-        X_next_layer = pd.concat([X,new_features,result],axis=1)
-        return X_next_layer,paras_next_layer,y,result
+        features = pd.concat(features_list,axis=1)
+        X_next_layer = pd.concat([X,features], axis=1)
+        print(X_next_layer.shape)
+        return X_next_layer,paras_next_layer,y,features
 
 
-    def predict(self,X,**paras):
-        if not self.is_trained:
-            raise ValueError("Network need to be trained first.")
+    def predict(self, X, num_layers=None, **paras):
         print("\n" + "-" * 20 + "Predict" + "-" * 20)
         result = None
-        for i in range(len(self.layers)):
+        if num_layers is None:
+            num_layers = len(self.layers)
+
+        for i in range(num_layers):
+            if self.is_trained[i] == False:
+                raise ValueError("Layer {0} need to be trained "
+                                 "first.".format(i))
             X,paras,y,result = self.predict_layer(i,X,**paras)
         return result
 
@@ -590,20 +576,22 @@ if __name__ == '__main__':
                                 objective=cus_obj.custom_revenue_obj,
                                 min_child_samples=30,
                                 random_state=0,),
-             {"f_revenue":cus_obj.custom_revenue}),
+             {"f_revenue":cus_obj.custom_revenue,
+              "y_transform":cus_obj.custom_revenu_transform}),
          "custom_revenue2_y_l": (
              lgbm.LGBMRegressor(n_estimators=10, learning_rate=2,
-                                num_leaves=15,max_depth=8,
-                                objective=cus_obj.custom_revenue_obj2,
+                                num_leaves=15, max_depth=8,
+                                objective=cus_obj.custom_revenue2_obj,
                                 min_child_samples=30,
-                                random_state=0,),
-             {"f_revenue": cus_obj.custom_revenue2}),
-         "l2_y_l":
-             (lgbm.LGBMRegressor(n_estimators=25, num_leaves=15, max_depth=8,
-                                 min_child_samples=40,
-                                 learning_rate= 0.2,
-                                 random_state=0,),
-              {"f_revenue": cus_obj.l2_revenue}),
+                                random_state=0, ),
+             {"f_revenue": cus_obj.custom_revenue2,
+              "y_transform":cus_obj.custom_revenu2_transform}),
+         # "l2_y_l":
+         #     (lgbm.LGBMRegressor(n_estimators=25, num_leaves=15, max_depth=8,
+         #                         min_child_samples=40,
+         #                         learning_rate= 0.2,
+         #                         random_state=0,),
+         #      {"f_revenue": cus_obj.l2_revenue}),
          },
 
         {"l2_y_l":
