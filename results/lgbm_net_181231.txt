@@ -1875,3 +1875,702 @@ pred_range
 (0.85,0.90]        0        NaN          NaN       NaN       NaN       NaN
 (0.90,0.95]        0        NaN          NaN       NaN       NaN       NaN
 (0.95,1.00]        0        NaN          NaN       NaN       NaN       NaN
+
+
+
+
+
+
+
+
+
+
+
+C:\Users\dell-pc\Anaconda3.6\python.exe C:/Users/dell-pc/Quant/Quant/ml_model.py
+2013-01-01 2018-12-31
+Time slice keys in hdf5: 2013/0101-0701,2013/0701-0101,2014/0101-0701,2014/0701-0101,2015/0101-0701,2015/0701-0101,2016/0101-0701,2016/0701-0101,2017/0101-0701,2017/0701-0101,2018/0101-0701,2018/0701-0101
+
+Current key: 2013/0101-0701
+Current slice size(length): 131984
+Current subsample size(length): 13198
+
+Current key: 2013/0701-0101
+Current slice size(length): 146077
+Current subsample size(length): 14607
+
+Current key: 2014/0101-0701
+Current slice size(length): 140852
+Current subsample size(length): 14085
+
+Current key: 2014/0701-0101
+Current slice size(length): 150722
+Current subsample size(length): 15072
+
+Current key: 2015/0101-0701
+Current slice size(length): 146707
+Current subsample size(length): 14670
+
+Current key: 2015/0701-0101
+Current slice size(length): 157973
+Current subsample size(length): 15797
+
+Current key: 2016/0101-0701
+Current slice size(length): 152874
+Current subsample size(length): 15287
+
+Current key: 2016/0701-0101
+Current slice size(length): 160893
+Current subsample size(length): 16089
+
+Current key: 2017/0101-0701
+Current slice size(length): 160077
+Current subsample size(length): 16007
+
+Current key: 2017/0701-0101
+Current slice size(length): 173294
+Current subsample size(length): 17329
+
+Current key: 2018/0101-0701
+Current slice size(length): 169366
+Current subsample size(length): 16936
+
+Current key: 2018/0701-0101
+Current slice size(length): 178346
+Current subsample size(length): 17834
+
+Total concatenating size: 186911
+Result dataset size: 186911
+<class 'pandas.core.frame.DataFrame'>
+Index: 186911 entries, 2013-06-21 to 2018-11-13
+Columns: 1030 entries, (1MA/10MA-1) to vol0
+dtypes: float16(987), float64(38), uint8(5)
+memory usage: 418.9 MB
+None
+(165958, 1029) (14777, 1029)
+14 1
+
+--------------------Train network--------------------
+
+ (165958, 1029) (165958,) {'fit': {'categorical_feature': ['area', 'market', 'exchange', 'is_hs']}, 'train_indexes': (0, 82979)}
+
+----------Train layer 0----------
+slice(0, 82979, None)
+
+Train custom_revenue2_y_l
+C:\Users\dell-pc\Anaconda3.6\lib\site-packages\lightgbm\basic.py:1042: UserWarning: categorical_feature in Dataset is overridden. New categorical_feature is ['area', 'exchange', 'is_hs', 'market']
+  warnings.warn('categorical_feature in Dataset is overridden. New categorical_feature is {}'.format(sorted(list(categorical_feature))))
+[LightGBM] [Warning] Accuracy may be bad since you didn't set num_leaves and 2^max_depth > num_leaves
+[LightGBM] [Warning] Accuracy may be bad since you didn't set num_leaves and 2^max_depth > num_leaves
+Time usage: 24.44s
+LGBMRegressor(boosting_type='gbdt', class_weight=None, colsample_bytree=1.0,
+       learning_rate=0.2, max_depth=12, min_child_samples=30,
+       min_child_weight=0.001, min_split_gain=0.0, n_estimators=25,
+       n_jobs=-1, num_leaves=31, objective=None, random_state=0,
+       reg_alpha=0.0, reg_lambda=0.0, silent=True, subsample=1.0,
+       subsample_for_bin=200000, subsample_freq=0)
+                         feature  importance_raw  importance_percent
+436                          amt              30                4.00
+437                         area              23                3.07
+1028                        vol0              18                2.40
+471      cyb_(low/p250min_low-1)              16                2.13
+438                          avg              15                2.00
+881     sz50_(low/p120min_low-1)              13                1.73
+1021                    sz_close              11                1.47
+1027                         vol              10                1.33
+159               (high-low)/avg              10                1.33
+468      cyb_(low/p120min_low-1)              10                1.33
+620                       market               9                1.20
+158             (high-close)/avg               9                1.20
+476      cyb_(low/p500min_low-1)               8                1.07
+479       cyb_(low/p60min_low-1)               7                0.93
+790     sh_(high/p500max_high-1)               7                0.93
+29        (amt/p100mv_20k_amt-1)               7                0.93
+130    (close/p30mv_10k_close-1)               6                0.80
+189      (high/p20mv_10k_high-1)               6                0.80
+879    sz50_(high/p60max_high-1)               6                0.80
+543   hs300_(high/p10max_high-1)               6                0.80
+
+Train custom_revenue2_y_s_decline
+[LightGBM] [Warning] Accuracy may be bad since you didn't set num_leaves and 2^max_depth > num_leaves
+[LightGBM] [Warning] Accuracy may be bad since you didn't set num_leaves and 2^max_depth > num_leaves
+Time usage: 24.60s
+LGBMRegressor(boosting_type='gbdt', class_weight=None, colsample_bytree=1.0,
+       learning_rate=0.2, max_depth=12, min_child_samples=30,
+       min_child_weight=0.001, min_split_gain=0.0, n_estimators=25,
+       n_jobs=-1, num_leaves=31, objective=None, random_state=0,
+       reg_alpha=0.0, reg_lambda=0.0, silent=True, subsample=1.0,
+       subsample_for_bin=200000, subsample_freq=0)
+                         feature  importance_raw  importance_percent
+436                          amt              30                4.00
+437                         area              23                3.07
+1028                        vol0              18                2.40
+471      cyb_(low/p250min_low-1)              16                2.13
+438                          avg              15                2.00
+881     sz50_(low/p120min_low-1)              13                1.73
+1021                    sz_close              11                1.47
+1027                         vol              10                1.33
+159               (high-low)/avg              10                1.33
+468      cyb_(low/p120min_low-1)              10                1.33
+620                       market               9                1.20
+158             (high-close)/avg               9                1.20
+476      cyb_(low/p500min_low-1)               8                1.07
+479       cyb_(low/p60min_low-1)               7                0.93
+790     sh_(high/p500max_high-1)               7                0.93
+29        (amt/p100mv_20k_amt-1)               7                0.93
+130    (close/p30mv_10k_close-1)               6                0.80
+189      (high/p20mv_10k_high-1)               6                0.80
+879    sz50_(high/p60max_high-1)               6                0.80
+543   hs300_(high/p10max_high-1)               6                0.80
+
+Train custom_revenue_y_l_decline
+[LightGBM] [Warning] Using self-defined objective function
+[LightGBM] [Warning] Using self-defined objective function
+Time usage: 17.54s
+LGBMRegressor(boosting_type='gbdt', class_weight=None, colsample_bytree=1.0,
+       learning_rate=2, max_depth=8, min_child_samples=30,
+       min_child_weight=0.001, min_split_gain=0.0, n_estimators=10,
+       n_jobs=-1, num_leaves=15,
+       objective=<function custom_revenue_obj at 0x000001D472264B70>,
+       random_state=0, reg_alpha=0.0, reg_lambda=0.0, silent=True,
+       subsample=1.0, subsample_for_bin=200000, subsample_freq=0)
+                             feature  importance_raw  importance_percent
+436                              amt              20               14.29
+892          sz50_(low/p60min_low-1)              14               10.00
+881         sz50_(low/p120min_low-1)              10                7.14
+468          cyb_(low/p120min_low-1)              10                7.14
+471          cyb_(low/p250min_low-1)              10                7.14
+1021                        sz_close              10                7.14
+846            sh_(vol/p60max_vol-1)              10                7.14
+79           (amt/p600mv_120k_amt-1)               8                5.71
+1018           sz_(vol/p60max_vol-1)               6                4.29
+777      sh_(close/p500mean_close-1)               6                4.29
+790         sh_(high/p500max_high-1)               6                4.29
+884         sz50_(low/p250min_low-1)               6                4.29
+852                          sh_open               4                2.86
+952       sz_(close/p60mean_close-1)               4                2.86
+848            sh_(vol/p60min_vol-1)               4                2.86
+866     sz50_(close/p60mean_close-1)               3                2.14
+771       sh_(close/p20mean_close-1)               2                1.43
+72           (amt/p500mv_250k_amt-1)               2                1.43
+531   hs300_(close/p120mean_close-1)               2                1.43
+543       hs300_(high/p10max_high-1)               1                0.71
+
+Train custom_revenue2_y_s_rise
+[LightGBM] [Warning] Accuracy may be bad since you didn't set num_leaves and 2^max_depth > num_leaves
+[LightGBM] [Warning] Accuracy may be bad since you didn't set num_leaves and 2^max_depth > num_leaves
+Time usage: 25.87s
+LGBMRegressor(boosting_type='gbdt', class_weight=None, colsample_bytree=1.0,
+       learning_rate=0.2, max_depth=12, min_child_samples=30,
+       min_child_weight=0.001, min_split_gain=0.0, n_estimators=25,
+       n_jobs=-1, num_leaves=31, objective=None, random_state=0,
+       reg_alpha=0.0, reg_lambda=0.0, silent=True, subsample=1.0,
+       subsample_for_bin=200000, subsample_freq=0)
+                         feature  importance_raw  importance_percent
+436                          amt              30                4.00
+437                         area              23                3.07
+1028                        vol0              18                2.40
+471      cyb_(low/p250min_low-1)              16                2.13
+438                          avg              15                2.00
+881     sz50_(low/p120min_low-1)              13                1.73
+1021                    sz_close              11                1.47
+1027                         vol              10                1.33
+159               (high-low)/avg              10                1.33
+468      cyb_(low/p120min_low-1)              10                1.33
+620                       market               9                1.20
+158             (high-close)/avg               9                1.20
+476      cyb_(low/p500min_low-1)               8                1.07
+479       cyb_(low/p60min_low-1)               7                0.93
+790     sh_(high/p500max_high-1)               7                0.93
+29        (amt/p100mv_20k_amt-1)               7                0.93
+130    (close/p30mv_10k_close-1)               6                0.80
+189      (high/p20mv_10k_high-1)               6                0.80
+879    sz50_(high/p60max_high-1)               6                0.80
+543   hs300_(high/p10max_high-1)               6                0.80
+
+Train custom_revenue_y_s_rise
+[LightGBM] [Warning] Using self-defined objective function
+[LightGBM] [Warning] Using self-defined objective function
+Time usage: 18.99s
+LGBMRegressor(boosting_type='gbdt', class_weight=None, colsample_bytree=1.0,
+       learning_rate=2, max_depth=8, min_child_samples=30,
+       min_child_weight=0.001, min_split_gain=0.0, n_estimators=10,
+       n_jobs=-1, num_leaves=15,
+       objective=<function custom_revenue_obj at 0x000001D472264B70>,
+       random_state=0, reg_alpha=0.0, reg_lambda=0.0, silent=True,
+       subsample=1.0, subsample_for_bin=200000, subsample_freq=0)
+                             feature  importance_raw  importance_percent
+436                              amt              20               14.29
+892          sz50_(low/p60min_low-1)              14               10.00
+881         sz50_(low/p120min_low-1)              10                7.14
+468          cyb_(low/p120min_low-1)              10                7.14
+471          cyb_(low/p250min_low-1)              10                7.14
+1021                        sz_close              10                7.14
+846            sh_(vol/p60max_vol-1)              10                7.14
+79           (amt/p600mv_120k_amt-1)               8                5.71
+1018           sz_(vol/p60max_vol-1)               6                4.29
+777      sh_(close/p500mean_close-1)               6                4.29
+790         sh_(high/p500max_high-1)               6                4.29
+884         sz50_(low/p250min_low-1)               6                4.29
+852                          sh_open               4                2.86
+952       sz_(close/p60mean_close-1)               4                2.86
+848            sh_(vol/p60min_vol-1)               4                2.86
+866     sz50_(close/p60mean_close-1)               3                2.14
+771       sh_(close/p20mean_close-1)               2                1.43
+72           (amt/p500mv_250k_amt-1)               2                1.43
+531   hs300_(close/p120mean_close-1)               2                1.43
+543       hs300_(high/p10max_high-1)               1                0.71
+
+Train l2_y_l_rise
+[LightGBM] [Warning] Accuracy may be bad since you didn't set num_leaves and 2^max_depth > num_leaves
+[LightGBM] [Warning] Accuracy may be bad since you didn't set num_leaves and 2^max_depth > num_leaves
+Time usage: 37.83s
+LGBMRegressor(boosting_type='gbdt', class_weight=None, colsample_bytree=1.0,
+       learning_rate=0.1, max_depth=12, min_child_samples=30,
+       min_child_weight=0.001, min_split_gain=0.0, n_estimators=50,
+       n_jobs=-1, num_leaves=31, objective=None, random_state=0,
+       reg_alpha=0.0, reg_lambda=0.0, silent=True, subsample=1.0,
+       subsample_for_bin=200000, subsample_freq=0)
+                          feature  importance_raw  importance_percent
+436                           amt              66                4.40
+438                           avg              37                2.47
+1028                         vol0              37                2.47
+437                          area              35                2.33
+468       cyb_(low/p120min_low-1)              26                1.73
+471       cyb_(low/p250min_low-1)              23                1.53
+1027                          vol              22                1.47
+620                        market              21                1.40
+881      sz50_(low/p120min_low-1)              18                1.20
+1021                     sz_close              17                1.13
+159                (high-low)/avg              15                1.00
+189       (high/p20mv_10k_high-1)              14                0.93
+476       cyb_(low/p500min_low-1)              14                0.93
+158              (high-close)/avg              12                0.80
+440                        close0              12                0.80
+523                      cyb_high              11                0.73
+453   cyb_(close/p60mean_close-1)              11                0.73
+892       sz50_(low/p60min_low-1)              11                0.73
+435                    adj_factor              11                0.73
+130     (close/p30mv_10k_close-1)              11                0.73
+
+Train l2_y_l_decline
+[LightGBM] [Warning] Accuracy may be bad since you didn't set num_leaves and 2^max_depth > num_leaves
+[LightGBM] [Warning] Accuracy may be bad since you didn't set num_leaves and 2^max_depth > num_leaves
+Time usage: 43.06s
+LGBMRegressor(boosting_type='gbdt', class_weight=None, colsample_bytree=1.0,
+       learning_rate=0.1, max_depth=12, min_child_samples=30,
+       min_child_weight=0.001, min_split_gain=0.0, n_estimators=50,
+       n_jobs=-1, num_leaves=31, objective=None, random_state=0,
+       reg_alpha=0.0, reg_lambda=0.0, silent=True, subsample=1.0,
+       subsample_for_bin=200000, subsample_freq=0)
+                          feature  importance_raw  importance_percent
+436                           amt              66                4.40
+438                           avg              37                2.47
+1028                         vol0              37                2.47
+437                          area              35                2.33
+468       cyb_(low/p120min_low-1)              26                1.73
+471       cyb_(low/p250min_low-1)              23                1.53
+1027                          vol              22                1.47
+620                        market              21                1.40
+881      sz50_(low/p120min_low-1)              18                1.20
+1021                     sz_close              17                1.13
+159                (high-low)/avg              15                1.00
+189       (high/p20mv_10k_high-1)              14                0.93
+476       cyb_(low/p500min_low-1)              14                0.93
+158              (high-close)/avg              12                0.80
+440                        close0              12                0.80
+523                      cyb_high              11                0.73
+453   cyb_(close/p60mean_close-1)              11                0.73
+892       sz50_(low/p60min_low-1)              11                0.73
+435                    adj_factor              11                0.73
+130     (close/p30mv_10k_close-1)              11                0.73
+
+Train l2_y_s_rise
+[LightGBM] [Warning] Accuracy may be bad since you didn't set num_leaves and 2^max_depth > num_leaves
+[LightGBM] [Warning] Accuracy may be bad since you didn't set num_leaves and 2^max_depth > num_leaves
+Time usage: 36.98s
+LGBMRegressor(boosting_type='gbdt', class_weight=None, colsample_bytree=1.0,
+       learning_rate=0.1, max_depth=12, min_child_samples=30,
+       min_child_weight=0.001, min_split_gain=0.0, n_estimators=50,
+       n_jobs=-1, num_leaves=31, objective=None, random_state=0,
+       reg_alpha=0.0, reg_lambda=0.0, silent=True, subsample=1.0,
+       subsample_for_bin=200000, subsample_freq=0)
+                          feature  importance_raw  importance_percent
+436                           amt              66                4.40
+438                           avg              37                2.47
+1028                         vol0              37                2.47
+437                          area              35                2.33
+468       cyb_(low/p120min_low-1)              26                1.73
+471       cyb_(low/p250min_low-1)              23                1.53
+1027                          vol              22                1.47
+620                        market              21                1.40
+881      sz50_(low/p120min_low-1)              18                1.20
+1021                     sz_close              17                1.13
+159                (high-low)/avg              15                1.00
+189       (high/p20mv_10k_high-1)              14                0.93
+476       cyb_(low/p500min_low-1)              14                0.93
+158              (high-close)/avg              12                0.80
+440                        close0              12                0.80
+523                      cyb_high              11                0.73
+453   cyb_(close/p60mean_close-1)              11                0.73
+892       sz50_(low/p60min_low-1)              11                0.73
+435                    adj_factor              11                0.73
+130     (close/p30mv_10k_close-1)              11                0.73
+
+Train l2_y_s_decline
+[LightGBM] [Warning] Accuracy may be bad since you didn't set num_leaves and 2^max_depth > num_leaves
+[LightGBM] [Warning] Accuracy may be bad since you didn't set num_leaves and 2^max_depth > num_leaves
+Time usage: 37.01s
+LGBMRegressor(boosting_type='gbdt', class_weight=None, colsample_bytree=1.0,
+       learning_rate=0.1, max_depth=12, min_child_samples=30,
+       min_child_weight=0.001, min_split_gain=0.0, n_estimators=50,
+       n_jobs=-1, num_leaves=31, objective=None, random_state=0,
+       reg_alpha=0.0, reg_lambda=0.0, silent=True, subsample=1.0,
+       subsample_for_bin=200000, subsample_freq=0)
+                          feature  importance_raw  importance_percent
+436                           amt              66                4.40
+438                           avg              37                2.47
+1028                         vol0              37                2.47
+437                          area              35                2.33
+468       cyb_(low/p120min_low-1)              26                1.73
+471       cyb_(low/p250min_low-1)              23                1.53
+1027                          vol              22                1.47
+620                        market              21                1.40
+881      sz50_(low/p120min_low-1)              18                1.20
+1021                     sz_close              17                1.13
+159                (high-low)/avg              15                1.00
+189       (high/p20mv_10k_high-1)              14                0.93
+476       cyb_(low/p500min_low-1)              14                0.93
+158              (high-close)/avg              12                0.80
+440                        close0              12                0.80
+523                      cyb_high              11                0.73
+453   cyb_(close/p60mean_close-1)              11                0.73
+892       sz50_(low/p60min_low-1)              11                0.73
+435                    adj_factor              11                0.73
+130     (close/p30mv_10k_close-1)              11                0.73
+
+Train custom_revenue2_y_l_decline
+[LightGBM] [Warning] Accuracy may be bad since you didn't set num_leaves and 2^max_depth > num_leaves
+[LightGBM] [Warning] Accuracy may be bad since you didn't set num_leaves and 2^max_depth > num_leaves
+Time usage: 25.20s
+LGBMRegressor(boosting_type='gbdt', class_weight=None, colsample_bytree=1.0,
+       learning_rate=0.2, max_depth=12, min_child_samples=30,
+       min_child_weight=0.001, min_split_gain=0.0, n_estimators=25,
+       n_jobs=-1, num_leaves=31, objective=None, random_state=0,
+       reg_alpha=0.0, reg_lambda=0.0, silent=True, subsample=1.0,
+       subsample_for_bin=200000, subsample_freq=0)
+                         feature  importance_raw  importance_percent
+436                          amt              30                4.00
+437                         area              23                3.07
+1028                        vol0              18                2.40
+471      cyb_(low/p250min_low-1)              16                2.13
+438                          avg              15                2.00
+881     sz50_(low/p120min_low-1)              13                1.73
+1021                    sz_close              11                1.47
+1027                         vol              10                1.33
+159               (high-low)/avg              10                1.33
+468      cyb_(low/p120min_low-1)              10                1.33
+620                       market               9                1.20
+158             (high-close)/avg               9                1.20
+476      cyb_(low/p500min_low-1)               8                1.07
+479       cyb_(low/p60min_low-1)               7                0.93
+790     sh_(high/p500max_high-1)               7                0.93
+29        (amt/p100mv_20k_amt-1)               7                0.93
+130    (close/p30mv_10k_close-1)               6                0.80
+189      (high/p20mv_10k_high-1)               6                0.80
+879    sz50_(high/p60max_high-1)               6                0.80
+543   hs300_(high/p10max_high-1)               6                0.80
+
+Train custom_revenue_y_s_decline
+[LightGBM] [Warning] Using self-defined objective function
+[LightGBM] [Warning] Using self-defined objective function
+Time usage: 17.66s
+LGBMRegressor(boosting_type='gbdt', class_weight=None, colsample_bytree=1.0,
+       learning_rate=2, max_depth=8, min_child_samples=30,
+       min_child_weight=0.001, min_split_gain=0.0, n_estimators=10,
+       n_jobs=-1, num_leaves=15,
+       objective=<function custom_revenue_obj at 0x000001D472264B70>,
+       random_state=0, reg_alpha=0.0, reg_lambda=0.0, silent=True,
+       subsample=1.0, subsample_for_bin=200000, subsample_freq=0)
+                             feature  importance_raw  importance_percent
+436                              amt              20               14.29
+892          sz50_(low/p60min_low-1)              14               10.00
+881         sz50_(low/p120min_low-1)              10                7.14
+468          cyb_(low/p120min_low-1)              10                7.14
+471          cyb_(low/p250min_low-1)              10                7.14
+1021                        sz_close              10                7.14
+846            sh_(vol/p60max_vol-1)              10                7.14
+79           (amt/p600mv_120k_amt-1)               8                5.71
+1018           sz_(vol/p60max_vol-1)               6                4.29
+777      sh_(close/p500mean_close-1)               6                4.29
+790         sh_(high/p500max_high-1)               6                4.29
+884         sz50_(low/p250min_low-1)               6                4.29
+852                          sh_open               4                2.86
+952       sz_(close/p60mean_close-1)               4                2.86
+848            sh_(vol/p60min_vol-1)               4                2.86
+866     sz50_(close/p60mean_close-1)               3                2.14
+771       sh_(close/p20mean_close-1)               2                1.43
+72           (amt/p500mv_250k_amt-1)               2                1.43
+531   hs300_(close/p120mean_close-1)               2                1.43
+543       hs300_(high/p10max_high-1)               1                0.71
+
+Train custom_revenue2_y_l_rise
+[LightGBM] [Warning] Accuracy may be bad since you didn't set num_leaves and 2^max_depth > num_leaves
+[LightGBM] [Warning] Accuracy may be bad since you didn't set num_leaves and 2^max_depth > num_leaves
+Time usage: 25.39s
+LGBMRegressor(boosting_type='gbdt', class_weight=None, colsample_bytree=1.0,
+       learning_rate=0.2, max_depth=12, min_child_samples=30,
+       min_child_weight=0.001, min_split_gain=0.0, n_estimators=25,
+       n_jobs=-1, num_leaves=31, objective=None, random_state=0,
+       reg_alpha=0.0, reg_lambda=0.0, silent=True, subsample=1.0,
+       subsample_for_bin=200000, subsample_freq=0)
+                         feature  importance_raw  importance_percent
+436                          amt              30                4.00
+437                         area              23                3.07
+1028                        vol0              18                2.40
+471      cyb_(low/p250min_low-1)              16                2.13
+438                          avg              15                2.00
+881     sz50_(low/p120min_low-1)              13                1.73
+1021                    sz_close              11                1.47
+1027                         vol              10                1.33
+159               (high-low)/avg              10                1.33
+468      cyb_(low/p120min_low-1)              10                1.33
+620                       market               9                1.20
+158             (high-close)/avg               9                1.20
+476      cyb_(low/p500min_low-1)               8                1.07
+479       cyb_(low/p60min_low-1)               7                0.93
+790     sh_(high/p500max_high-1)               7                0.93
+29        (amt/p100mv_20k_amt-1)               7                0.93
+130    (close/p30mv_10k_close-1)               6                0.80
+189      (high/p20mv_10k_high-1)               6                0.80
+879    sz50_(high/p60max_high-1)               6                0.80
+543   hs300_(high/p10max_high-1)               6                0.80
+
+Train custom_revenue_y_l_rise
+[LightGBM] [Warning] Using self-defined objective function
+[LightGBM] [Warning] Using self-defined objective function
+Time usage: 17.59s
+LGBMRegressor(boosting_type='gbdt', class_weight=None, colsample_bytree=1.0,
+       learning_rate=2, max_depth=8, min_child_samples=30,
+       min_child_weight=0.001, min_split_gain=0.0, n_estimators=10,
+       n_jobs=-1, num_leaves=15,
+       objective=<function custom_revenue_obj at 0x000001D472264B70>,
+       random_state=0, reg_alpha=0.0, reg_lambda=0.0, silent=True,
+       subsample=1.0, subsample_for_bin=200000, subsample_freq=0)
+                             feature  importance_raw  importance_percent
+436                              amt              20               14.29
+892          sz50_(low/p60min_low-1)              14               10.00
+881         sz50_(low/p120min_low-1)              10                7.14
+468          cyb_(low/p120min_low-1)              10                7.14
+471          cyb_(low/p250min_low-1)              10                7.14
+1021                        sz_close              10                7.14
+846            sh_(vol/p60max_vol-1)              10                7.14
+79           (amt/p600mv_120k_amt-1)               8                5.71
+1018           sz_(vol/p60max_vol-1)               6                4.29
+777      sh_(close/p500mean_close-1)               6                4.29
+790         sh_(high/p500max_high-1)               6                4.29
+884         sz50_(low/p250min_low-1)               6                4.29
+852                          sh_open               4                2.86
+952       sz_(close/p60mean_close-1)               4                2.86
+848            sh_(vol/p60min_vol-1)               4                2.86
+866     sz50_(close/p60mean_close-1)               3                2.14
+771       sh_(close/p20mean_close-1)               2                1.43
+72           (amt/p500mv_250k_amt-1)               2                1.43
+531   hs300_(close/p120mean_close-1)               2                1.43
+543       hs300_(high/p10max_high-1)               1                0.71
+
+Train custom_revenue_y_l
+[LightGBM] [Warning] Using self-defined objective function
+[LightGBM] [Warning] Using self-defined objective function
+Time usage: 17.64s
+LGBMRegressor(boosting_type='gbdt', class_weight=None, colsample_bytree=1.0,
+       learning_rate=2, max_depth=8, min_child_samples=30,
+       min_child_weight=0.001, min_split_gain=0.0, n_estimators=10,
+       n_jobs=-1, num_leaves=15,
+       objective=<function custom_revenue_obj at 0x000001D472264B70>,
+       random_state=0, reg_alpha=0.0, reg_lambda=0.0, silent=True,
+       subsample=1.0, subsample_for_bin=200000, subsample_freq=0)
+                             feature  importance_raw  importance_percent
+436                              amt              20               14.29
+892          sz50_(low/p60min_low-1)              14               10.00
+881         sz50_(low/p120min_low-1)              10                7.14
+468          cyb_(low/p120min_low-1)              10                7.14
+471          cyb_(low/p250min_low-1)              10                7.14
+1021                        sz_close              10                7.14
+846            sh_(vol/p60max_vol-1)              10                7.14
+79           (amt/p600mv_120k_amt-1)               8                5.71
+1018           sz_(vol/p60max_vol-1)               6                4.29
+777      sh_(close/p500mean_close-1)               6                4.29
+790         sh_(high/p500max_high-1)               6                4.29
+884         sz50_(low/p250min_low-1)               6                4.29
+852                          sh_open               4                2.86
+952       sz_(close/p60mean_close-1)               4                2.86
+848            sh_(vol/p60min_vol-1)               4                2.86
+866     sz50_(close/p60mean_close-1)               3                2.14
+771       sh_(close/p20mean_close-1)               2                1.43
+72           (amt/p500mv_250k_amt-1)               2                1.43
+531   hs300_(close/p120mean_close-1)               2                1.43
+543       hs300_(high/p10max_high-1)               1                0.71
+
+----------Layer 0 predicts----------
+
+ (165958, 1428) (165958,) {'fit': {'categorical_feature': ['area', 'market', 'exchange', 'is_hs']}, 'train_indexes': (82979, None)}
+
+----------Train layer 1----------
+slice(82979, None, None)
+
+Train l2_y_l
+[LightGBM] [Warning] Accuracy may be bad since you didn't set num_leaves and 2^max_depth > num_leaves
+[LightGBM] [Warning] Accuracy may be bad since you didn't set num_leaves and 2^max_depth > num_leaves
+Time usage: 49.66s
+LGBMRegressor(boosting_type='gbdt', class_weight=None, colsample_bytree=1.0,
+       learning_rate=0.1, max_depth=12, min_child_samples=30,
+       min_child_weight=0.001, min_split_gain=0.0, n_estimators=50,
+       n_jobs=-1, num_leaves=31, objective=None, random_state=0,
+       reg_alpha=0.0, reg_lambda=0.0, silent=True, subsample=1.0,
+       subsample_for_bin=200000, subsample_freq=0)
+                             feature  importance_raw  importance_percent
+437                             area              66                4.40
+436                              amt              31                2.07
+1134         layer0_l2_y_l_rise_pred              30                2.00
+466         cyb_(high/p60max_high-1)              17                1.13
+445     cyb_(close/p250mean_close-1)              15                1.00
+442     cyb_(close/p120mean_close-1)              14                0.93
+889         sz50_(low/p500min_low-1)              14                0.93
+438                              avg              14                0.93
+481       cyb_(open/p120mean_open-1)              12                0.80
+458        cyb_(high/p250max_high-1)              11                0.73
+962         sz_(high/p500max_high-1)              11                0.73
+777      sh_(close/p500mean_close-1)              10                0.67
+863    sz50_(close/p500mean_close-1)              10                0.67
+1027                             vol              10                0.67
+978            sz_(low/p60min_low-1)              10                0.67
+1021                        sz_close              10                0.67
+179         (high/p120mv_60k_high-1)              10                0.67
+539   hs300_(close/p500mean_close-1)               9                0.60
+790         sh_(high/p500max_high-1)               9                0.60
+471          cyb_(low/p250min_low-1)               9                0.60
+
+--------------------Predict--------------------
+
+----------Layer 0 predicts----------
+
+----------Layer 1 predicts----------
+
+----------l2, y_l----------
+Model total revenue: -248.46168688906596
+Random total revenue -124.23084344453298
+                revenue_sum  revenue_mean  revenue_median  revenue_max  \
+y_l_pred
+[-0.60--0.50]:     0.000000           NaN             NaN          NaN
+[-0.50--0.40]:     0.000000           NaN             NaN          NaN
+[-0.40--0.30]:     0.000000           NaN             NaN          NaN
+[-0.30--0.20]:     0.000000           NaN             NaN          NaN
+[-0.20--0.10]:     0.000000           NaN             NaN          NaN
+[-0.10-0.00]:      0.347153      0.000921        0.000000     0.298953
+[0.00-0.10]:    -407.868253     -0.033276       -0.074262     1.018349
+[0.10-0.20]:     156.144971      0.073619        0.125107     0.890583
+[0.20-0.30]:       2.914442      0.132475        0.228589     0.511029
+[0.30-0.40]:       0.000000           NaN             NaN          NaN
+[0.40-0.50]:       0.000000           NaN             NaN          NaN
+[0.50-0.60]:       0.000000           NaN             NaN          NaN
+
+                revenue_min  revenue_std  count
+y_l_pred
+[-0.60--0.50]:          NaN          NaN      0
+[-0.50--0.40]:          NaN          NaN      0
+[-0.40--0.30]:          NaN          NaN      0
+[-0.30--0.20]:          NaN          NaN      0
+[-0.20--0.10]:          NaN          NaN      0
+[-0.10-0.00]:     -0.317167     0.029633    377
+[0.00-0.10]:      -0.590668     0.148375  12257
+[0.10-0.20]:      -0.495833     0.204448   2121
+[0.20-0.30]:      -0.202781     0.244571     22
+[0.30-0.40]:            NaN          NaN      0
+[0.40-0.50]:            NaN          NaN      0
+[0.50-0.60]:            NaN          NaN      0
+               count  eval_mean  eval_median  eval_std  eval_max  eval_min
+pred_range
+(-1.00,-0.95]      0        NaN          NaN       NaN       NaN       NaN
+(-0.95,-0.90]      0        NaN          NaN       NaN       NaN       NaN
+(-0.90,-0.85]      0        NaN          NaN       NaN       NaN       NaN
+(-0.85,-0.80]      0        NaN          NaN       NaN       NaN       NaN
+(-0.80,-0.75]      0        NaN          NaN       NaN       NaN       NaN
+(-0.75,-0.70]      0        NaN          NaN       NaN       NaN       NaN
+(-0.70,-0.65]      0        NaN          NaN       NaN       NaN       NaN
+(-0.65,-0.60]      0        NaN          NaN       NaN       NaN       NaN
+(-0.60,-0.55]      0        NaN          NaN       NaN       NaN       NaN
+(-0.55,-0.50]      0        NaN          NaN       NaN       NaN       NaN
+(-0.50,-0.45]      0        NaN          NaN       NaN       NaN       NaN
+(-0.45,-0.40]      0        NaN          NaN       NaN       NaN       NaN
+(-0.40,-0.35]      0        NaN          NaN       NaN       NaN       NaN
+(-0.35,-0.30]      0        NaN          NaN       NaN       NaN       NaN
+(-0.30,-0.25]      0        NaN          NaN       NaN       NaN       NaN
+(-0.25,-0.20]      0        NaN          NaN       NaN       NaN       NaN
+(-0.20,-0.15]      0        NaN          NaN       NaN       NaN       NaN
+(-0.15,-0.10]      0        NaN          NaN       NaN       NaN       NaN
+(-0.10,-0.05]      0        NaN          NaN       NaN       NaN       NaN
+(-0.05,0.00]     377      0.004        0.000     0.023     0.299     0.000
+(0.00,0.05]     5854      0.056        0.042     0.054     0.521     0.000
+(0.05,0.10]     6403      0.085        0.065     0.080     1.018     0.000
+(0.10,0.15]     1717      0.139        0.118     0.112     0.891     0.000
+(0.15,0.20]      404      0.201        0.180     0.138     0.880     0.000
+(0.20,0.25]       21      0.208        0.224     0.147     0.511     0.007
+(0.25,0.30]        1      0.385        0.385       NaN     0.385     0.385
+(0.30,0.35]        0        NaN          NaN       NaN       NaN       NaN
+(0.35,0.40]        0        NaN          NaN       NaN       NaN       NaN
+(0.40,0.45]        0        NaN          NaN       NaN       NaN       NaN
+(0.45,0.50]        0        NaN          NaN       NaN       NaN       NaN
+(0.50,0.55]        0        NaN          NaN       NaN       NaN       NaN
+(0.55,0.60]        0        NaN          NaN       NaN       NaN       NaN
+(0.60,0.65]        0        NaN          NaN       NaN       NaN       NaN
+(0.65,0.70]        0        NaN          NaN       NaN       NaN       NaN
+(0.70,0.75]        0        NaN          NaN       NaN       NaN       NaN
+(0.75,0.80]        0        NaN          NaN       NaN       NaN       NaN
+(0.80,0.85]        0        NaN          NaN       NaN       NaN       NaN
+(0.85,0.90]        0        NaN          NaN       NaN       NaN       NaN
+(0.90,0.95]        0        NaN          NaN       NaN       NaN       NaN
+(0.95,1.00]        0        NaN          NaN       NaN       NaN       NaN
+               count  eval_mean  eval_median  eval_std  eval_max  eval_min
+pred_range
+(-1.00,-0.95]      0        NaN          NaN       NaN       NaN       NaN
+(-0.95,-0.90]      0        NaN          NaN       NaN       NaN       NaN
+(-0.90,-0.85]      0        NaN          NaN       NaN       NaN       NaN
+(-0.85,-0.80]      0        NaN          NaN       NaN       NaN       NaN
+(-0.80,-0.75]      0        NaN          NaN       NaN       NaN       NaN
+(-0.75,-0.70]      0        NaN          NaN       NaN       NaN       NaN
+(-0.70,-0.65]      0        NaN          NaN       NaN       NaN       NaN
+(-0.65,-0.60]      0        NaN          NaN       NaN       NaN       NaN
+(-0.60,-0.55]      0        NaN          NaN       NaN       NaN       NaN
+(-0.55,-0.50]      0        NaN          NaN       NaN       NaN       NaN
+(-0.50,-0.45]      0        NaN          NaN       NaN       NaN       NaN
+(-0.45,-0.40]      0        NaN          NaN       NaN       NaN       NaN
+(-0.40,-0.35]      0        NaN          NaN       NaN       NaN       NaN
+(-0.35,-0.30]      0        NaN          NaN       NaN       NaN       NaN
+(-0.30,-0.25]      0        NaN          NaN       NaN       NaN       NaN
+(-0.25,-0.20]      0        NaN          NaN       NaN       NaN       NaN
+(-0.20,-0.15]      0        NaN          NaN       NaN       NaN       NaN
+(-0.15,-0.10]      0        NaN          NaN       NaN       NaN       NaN
+(-0.10,-0.05]      0        NaN          NaN       NaN       NaN       NaN
+(-0.05,0.00]     377      0.001        0.000     0.030     0.299    -0.317
+(0.00,0.05]     5854     -0.055       -0.082     0.131     0.521    -0.591
+(0.05,0.10]     6403     -0.014       -0.064     0.160     1.018    -0.455
+(0.10,0.15]     1717      0.056        0.111     0.199     0.891    -0.496
+(0.15,0.20]      404      0.149        0.179     0.211     0.880    -0.415
+(0.20,0.25]       21      0.120        0.224     0.244     0.511    -0.203
+(0.25,0.30]        1      0.385        0.385       NaN     0.385     0.385
+(0.30,0.35]        0        NaN          NaN       NaN       NaN       NaN
+(0.35,0.40]        0        NaN          NaN       NaN       NaN       NaN
+(0.40,0.45]        0        NaN          NaN       NaN       NaN       NaN
+(0.45,0.50]        0        NaN          NaN       NaN       NaN       NaN
+(0.50,0.55]        0        NaN          NaN       NaN       NaN       NaN
+(0.55,0.60]        0        NaN          NaN       NaN       NaN       NaN
+(0.60,0.65]        0        NaN          NaN       NaN       NaN       NaN
+(0.65,0.70]        0        NaN          NaN       NaN       NaN       NaN
+(0.70,0.75]        0        NaN          NaN       NaN       NaN       NaN
+(0.75,0.80]        0        NaN          NaN       NaN       NaN       NaN
+(0.80,0.85]        0        NaN          NaN       NaN       NaN       NaN
+(0.85,0.90]        0        NaN          NaN       NaN       NaN       NaN
+(0.90,0.95]        0        NaN          NaN       NaN       NaN       NaN
+(0.95,1.00]        0        NaN          NaN       NaN       NaN       NaN
+
+Process finished with exit code -1

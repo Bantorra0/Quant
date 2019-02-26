@@ -1,8 +1,8 @@
+import copy
 import os
 import pickle
 import re
 import time
-import copy
 
 import lightgbm.sklearn as lgbm
 import numpy as np
@@ -11,11 +11,11 @@ import sklearn.preprocessing as preproc
 import xgboost.sklearn as xgb
 from matplotlib import pyplot as plt
 
+import customized_obj as cus_obj
 import db_operations as dbop
+import io_operations as IO_op
 from constants import MODEL_DIR
 from data_prepare import prepare_data, feature_select
-import customized_obj as cus_obj
-import io_operations as IO_op
 
 
 def gen_data(targets=None, start="2014-01-01", lowerbound="2011-01-01", end=None, upperbound=None,
@@ -468,15 +468,6 @@ class RegressorNetwork:
             print(df_feature_importance[
                       df_feature_importance["importance_raw"] > 0].round(
                 {"importance_percent": 2}).iloc[:20])
-
-        #     if paras["is_predict"]==True:
-        #
-        #         reg_features, categorical_features=self.gen_features(reg,X,
-        #                                                        reg_prefix,reg_paras)
-        #         features_list.append(reg_features)
-        #
-        #         paras_next_layer["fit"]["categorical_feature"].extend(categorical_features)
-        # X_next_layer = pd.concat([X]+features_list,axis=1)
         self.is_trained[i] = True
 
 
@@ -488,17 +479,12 @@ class RegressorNetwork:
         split_points = list(range(0,num_layers*sample_size,sample_size))+[None]
 
         for i in range(num_layers):
-            # if i<num_layers-1:
-            #     paras["is_predict"] = True
-            # else:
-            #     paras["is_predict"] = False
             if i>0:
-                features,feature_info,_ = self.predict_layer(i-1,X)
+                features,feature_info = self.predict_layer(i-1,X)
                 X = pd.concat([X,features],axis=1)
             paras["train_indexes"] = (split_points[i],split_points[i+1])
             print("\n",X.shape,y.shape,paras)
             self.fit_layer(i, X, y, **paras)
-
 
 
     def predict_layer(self,i,X,y=None, **paras):
@@ -508,7 +494,6 @@ class RegressorNetwork:
 
         print("\n" + "-" * 10 + "Layer {0:d} predicts".format(i) + "-" * 10)
         features_list = []
-        paras_next_layer = copy.deepcopy(paras)
         layer_prefix = "layer{0}".format(i)
         categorical_features = []
         for reg_name, (reg, reg_paras) in self.layers[i].items():
@@ -526,9 +511,8 @@ class RegressorNetwork:
 
         feature_info = {"categorical_feature":categorical_features}
         features = pd.concat(features_list,axis=1)
-        # X_next_layer = pd.concat([X,features], axis=1)
-        # print(X_next_layer.shape)
-        return features,feature_info,paras_next_layer
+        return features,feature_info
+
 
     def predict(self, X, num_layers=None, **paras):
         print("\n" + "-" * 20 + "Predict" + "-" * 20)
@@ -536,7 +520,7 @@ class RegressorNetwork:
             num_layers = len(self.layers)
         features = None
         for i in range(num_layers):
-            features,feature_info,paras = self.predict_layer(i,X,**paras)
+            features,_ = self.predict_layer(i,X,**paras)
             if i<num_layers-1:
                 X = pd.concat([X,features],axis=1)
         return features
@@ -551,8 +535,8 @@ if __name__ == '__main__':
 
     pd.set_option("display.max_columns", 10)
     pd.set_option("display.max_rows", 256)
-    X, Y, _ = IO_op.read_hdf5(start="2017-01-01", end="2019-01-01",
-                              subsample="100-0")
+    X, Y, _ = IO_op.read_hdf5(start="2013-01-01", end="2019-01-01",
+                              subsample="10-0")
     print(X.info(memory_usage="deep"))
     del X["industry"]
     cols_category = ["area", "market", "exchange", "is_hs"]
@@ -574,38 +558,79 @@ if __name__ == '__main__':
     print(X_train.shape, X_test.shape)
 
     lgbm_reg_net = RegressorNetwork()
-    layers = [
-        {"custom_revenue_y_l":
-            (lgbm.LGBMRegressor(n_estimators=10,learning_rate=2,
+
+    reg1=lgbm.LGBMRegressor(n_estimators=10,learning_rate=2,
                                 num_leaves=15,max_depth=8,
                                 objective=cus_obj.custom_revenue_obj,
                                 min_child_samples=30,
-                                random_state=0,),
+                                random_state=0,)
+    reg2 = lgbm.LGBMRegressor(n_estimators=25, num_leaves=31, max_depth=12,
+                        min_child_samples=30, random_state=0,learning_rate=0.2)
+    reg3 = lgbm.LGBMRegressor(n_estimators=50, num_leaves=31, max_depth=12,
+                       min_child_samples=30, random_state=0)
+    objs = [("custom_revenue",
              {"f_revenue":cus_obj.custom_revenue,
               "y_transform":cus_obj.custom_revenu_transform}),
-         "custom_revenue2_y_l": (
-             lgbm.LGBMRegressor(n_estimators=10, learning_rate=2,
-                                num_leaves=15, max_depth=8,
-                                objective=cus_obj.custom_revenue2_obj,
-                                min_child_samples=30,
-                                random_state=0, ),
+            ("custom_revenue2",
              {"f_revenue": cus_obj.custom_revenue2,
               "y_transform":cus_obj.custom_revenu2_transform}),
-         # "l2_y_l":
-         #     (lgbm.LGBMRegressor(n_estimators=25, num_leaves=15, max_depth=8,
-         #                         min_child_samples=40,
-         #                         learning_rate= 0.2,
-         #                         random_state=0,),
-         #      {"f_revenue": cus_obj.l2_revenue}),
-         },
+            ("l2",{"f_revenue": cus_obj.l2_revenue})]
+    targets = ["y_l_rise", "y_l_decline", "y_s_rise", "y_s_decline", "y_l"]
 
-        {"l2_y_l":
+    layer0 = {}
+    for target in targets:
+        layer0.update(
+                {obj_type + "_" + target: (reg, {**obj_dict, "target": target})
+                 for (obj_type, obj_dict), reg in
+                 zip(objs, [reg1, reg2, reg3])})
+    del layer0["l2_y_l"]
+
+    layer1 = {"l2_y_l":
              (lgbm.LGBMRegressor(n_estimators=50, num_leaves=31, max_depth=12,
                                  min_child_samples=30,
                                  random_state=0),
               {"f_revenue": cus_obj.l2_revenue})
          }
-    ]
+
+    layers = [layer0,layer1]
+    print(len(layer0),len(layer1))
+    print(layer0)
+    print(layer1)
+
+    # layers = [
+    #     {"custom_revenue_y_l":
+    #         (lgbm.LGBMRegressor(n_estimators=10,learning_rate=2,
+    #                             num_leaves=15,max_depth=8,
+    #                             objective=cus_obj.custom_revenue_obj,
+    #                             min_child_samples=30,
+    #                             random_state=0,),
+    #          {"f_revenue":cus_obj.custom_revenue,
+    #           "y_transform":cus_obj.custom_revenu_transform,
+    #           "target":"y_l"}),
+    #      "custom_revenue2_y_l": (
+    #          lgbm.LGBMRegressor(n_estimators=10, learning_rate=2,
+    #                             num_leaves=15, max_depth=8,
+    #                             objective=cus_obj.custom_revenue2_obj,
+    #                             min_child_samples=30,
+    #                             random_state=0, ),
+    #          {"f_revenue": cus_obj.custom_revenue2,
+    #           "y_transform":cus_obj.custom_revenu2_transform,
+    #           "target": "y_l"}),
+    #      # "l2_y_l":
+    #      #     (lgbm.LGBMRegressor(n_estimators=25, num_leaves=15, max_depth=8,
+    #      #                         min_child_samples=40,
+    #      #                         learning_rate= 0.2,
+    #      #                         random_state=0,),
+    #      #      {"f_revenue": cus_obj.l2_revenue}),
+    #      },
+    #
+    #     {"l2_y_l":
+    #          (lgbm.LGBMRegressor(n_estimators=50, num_leaves=31, max_depth=12,
+    #                              min_child_samples=30,
+    #                              random_state=0),
+    #           {"f_revenue": cus_obj.l2_revenue})
+    #      }
+    # ]
 
     lgbm_reg_net.insert_multiple_layers(layers)
 
