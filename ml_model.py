@@ -451,15 +451,13 @@ class RegressorNetwork:
 
     def fit_layer(self, i, X, y, **paras):
         print("\n"+"-"*10+"Train layer {0:d}".format(i)+"-"*10)
-        features_list = []
-        paras_next_layer = copy.deepcopy(paras)
-        layer_prefix = "layer{0}".format(i)
+        # features_list = []
+        # paras_next_layer = copy.deepcopy(paras)
+        # layer_prefix = "layer{0}".format(i)
         train_slice = slice(*paras["train_indexes"])
         print(train_slice)
 
         for reg_name,(reg,reg_paras) in self.layers[i].items():
-            reg_prefix = layer_prefix + "_" + reg_name
-
             print("\nTrain "+reg_name)
             t0 = time.time()
             reg.fit(X.iloc[train_slice],y.iloc[train_slice],**paras["fit"])
@@ -471,16 +469,15 @@ class RegressorNetwork:
                       df_feature_importance["importance_raw"] > 0].round(
                 {"importance_percent": 2}).iloc[:20])
 
-            if paras["is_predict"]==True:
-
-                reg_features, categorical_features=self.gen_features(reg,X,
-                                                               reg_prefix,reg_paras)
-                features_list.append(reg_features)
-
-                paras_next_layer["fit"]["categorical_feature"].extend(categorical_features)
-        X_next_layer = pd.concat([X]+features_list,axis=1)
+        #     if paras["is_predict"]==True:
+        #
+        #         reg_features, categorical_features=self.gen_features(reg,X,
+        #                                                        reg_prefix,reg_paras)
+        #         features_list.append(reg_features)
+        #
+        #         paras_next_layer["fit"]["categorical_feature"].extend(categorical_features)
+        # X_next_layer = pd.concat([X]+features_list,axis=1)
         self.is_trained[i] = True
-        return X_next_layer,y,paras_next_layer
 
 
     def fit(self, X, y, **paras):
@@ -491,20 +488,29 @@ class RegressorNetwork:
         split_points = list(range(0,num_layers*sample_size,sample_size))+[None]
 
         for i in range(num_layers):
-            print("\n",X.shape,y.shape,paras)
+            # if i<num_layers-1:
+            #     paras["is_predict"] = True
+            # else:
+            #     paras["is_predict"] = False
+            if i>0:
+                features,feature_info,_ = self.predict_layer(i-1,X)
+                X = pd.concat([X,features],axis=1)
             paras["train_indexes"] = (split_points[i],split_points[i+1])
-            if i<num_layers-1:
-                paras["is_predict"] = True
-            else:
-                paras["is_predict"] = False
-            X,y,paras = self.fit_layer(i, X, y, **paras)
+            print("\n",X.shape,y.shape,paras)
+            self.fit_layer(i, X, y, **paras)
+
 
 
     def predict_layer(self,i,X,y=None, **paras):
+        if self.is_trained[i] == False:
+            raise ValueError("Layer {0} need to be trained "
+                             "first.".format(i))
+
         print("\n" + "-" * 10 + "Layer {0:d} predicts".format(i) + "-" * 10)
         features_list = []
         paras_next_layer = copy.deepcopy(paras)
         layer_prefix = "layer{0}".format(i)
+        categorical_features = []
         for reg_name, (reg, reg_paras) in self.layers[i].items():
             reg_prefix = layer_prefix + "_" + reg_name
 
@@ -514,27 +520,26 @@ class RegressorNetwork:
                 _, _, _, tot_revenue = reg_paras["f_revenue"](y, y_pred)
                 print(layer_prefix,reg_name,"tot_revenue:",tot_revenue)
 
-            reg_features, _ = self.gen_features(reg, X,reg_prefix,reg_paras)
+            reg_features, cols = self.gen_features(reg, X,reg_prefix,reg_paras)
             features_list.append(reg_features)
+            categorical_features.extend(cols)
 
+        feature_info = {"categorical_feature":categorical_features}
         features = pd.concat(features_list,axis=1)
-        X_next_layer = pd.concat([X,features], axis=1)
-        print(X_next_layer.shape)
-        return X_next_layer,paras_next_layer,y,features
-
+        # X_next_layer = pd.concat([X,features], axis=1)
+        # print(X_next_layer.shape)
+        return features,feature_info,paras_next_layer
 
     def predict(self, X, num_layers=None, **paras):
         print("\n" + "-" * 20 + "Predict" + "-" * 20)
-        result = None
         if num_layers is None:
             num_layers = len(self.layers)
-
+        features = None
         for i in range(num_layers):
-            if self.is_trained[i] == False:
-                raise ValueError("Layer {0} need to be trained "
-                                 "first.".format(i))
-            X,paras,y,result = self.predict_layer(i,X,**paras)
-        return result
+            features,feature_info,paras = self.predict_layer(i,X,**paras)
+            if i<num_layers-1:
+                X = pd.concat([X,features],axis=1)
+        return features
 
 
 if __name__ == '__main__':
@@ -546,8 +551,8 @@ if __name__ == '__main__':
 
     pd.set_option("display.max_columns", 10)
     pd.set_option("display.max_rows", 256)
-    X, Y, _ = IO_op.read_hdf5(start="2013-01-01", end="2019-01-01",
-                              subsample="3-0")
+    X, Y, _ = IO_op.read_hdf5(start="2017-01-01", end="2019-01-01",
+                              subsample="100-0")
     print(X.info(memory_usage="deep"))
     del X["industry"]
     cols_category = ["area", "market", "exchange", "is_hs"]
