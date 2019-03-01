@@ -78,9 +78,9 @@ def get_time_kwargs(key):
     return {"start":start,"end":end,"lowerbound":lowerbound,"upperbound":upperbound}
 
 
-def save_dataset_in_hdf5(targets, paras, start_year:int, start_index:int, end_year:int,
-                         end_index:int, slice_length=None, stock_pool=None,
-                         version=None, base_dir=r"datasets",f_info_name="stock_d_info"):
+def update_dataset_in_hdf5(targets, paras, start_year:int, start_index:int, end_year:int,
+                           end_index:int, slice_length=None, stock_pool=None,
+                           version=None, base_dir=r"datasets", f_info_name="stock_d_info"):
     hdf5_keys,slice_length = get_hdf5_keys(
         start_year=start_year,start_index=start_index,
         end_year=end_year,end_index=end_index,slice_length=slice_length)
@@ -104,9 +104,7 @@ def save_dataset_in_hdf5(targets, paras, start_year:int, start_index:int, end_ye
         with open(f_info_path,"rb") as f_info:
             d_info = pickle.load(f_info)
     else:
-        d_info = {"slice_length": slice_length, "length": {},
-                  "columns": None, "categorical_features": None,
-                  "encoder": None}
+        d_info = {"slice_length": slice_length, "length": {}}
     for key in hdf5_keys:
         print("key:",key)
         skip = False
@@ -137,18 +135,17 @@ def save_dataset_in_hdf5(targets, paras, start_year:int, start_index:int, end_ye
             df_other["delist_date"] = df_other["delist_date"].fillna("")
 
             d_info["length"][key] = len(X)
-            if d_info["columns"] is None:
-                d_info["columns"] = {"X": X.columns, "Y": Y.columns,
-                                     "other": df_other.columns}
-            if d_info["categorical_features"] is None:
+            if "columns" not in d_info:
+                d_info["columns"] = {"X": X.columns, "Y": Y.columns, "other": df_other.columns}
+            if "categorical_features" not in d_info:
                 d_info["categorical_features"] = cols_category
-            if d_info["encoder"] is None:
+            if "encoder" not in d_info:
                 d_info["encoder"] = enc
 
             X.to_hdf(f_hdf_path, key="X/" + key)
             Y.to_hdf(f_hdf_path, key="Y/" + key)
             df_other.to_hdf(f_hdf_path, key="other/" + key)
-            del X,Y,df_other
+            del X, Y, df_other
         else:
             print("skip:", key)
             # d_info["length"][key] = len(store["/X/"+key])
@@ -233,7 +230,7 @@ def save_shuffle_info(n=4,version=None, base_dir=None,
 
 
 def read_hdf5(start,end=None,version=None,base_dir = None,
-              f_info_name=None, subsample=None):
+              f_info_name=None, subsample=None,columns=None):
     """
 
     :param start: Inclusive start date of desired time slice, formatted as
@@ -289,9 +286,11 @@ def read_hdf5(start,end=None,version=None,base_dir = None,
     for key in keys:
         print("\nCurrent key:",key)
         print("Current slice size(length):",store["X/"+key].shape[0])
+
+        # Subsample if specified.
         if subsample is None:
             X, Y,df_other=store["X/"+key],store["Y/"+key],store["other/"+key]
-        else:
+        elif type(subsample)==str:
             k,ith = tuple(map(int,subsample.split("-")))
             shuffle = d_info["shuffle"][key]
             length = d_info["length"][key]
@@ -304,6 +303,22 @@ def read_hdf5(start,end=None,version=None,base_dir = None,
             Y = store["Y/"+key].iloc[idx]
             df_other = store["other/"+key].iloc[idx]
             print("Current subsample size(length):",len(idx))
+        elif type(subsample)==set:
+            X = store["X/" + key].iloc[idx]
+            Y = store["Y/" + key].iloc[idx]
+            df_other = store["other/" + key].iloc[idx]
+        else:
+            raise ValueError("Subsample type {0} is not supported.".format(type(subsample)))
+
+        # Get specified columns of X, Y, df_other.
+        if columns is not None:
+            if "X" in columns:
+                X = X[columns["X"]]
+            if "Y" in columns:
+                Y = Y[columns["Y"]]
+            if "other" in columns:
+                df_other = df_other[columns["other"]]
+
         X_list.append(X)
         Y_list.append(Y)
         other_list.append(df_other)
@@ -378,10 +393,10 @@ if __name__ == '__main__':
                "is_clf": False, "threshold": 0.2,"target_col":""}),
              ]
 
-    save_dataset_in_hdf5(targets=targets, paras=paras,
-                         start_year=2013, start_index=0, end_year=2019,
-                         end_index=0,
-                         version="2019-02-06")
+    update_dataset_in_hdf5(targets=targets, paras=paras,
+                           start_year=2013, start_index=0, end_year=2019,
+                           end_index=0,
+                           version="2019-02-06")
 
 
     # X,Y,other = read_hdf5(start="2016-07-01",end="2017-01-01")
