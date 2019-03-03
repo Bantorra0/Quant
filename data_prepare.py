@@ -62,6 +62,18 @@ def move(days, df: pd.DataFrame, cols=None, prefix=True):
 
 def rolling(rolling_type, days, df: pd.DataFrame, cols=None,
             prefix=True):
+    """
+    A wrapper of df.rolling. Current date is included when using arg days, e.g.
+    days=-5 means the window is current date and previous 4 days, days=5
+    means currate date and future 4 days.
+
+    :param rolling_type:
+    :param days:
+    :param df:
+    :param cols:
+    :param prefix:
+    :return:
+    """
     _check_int(days)
     if cols is None:
         cols = df.columns
@@ -300,9 +312,18 @@ def FE_single_stock_d(df:pd.DataFrame, targets,start=None,end=None):
             # df_targets_list.extend([df_period_mean1,df_period_mean2,df_period_mean3])
         elif t["func"] == "avg":
             df_target = rolling("sum", pred_period,
-                                move(-1, df, cols=["vol","amt"]),prefix=False)
+                                move(-1, df, cols=["vol","amt"],prefix=False),
+                                prefix=False)
+            # print(df_target.columns,"------")
+            # print(df_target)
+            # print("--------target",df_target["amt"]/df_target["vol"]*10)
             df_target = pd.DataFrame(df_target["amt"]/df_target["vol"]*10,
-                                     columns=["f{}avg_f1mv".format(pred_period)])
+                                     columns=["f{}avg_f1mv".format(
+                                         pred_period)])
+            # print(df.columns)
+            print(pd.concat([df[["avg","open","close"]],df_target],
+                            axis=1).round(
+                2)[20:])
         else:
             raise ValueError("Fun type {} is not supported!".format(t["func"]))
         df_targets_list.append(df_target)
