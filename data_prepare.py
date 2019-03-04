@@ -188,19 +188,18 @@ def k_MA(k:int, df:pd.DataFrame):
     df_result["{}MA_vol".format(k)] = df["vol"].rolling(window=k).mean()
     df_result["{}MA_amt".format(k)] = df["amt"].rolling(window=k).mean()
     df_result["{}MA".format(k)] = df_result["{}MA_amt".format(k)]\
-                                  /df_result["{}MA_vol".format(k)]
+                                  /df_result["{}MA_vol".format(k)]*10
     return df_result[["{}MA".format(k)]].sort_index(ascending=False)
 
 
 def k_line(k:int, df:pd.DataFrame):
-    if df.shape[1] != 6:
-        raise ValueError("df.shape[1] {}!=6".format(df.shape[1]))
+    if df.shape[1] != 7:
+        raise ValueError("df.shape[1] {}!=7".format(df.shape[1]))
 
-    if not {"open", "high", "low", "close", "vol", "amt"}.issubset(set(
-            df.columns)):
-        raise ValueError("[\"open\", \"high\", \"low\", \"close\", \"vol\", "
-                         "\"amt\"\] is not a subset of {}".format(set(
-            df.columns)))
+    cols = ["open","high","low","close","avg","vol","amt"]
+    if not set(cols).issubset(set(df.columns)):
+        raise ValueError("[\"open\", \"high\", \"low\", \"close\",\"avg\", \"vol\", "
+                         "\"amt\"\] is not a subset of {}".format(set(df.columns)))
 
     df_result = pd.DataFrame(index=df.index)
     df = df.sort_index(ascending=True)
@@ -211,8 +210,9 @@ def k_line(k:int, df:pd.DataFrame):
     df_result["{}k_close".format(k)]=df["close"]
     df_result["{}k_vol".format(k)] = df["vol"].rolling(k).mean()
     df_result["{}k_amt".format(k)] = df["amt"].rolling(k).mean()
+    df_result["{}k_avg".format(k)] = df_result["{}k_amt".format(k)]/df_result["{}k_vol".format(k)] * 10
 
-    return df_result
+    return df_result[["{0}k_{1}".format(k,col) for col in cols]]
 
 
 def prepare_stock_d(df_stck_d):
@@ -265,13 +265,14 @@ def FE_single_stock_d(df:pd.DataFrame, targets,start=None,end=None):
     df = df.sort_index(ascending=False)
 
     # Parameter setting
-    cols_move = ["open", "high", "low", "close", "vol", "amt"]
-    cols_roll = ["open", "high", "low", "close", "vol", "amt"]
-    cols_k_line = ["open", "high", "low", "close", "vol", "amt"]
-    cols_fq = ["open", "high", "low", "close", "avg"]
+    cols_move = ["open", "high", "low", "close","avg", "vol", "amt"]
+    cols_roll = ["open", "high", "low", "close","avg", "vol", "amt"]
+    cols_k_line = ["open", "high", "low", "close","avg", "vol", "amt"]
+    cols_fq = ["open", "high", "low", "close","avg"]
+    cols_candle_stick = cols_fq
 
     move_upper_bound = 6
-    move_mv_list = np.arange(1, move_upper_bound)
+    mv_list = np.arange(2, move_upper_bound)
 
     candle_stick_mv_list = np.arange(0, move_upper_bound)
 
@@ -328,31 +329,48 @@ def FE_single_stock_d(df:pd.DataFrame, targets,start=None,end=None):
             raise ValueError("Fun type {} is not supported!".format(t["func"]))
         df_targets_list.append(df_target)
 
-    df_move_list = [move(i, df, cols_move) for i in move_mv_list]
-    df_move_change_list = [change_rate(df_move, df[cols_move])
-                           for df_move in df_move_list]
-
-    df_candle_stick = candle_stick(df[cols_fq])
-    df_move_candle_list = [move(i, df_candle_stick)
+    df_basic_con_chg = change_rate(move(1,df,cols_move),df[cols_move])
+    df_basic_mv_con_chg_list = [move(i, df_basic_con_chg) for i in mv_list]
+    # df_basic_mv_list = [move(i, df, cols_move) for i in mv_list]
+    df_basic_mv_cur_chg_list = [change_rate(move(i, df, cols_move), df[cols_move])
+                                for i in mv_list]
+    df_basic_candle_stick = candle_stick(df[cols_fq])
+    df_basic_mv_candle_list = [move(i, df_basic_candle_stick)
                            for i in candle_stick_mv_list]
 
-    df_1ma = k_MA(1, df[["vol", "amt"]])
-    df_kma_change_list = [change_rate(k_MA(k, df[["vol", "amt"]]), df_1ma)
-                          for k in kma_k_list]
-    df_move_kma_change_list = [move(mv, df_kma_change)
-                               for df_kma_change in df_kma_change_list
-                               for mv in kma_mv_list]
 
-    df_k_line_list = [(k, k_line(k, df[cols_k_line])) for k in k_line_k_list]
-    df_change_move_k_line_list = [change_rate(move(k * mv, df_k_line),
-                                              df[cols_k_line])
-                                  for k, df_k_line in df_k_line_list
-                                  for mv in k_line_mv_list]
+    # df_1ma = k_MA(1, df[["vol", "amt"]])
+    df_kma_list = [k_MA(k, df[["vol", "amt"]]) for k in kma_k_list]
+    df_kma_tot = pd.concat(df_kma_list,axis=1)
+    df_kma_con_chg = change_rate(move(1,df_kma_tot),df_kma_tot)
+    df_kma_mv_con_chg_list = [move(i,df_kma_con_chg) for i in mv_list]
+    df_kma_mv_cur_chg_list = [change_rate(move(i,df_kma_tot),df_kma_tot) for i in mv_list]
+    df_kma_list = [df[["avg"]]]+df_kma_list
+    df_kma_con_k_list = [change_rate(df_kma_list[i+1],df_kma_list[i]) for i in range(len(df_kma_list)-1)]
+
+    # df_kma_cur_chg_list = [change_rate(k_MA(k, df[["vol", "amt"]]), df["avg"])
+    #                        for k in kma_k_list]
+    # df_move_kma_change_list = [move(mv, df_kma_change)
+    #                            for df_kma_change in df_kma_cur_chg_list
+    #                            for mv in kma_mv_list]
+
+    df_k_line_list = [k_line(k, df[cols_k_line]) for k in k_line_k_list]
+    df_k_line_tot = pd.concat(df_k_line_list,axis=1)
+    df_k_line_con_chg = change_rate(move(1,df_k_line_tot),df_k_line_tot)
+    df_k_line_mv_con_chg_list = [move(i,df_k_line_con_chg) for i in mv_list]
+    df_k_line_mv_cur_chg_list = [change_rate(move(i,df_k_line_tot),df_k_line_tot) for i in mv_list]
+    df_k_line_list = [df[cols_k_line]] + df_k_line_list
+    df_k_line_con_k_list = [change_rate(df_k_line_list[i+1],df_k_line_list[i]) for i in range(len(df_k_line_list)-1)]
+    df_k_line_candle_stick = pd.concat([candle_stick(df_k_line[df_k_line.columns[:5]]) for df_k_line in df_k_line_list],axis=1)
+    df_k_line_mv_candle_stick = [move(i,df_k_line_candle_stick) for i in mv_list]
+    # df_change_move_k_line_list = [change_rate(move(k * mv, df_k_line),
+    #                                           df[cols_k_line])
+    #                               for k, df_k_line in df_k_line_list
+    #                               for mv in k_line_mv_list]
 
     df_rolling_change_list = [
         change_rate(rolling(rolling_type, days=days, df=df, cols=cols_roll),
-                    df[cols_roll],
-                    )
+                    df[cols_roll])
         for days in rolling_k_list
         for rolling_type in ["max", "min", "mean"]]
 
@@ -360,8 +378,8 @@ def FE_single_stock_d(df:pd.DataFrame, targets,start=None,end=None):
         [df_qfq, df_tomorrow, df_tomorrow_qfq] + df_targets_list, axis=1, sort=False)
 
     # df_stck = pd.concat(
-    #     [df] + df_move_change_list
-    #     # + df_move_candle_list
+    #     [df] + df_basic_mv_cur_chg_list
+    #     # + df_basic_mv_candle_list
     #     # + df_move_kma_change_list
     #     + df_rolling_change_list
     #     # + df_change_move_k_line_list
@@ -369,11 +387,18 @@ def FE_single_stock_d(df:pd.DataFrame, targets,start=None,end=None):
     #     axis=1,
     #     sort=False)
 
-    df_stck = pd.concat([df] + df_move_change_list
-                        + df_move_candle_list
-                        + df_move_kma_change_list
+    df_stck = pd.concat([df]
+                        + df_basic_mv_cur_chg_list
+                        + df_basic_mv_con_chg_list
+                        + df_basic_mv_candle_list
+                        + df_kma_mv_con_chg_list
+                        + df_kma_mv_cur_chg_list
+                        + df_kma_con_k_list
+                        + df_k_line_mv_con_chg_list
+                        + df_k_line_mv_cur_chg_list
+                        + df_k_line_con_k_list
+                        + df_k_line_mv_candle_stick
                         + df_rolling_change_list
-                        + df_change_move_k_line_list
                         + [df_not_in_X], axis=1, sort=False)
 
     cols_not_in_X = ["code"]+list(df_not_in_X.columns)
