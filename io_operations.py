@@ -78,9 +78,9 @@ def get_time_kwargs(key):
     return {"start":start,"end":end,"lowerbound":lowerbound,"upperbound":upperbound}
 
 
-def update_dataset_in_hdf5(targets, paras, start_year:int, start_index:int, end_year:int,
-                           end_index:int, slice_length=None, stock_pool=None,
-                           version=None, base_dir=r"datasets", f_info_name="stock_d_info"):
+def save_dataset_in_hdf5(targets, paras, start_year:int, start_index:int, end_year:int,
+                         end_index:int, slice_length=None, stock_pool=None,
+                         version=None, base_dir=r"datasets",f_info_name="stock_d_info"):
     hdf5_keys,slice_length = get_hdf5_keys(
         start_year=start_year,start_index=start_index,
         end_year=end_year,end_index=end_index,slice_length=slice_length)
@@ -372,9 +372,10 @@ def get_latest_version(base_dir=r"datasets",
 if __name__ == '__main__':
     targets = [{"period": 20, "func": "max", "col": "high"},
                {"period": 20, "func": "min", "col": "low"},
+               {"period": 20, "func": "avg", "col": ""},
                {"period": 5, "func": "max", "col": "high"},
                {"period": 5, "func": "min", "col": "low"},
-               {"period": 20, "func": "mean", "col": ""},
+               {"period": 5, "func": "avg", "col": ""},
                ]
     paras = [("y_l_rise",
               {"pred_period": 20, "is_high": True, "is_clf": False,
@@ -382,38 +383,70 @@ if __name__ == '__main__':
              ("y_l_decline",
               {"pred_period": 20, "is_high": False, "is_clf": False,
                "threshold": 0.2}),
+             ("y_l_avg",
+              {"pred_period": 20, "is_high": True,
+               "is_clf": False, "threshold": 0.2,
+               "target_col": "f20avg_f1mv"}),
              ("y_s_rise",
               {"pred_period": 5, "is_high": True,"is_clf": False,
                "threshold": 0.1}),
              ("y_s_decline",
               {"pred_period": 5,"is_high": False,"is_clf": False,
                "threshold": 0.1}),
-             ("y_l_avg",
-              {"pred_period": 20, "is_high": True,
-               "is_clf": False, "threshold": 0.2,"target_col":""}),
+             ("y_s_avg",
+              {"pred_period": 5, "is_high": True,
+               "is_clf": False, "threshold": 0.2,"target_col":"f5avg_f1mv"}),
              ]
 
-    update_dataset_in_hdf5(targets=targets, paras=paras,
-                           start_year=2013, start_index=0, end_year=2019,
-                           end_index=0,
-                           version="2019-02-06")
-
-
-    # X,Y,other = read_hdf5(start="2016-07-01",end="2017-01-01")
-    d_info = load_dataset_info()
-    # for k,v in sorted(d_info["shuffle"].items()):
+    # save_dataset_in_hdf5(targets=targets, paras=paras,
+    #                      start_year=2018, start_index=1, end_year=2019,
+    #                      end_index=0,
+    #                      version="2019-02-06")
+    #
+    #
+    # # X,Y,other = read_hdf5(start="2016-07-01",end="2017-01-01")
+    # d_info = load_dataset_info()
+    # # for k,v in sorted(d_info["shuffle"].items()):
+    # #     print(k,v)
+    # for k,v in sorted(d_info["length"].items()):
     #     print(k,v)
-    for k,v in sorted(d_info["length"].items()):
-        print(k,v)
-
-    X, Y, df_other = read_hdf5(start="2016-07-01", end="2017-01-01",
-                               subsample="10-5")
-    print(X.shape, Y.shape, df_other.shape)
-    print(X.index.max(),X.index.min())
-    print(Y.index.max(), Y.index.min())
-    print(df_other.index.max(), df_other.index.min())
+    #
+    # X, Y, df_other = read_hdf5(start="2016-07-01", end="2017-01-01",
+    #                            subsample="10-5")
+    # print(X.shape, Y.shape, df_other.shape)
+    # print(X.index.max(),X.index.min())
+    # print(Y.index.max(), Y.index.min())
+    # print(df_other.index.max(), df_other.index.min())
 
     # save_shuffle_info()
+
+    lower_bound = "2018-01-01"
+    start = "2018-07-01"
+    end = "2018-12-01"
+    upper_bound = "2019-02-01"
+    X, df_other, cols_category, enc = ml_model.gen_data(targets=targets,
+        stock_pool=None,
+        lowerbound=lower_bound,
+        start=start,
+        end=end,
+        upperbound=upper_bound,)
+
+    Y = pd.concat([ml_model.gen_y(df_other, **v) for k, v in paras], axis=1)
+    Y.columns = [k for k, _ in paras]
+    Y.index = X.index
+    Y["y_l"] = Y.apply(
+        lambda r: r["y_l_rise"] if r["y_l_rise"] > -r["y_l_decline"] else r[
+            "y_l_decline"], axis=1)
+    Y["y_l_r"] = Y.apply(
+        lambda r: (r["y_l_avg"]+r["y_l_rise"])/2 if r["y_l_avg"]>0
+        else (r["y_l_avg"]+r["y_l_decline"])/2,axis=1)
+    print(X.shape, Y.shape, Y.columns)
+
+    pd.set_option("display.max_columns",20)
+    print(pd.concat([X[["open","close","avg"]],Y*100],axis=1).iloc[
+          :100].round(2))
+
+
 
 
 
