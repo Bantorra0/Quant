@@ -189,7 +189,7 @@ def k_MA(k:int, df:pd.DataFrame):
     df_result["{}MA_amt".format(k)] = df["amt"].rolling(window=k).mean()
     df_result["{}MA".format(k)] = df_result["{}MA_amt".format(k)]\
                                   /df_result["{}MA_vol".format(k)]
-    return df_result.sort_index(ascending=False)
+    return df_result[["{}MA".format(k)]].sort_index(ascending=False)
 
 
 def k_line(k:int, df:pd.DataFrame):
@@ -232,9 +232,14 @@ def prepare_each_stock(df_stock_d, qfq_type="hfq"):
         raise ValueError("qfq_type {} is not supported".format(qfq_type))
 
     df_stock_d = df_stock_d.copy()
-    fq_cols = ["open", "high", "low", "close","vol"]
+    # Calculate stocks' avg day prices.
+    # vol's unit is "手", while amt's unit is "1000yuan", so 10 is multiplied.
+    df_stock_d["avg"] = (df_stock_d["amt"] / df_stock_d["vol"] * 10).fillna(
+        float("inf"))
 
-    # 原始数据
+    fq_cols = ["open", "high", "low", "close","avg","vol"]
+
+    # 保存原始数据到新的列。
     for col in fq_cols:
         df_stock_d[col + "0"] = df_stock_d[col]
 
@@ -246,17 +251,12 @@ def prepare_each_stock(df_stock_d, qfq_type="hfq"):
         fq_factor = df_stock_d["adj_factor"]
 
     # print(fq_factor.shape)
-    fq_factor = np.array(fq_factor).reshape(-1, 1) * np.ones(
-        (1, len(fq_cols)))
+    fq_factor = np.array(fq_factor).reshape(-1, 1) * np.ones((1, len(fq_cols)))
 
     # Deal with open,high,low,close.
-    df_stock_d.loc[:, fq_cols[:4]] = df_stock_d[fq_cols[:4]] * fq_factor[:, :4]
+    df_stock_d.loc[:, fq_cols[:5]] = df_stock_d[fq_cols[:4]] * fq_factor[:, :4]
     # Deal with vol.
-    df_stock_d.loc[:, fq_cols[4]] = df_stock_d[fq_cols[4]] / fq_factor[:, 0]
-    # Calculate stocks' avg day prices.
-    # vol's unit is "手", while amt's unit is "1000yuan", so 10 is multiplied.
-    df_stock_d["avg"] = (df_stock_d["amt"]/df_stock_d["vol"]*10).fillna(
-        float("inf"))
+    df_stock_d.loc[:, fq_cols[5]] = df_stock_d[fq_cols[4]] / fq_factor[:, 0]
 
     return df_stock_d
 
@@ -321,9 +321,9 @@ def FE_single_stock_d(df:pd.DataFrame, targets,start=None,end=None):
                                      columns=["f{}avg_f1mv".format(
                                          pred_period)])
             # print(df.columns)
+            print(df["code"].iloc[0])
             print(pd.concat([df[["avg","open","close"]],df_target],
-                            axis=1).round(
-                2)[20:])
+                            axis=1).round(2)[20:])
         else:
             raise ValueError("Fun type {} is not supported!".format(t["func"]))
         df_targets_list.append(df_target)
@@ -383,6 +383,7 @@ def FE_single_stock_d(df:pd.DataFrame, targets,start=None,end=None):
     if end:
         df_stck = df_stck[df_stck.index < end]
 
+    print("Stock_d columns:",len(df_stck.columns),len(cols_not_in_X))
     return df_stck, cols_not_in_X
 
 
@@ -535,6 +536,7 @@ def FE_index_d(df_idx_d: pd.DataFrame, start=None):
     df_idx_d = pd.concat(df_idx_list, axis=1, sort=False)
     # print("df_idx_d:",df_idx_d.index.name)
     df_idx_d.index.name="date"
+    print("Idx_d columns:",len(df_idx_d.columns))
     return df_idx_d
 
 

@@ -468,6 +468,8 @@ class RegressorNetwork:
             print(df_feature_importance[
                       df_feature_importance["importance_raw"] > 0].round(
                 {"importance_percent": 2}).iloc[:20])
+            print("Among {0} features, {1} features are not used in the model"
+                  .format(len(df_feature_importance),sum(df_feature_importance["importance_raw"] == 0)))
         self.is_trained[i] = True
 
 
