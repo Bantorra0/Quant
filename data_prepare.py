@@ -254,9 +254,9 @@ def prepare_each_stock(df_stock_d, qfq_type="hfq"):
     fq_factor = np.array(fq_factor).reshape(-1, 1) * np.ones((1, len(fq_cols)))
 
     # Deal with open,high,low,close.
-    df_stock_d.loc[:, fq_cols[:5]] = df_stock_d[fq_cols[:4]] * fq_factor[:, :4]
+    df_stock_d.loc[:, fq_cols[:5]] = df_stock_d[fq_cols[:5]] * fq_factor[:, :5]
     # Deal with vol.
-    df_stock_d.loc[:, fq_cols[5]] = df_stock_d[fq_cols[4]] / fq_factor[:, 0]
+    df_stock_d.loc[:, fq_cols[5]] = df_stock_d[fq_cols[5]] / fq_factor[:, 0]
 
     return df_stock_d
 
@@ -272,7 +272,7 @@ def FE_single_stock_d(df:pd.DataFrame, targets,start=None,end=None):
     cols_candle_stick = cols_fq
 
     move_upper_bound = 6
-    mv_list = np.arange(2, move_upper_bound)
+    mv_list = np.arange(1, move_upper_bound)
 
     candle_stick_mv_list = np.arange(0, move_upper_bound)
 
@@ -315,16 +315,13 @@ def FE_single_stock_d(df:pd.DataFrame, targets,start=None,end=None):
             df_target = rolling("sum", pred_period,
                                 move(-1, df, cols=["vol","amt"],prefix=False),
                                 prefix=False)
-            # print(df_target.columns,"------")
             # print(df_target)
-            # print("--------target",df_target["amt"]/df_target["vol"]*10)
             df_target = pd.DataFrame(df_target["amt"]/df_target["vol"]*10,
                                      columns=["f{}avg_f1mv".format(
                                          pred_period)])
-            # print(df.columns)
-            print(df["code"].iloc[0])
-            print(pd.concat([df[["avg","open","close"]],df_target],
-                            axis=1).round(2)[20:])
+            # print(df["code"].iloc[0])
+            # print(pd.concat([df[["avg","open","close"]],df_target],
+            #                 axis=1).round(2)[20:])
         else:
             raise ValueError("Fun type {} is not supported!".format(t["func"]))
         df_targets_list.append(df_target)
@@ -408,7 +405,7 @@ def FE_single_stock_d(df:pd.DataFrame, targets,start=None,end=None):
     if end:
         df_stck = df_stck[df_stck.index < end]
 
-    print("Stock_d columns:",len(df_stck.columns),len(cols_not_in_X))
+    # print("Stock_d columns:",len(df_stck.columns),len(cols_not_in_X))
     return df_stck, cols_not_in_X
 
 
@@ -498,8 +495,8 @@ def FE_stock_d_mp(df_stock_d:pd.DataFrame, stock_pool=None, targets=None, start=
         if count_out%10==0 and count_out>0:
             print("Finish processing {0} stocks in {1:.2f}s.".format(count_out, time.time() - start_time))
 
-        if count_in>=10:
-            break
+        # if count_in>=10:
+        #     break
 
     while not q_res.empty():
         res = q_res.get()
@@ -561,7 +558,7 @@ def FE_index_d(df_idx_d: pd.DataFrame, start=None):
     df_idx_d = pd.concat(df_idx_list, axis=1, sort=False)
     # print("df_idx_d:",df_idx_d.index.name)
     df_idx_d.index.name="date"
-    print("Idx_d columns:",len(df_idx_d.columns))
+    # print("Idx_d columns:",len(df_idx_d.columns))
     return df_idx_d
 
 
@@ -623,6 +620,7 @@ def prepare_data(cursor, targets=None, start=None, lowerbound=None, end=None,upp
     print(df_index_d_FE.shape, len(df_index_d_FE.index.unique()))
     # print(df_index_d_FE.index.name)
 
+    print("step0")
     # Merge three df.
     df_all = df_stock_d_FE.join(df_index_d_FE, how="left")
     df_all.index.name = "date"
@@ -630,6 +628,7 @@ def prepare_data(cursor, targets=None, start=None, lowerbound=None, end=None,upp
         .merge(df_stock_basic, on="code",how="left")\
         .set_index(["date"])
 
+    print("step1")
     df_all["list_days"] = -1
     col_index = list(df_all.columns).index("list_days")
     for i in range(len(df_all.index)):
@@ -639,6 +638,7 @@ def prepare_data(cursor, targets=None, start=None, lowerbound=None, end=None,upp
         delta = date - list_date
         df_all.iloc[i,col_index] = delta.days
 
+    print("step2")
     cols_not_in_X += list(df_stock_basic.columns.difference(
         cols_category+["code"]))
     print(df_all.shape)

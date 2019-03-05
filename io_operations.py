@@ -398,10 +398,11 @@ if __name__ == '__main__':
                "is_clf": False, "threshold": 0.2,"target_col":"f5avg_f1mv"}),
              ]
 
-    # save_dataset_in_hdf5(targets=targets, paras=paras,
-    #                      start_year=2018, start_index=1, end_year=2019,
-    #                      end_index=0,
-    #                      version="2019-02-06")
+    save_dataset_in_hdf5(targets=targets, paras=paras,
+                         start_year=2013, start_index=0, end_year=2019,
+                         end_index=0,
+                         slice_length=3,
+                         version="2019-03-04")
     #
     #
     # # X,Y,other = read_hdf5(start="2016-07-01",end="2017-01-01")
@@ -420,31 +421,32 @@ if __name__ == '__main__':
 
     # save_shuffle_info()
 
-    lower_bound = "2018-01-01"
-    start = "2018-07-01"
-    end = "2018-12-01"
-    upper_bound = "2019-02-01"
-    X, df_other, cols_category, enc = ml_model.gen_data(targets=targets,
-        stock_pool=None,
-        lowerbound=lower_bound,
-        start=start,
-        end=end,
-        upperbound=upper_bound,)
 
-    Y = pd.concat([ml_model.gen_y(df_other, **v) for k, v in paras], axis=1)
-    Y.columns = [k for k, _ in paras]
-    Y.index = X.index
-    Y["y_l"] = Y.apply(
-        lambda r: r["y_l_rise"] if r["y_l_rise"] > -r["y_l_decline"] else r[
-            "y_l_decline"], axis=1)
-    Y["y_l_r"] = Y.apply(
-        lambda r: (r["y_l_avg"]+r["y_l_rise"])/2 if r["y_l_avg"]>0
-        else (r["y_l_avg"]+r["y_l_decline"])/2,axis=1)
-    print(X.shape, Y.shape, Y.columns)
-
-    pd.set_option("display.max_columns",20)
-    print(pd.concat([X[["open","close","avg"]],Y*100],axis=1).iloc[
-          :100].round(2))
+    # lower_bound = "2018-01-01"
+    # start = "2018-07-01"
+    # end = "2018-12-01"
+    # upper_bound = "2019-02-01"
+    # X, df_other, cols_category, enc = ml_model.gen_data(targets=targets,
+    #     stock_pool=None,
+    #     lowerbound=lower_bound,
+    #     start=start,
+    #     end=end,
+    #     upperbound=upper_bound,)
+    #
+    # Y = pd.concat([ml_model.gen_y(df_other, **v) for k, v in paras], axis=1)
+    # Y.columns = [k for k, _ in paras]
+    # Y.index = X.index
+    # Y["y_l"] = Y.apply(
+    #     lambda r: r["y_l_rise"] if r["y_l_rise"] > -r["y_l_decline"] else r[
+    #         "y_l_decline"], axis=1)
+    # Y["y_l_r"] = Y.apply(
+    #     lambda r: (r["y_l_avg"]+r["y_l_rise"])/2 if r["y_l_avg"]>0
+    #     else (r["y_l_avg"]+r["y_l_decline"])/2,axis=1)
+    # print(X.shape, Y.shape, Y.columns)
+    #
+    # pd.set_option("display.max_columns",20)
+    # print(pd.concat([X[["open","close","avg"]],Y*100],axis=1).iloc[
+    #       :100].round(2))
 
 
 
