@@ -216,6 +216,7 @@ def k_line(k:int, df:pd.DataFrame):
 
 
 def prepare_stock_d(df_stck_d):
+    df_stck_d["date"] = df_stck_d["date"].apply(lambda x:x.replace("-", "")).astype(int)
     df_stck_d = df_stck_d.set_index(["date"]).sort_index(ascending=False)
     df_stck_d = df_stck_d[
         ["code", "open", "high", "low", "close", "vol", "amt", "adj_factor"]]
@@ -223,6 +224,7 @@ def prepare_stock_d(df_stck_d):
 
 
 def prepare_index_d(df_idx_d):
+    df_idx_d["date"]=df_idx_d["date"].apply(lambda x:x.replace("-", "")).astype(int)
     df_idx_d = df_idx_d.set_index("date").sort_index(ascending=False)
     return df_idx_d
 
@@ -404,8 +406,12 @@ def FE_single_stock_d(df:pd.DataFrame, targets,start=None,end=None):
     cols_not_in_X = ["code"]+list(df_not_in_X.columns)
 
     if start:
+        if type(start) == str:
+            start = int(start.replace("-",""))
         df_stck = df_stck[df_stck.index >= start]
     if end:
+        if type(end) == str:
+            end = int(end.replace("-",""))
         df_stck = df_stck[df_stck.index < end]
 
     print("Stock_d columns:",len(df_stck.columns),len(cols_not_in_X))
@@ -595,6 +601,14 @@ def proc_stock_basic(df_stock_basic:pd.DataFrame):
 def prepare_data(cursor, targets=None, start=None, lowerbound=None, end=None,upper_bound=None,stock_pool=None):
     print("start:",start,"\tlowerbound:", lowerbound)
 
+    if type(lowerbound)==int:
+        lowerbound = str(lowerbound)
+        lowerbound = lowerbound[:4]+"-"+lowerbound[4:6]+"-"+lowerbound[6:8]
+
+    if type(upper_bound)==int:
+        upper_bound = str(upper_bound)
+        upper_bound = upper_bound[:4]+"-"+upper_bound[4:6]+"-"+upper_bound[6:8]
+
     # Prepare df_stock_basic
     df_stock_basic = dbop.create_df(cursor, const.STOCK_BASIC[const.TABLE])
     df_stock_basic, cols_category, enc = proc_stock_basic(df_stock_basic)
@@ -631,13 +645,18 @@ def prepare_data(cursor, targets=None, start=None, lowerbound=None, end=None,upp
         .set_index(["date"])
 
     df_all["list_days"] = -1
-    col_index = list(df_all.columns).index("list_days")
-    for i in range(len(df_all.index)):
-        date = datetime.datetime.strptime(df_all.index[i],"%Y-%m-%d")
-        row = df_all.iloc[i]
-        list_date = datetime.datetime.strptime(row["list_date"],"%Y%m%d")
-        delta = date - list_date
-        df_all.iloc[i,col_index] = delta.days
+    # col_index = list(df_all.columns).index("list_days")
+    df_all["list_date"] = df_all["list_date"].apply(lambda x:x.replace("-","")).astype(int)
+    df_all["list_days"] = df_all.index-df_all["list_date"]
+    # for i in range(len(df_all.index)):
+    #     date = datetime.datetime.strptime(df_all.index[i],"%Y-%m-%d")
+    #     row = df_all.iloc[i]
+    #     list_date = datetime.datetime.strptime(row["list_date"],"%Y%m%d")
+    #     delta = date - list_date
+    #     df_all.iloc[i,col_index] = delta.days
+    #     if i%100==0:
+    #         print("Process list_days:",i)
+    print(df_all[["list_date","list_days"]].iloc[50:100])
 
     cols_not_in_X += list(df_stock_basic.columns.difference(
         cols_category+["code"]))

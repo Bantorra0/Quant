@@ -420,10 +420,10 @@ if __name__ == '__main__':
 
     # save_shuffle_info()
 
-    lower_bound = "2018-01-01"
-    start = "2018-07-01"
-    end = "2018-12-01"
-    upper_bound = "2019-02-01"
+    lower_bound = 20180101
+    start = 20180701
+    end = 20181201
+    upper_bound = 20190201
     X, df_other, cols_category, enc = ml_model.gen_data(targets=targets,
         stock_pool=None,
         lowerbound=lower_bound,
