@@ -174,13 +174,15 @@ def candle_stick(df:pd.DataFrame):
 
 
 def k_MA(k:int, df:pd.DataFrame):
-    if df.shape[1] != 2:
-        raise ValueError("df.shape[1] {}!=2".format(df.shape[1]))
+    # if df.shape[1] != 2:
+    #     raise ValueError("df.shape[1] {}!=2".format(df.shape[1]))
 
     if "amt" not in df.columns:
         raise ValueError("\"amt\" not in df.columns")
     elif "vol" not in df.columns:
         raise ValueError("\"vol\" not in df.columns")
+    elif "close" not in df.columns:
+        raise ValueError("\"close\" not in df.columns")
 
     df_result = pd.DataFrame(index=df.index)
     df = df.sort_index(ascending=True)
@@ -189,6 +191,22 @@ def k_MA(k:int, df:pd.DataFrame):
     df_result["{}MA_amt".format(k)] = df["amt"].rolling(window=k).mean()
     df_result["{}MA".format(k)] = df_result["{}MA_amt".format(k)]\
                                   /df_result["{}MA_vol".format(k)]*10
+
+    # 如果累计vol=0（计算区间内停牌），则上述计算结果为inf，取收盘价。
+    # 此处假设停牌期间已完成数据填充，按vol=0，amt=0，其他价格按前一天（停牌前最后一天）收盘价算。
+
+    # col_kma_idx = list(df_result.columns).index("{}MA".format(k))
+    # col_close_idx = list(df.columns).index("close")
+    # try:
+    #     df.iloc[df_result.index[df_result["{}MA".format(k)] == float("inf")]]
+    # except Exception as e:
+    #     print(df_result.columns,col_kma_idx,df.columns,col_close_idx)
+    #     print(df_result.shape,df.shape)
+    #     print(df_result.index[df_result["{}MA".format(k)] == float("inf")])
+    #     print(df.iloc[df_result.index[df_result["{}MA".format(k)] == float("inf")]])
+    #     print(df.iloc[df_result.index[df_result["{}MA".format(k)] == float("inf")],col_close_idx])
+    df_result.loc[df_result.index[df_result["{}MA".format(k)] == float("inf")],"{}MA".format(k)] = \
+        df.loc[df_result.index[df_result["{}MA".format(k)] == float("inf")],"close"]
     return df_result[["{}MA".format(k)]].sort_index(ascending=False)
 
 
@@ -236,8 +254,10 @@ def prepare_each_stock(df_stock_d, qfq_type="hfq"):
     df_stock_d = df_stock_d.copy()
     # Calculate stocks' avg day prices.
     # vol's unit is "手", while amt's unit is "1000yuan", so 10 is multiplied.
-    df_stock_d["avg"] = (df_stock_d["amt"] / df_stock_d["vol"] * 10).fillna(
-        float("inf"))
+    df_stock_d["avg"] = (df_stock_d["amt"] / df_stock_d["vol"] * 10)
+    # 如果vol=0（停牌），则上述计算结果为inf，取收盘价。
+    # 此处假设停牌期间已完成数据填充，按vol=0，amt=0，其他价格按前一天（停牌前最后一天）收盘价算。
+    df_stock_d[df_stock_d["avg"]==float("inf")]["avg"]=df_stock_d["close"]
 
     fq_cols = ["open", "high", "low", "close","avg","vol"]
 
@@ -274,7 +294,7 @@ def FE_single_stock_d(df:pd.DataFrame, targets,start=None,end=None):
     cols_candle_stick = cols_fq
 
     move_upper_bound = 6
-    mv_list = np.arange(1, move_upper_bound)
+    mv_list = np.arange(0, move_upper_bound)
 
     candle_stick_mv_list = np.arange(0, move_upper_bound)
 
@@ -328,22 +348,22 @@ def FE_single_stock_d(df:pd.DataFrame, targets,start=None,end=None):
             raise ValueError("Fun type {} is not supported!".format(t["func"]))
         df_targets_list.append(df_target)
 
-    df_basic_con_chg = change_rate(move(1,df,cols_move),df[cols_move])
+    df_basic_con_chg = change_rate(move(1,df[cols_move]),df[cols_move])
     df_basic_mv_con_chg_list = [move(i, df_basic_con_chg) for i in mv_list]
     # df_basic_mv_list = [move(i, df, cols_move) for i in mv_list]
-    df_basic_mv_cur_chg_list = [change_rate(move(i, df, cols_move), df[cols_move])
-                                for i in mv_list]
+    df_basic_mv_cur_chg_list = [change_rate(move(i, df[cols_move]), df[cols_move])
+                                for i in mv_list[2:]]
     df_basic_candle_stick = candle_stick(df[cols_fq])
     df_basic_mv_candle_list = [move(i, df_basic_candle_stick)
                            for i in candle_stick_mv_list]
 
 
     # df_1ma = k_MA(1, df[["vol", "amt"]])
-    df_kma_list = [k_MA(k, df[["vol", "amt"]]) for k in kma_k_list]
+    df_kma_list = [k_MA(k, df[["vol", "amt","close"]]) for k in kma_k_list]
     df_kma_tot = pd.concat(df_kma_list,axis=1)
     df_kma_con_chg = change_rate(move(1,df_kma_tot),df_kma_tot)
     df_kma_mv_con_chg_list = [move(i,df_kma_con_chg) for i in mv_list]
-    df_kma_mv_cur_chg_list = [change_rate(move(i,df_kma_tot),df_kma_tot) for i in mv_list]
+    df_kma_mv_cur_chg_list = [change_rate(move(i,df_kma_tot),df_kma_tot) for i in mv_list[2:]]
     df_kma_list = [df[["avg"]]]+df_kma_list
     df_kma_con_k_list = [change_rate(df_kma_list[i+1],df_kma_list[i]) for i in range(len(df_kma_list)-1)]
 
@@ -354,14 +374,22 @@ def FE_single_stock_d(df:pd.DataFrame, targets,start=None,end=None):
     #                            for mv in kma_mv_list]
 
     df_k_line_list = [k_line(k, df[cols_k_line]) for k in k_line_k_list]
-    df_k_line_tot = pd.concat(df_k_line_list,axis=1)
-    df_k_line_con_chg = change_rate(move(1,df_k_line_tot),df_k_line_tot)
-    df_k_line_mv_con_chg_list = [move(i,df_k_line_con_chg) for i in mv_list]
-    df_k_line_mv_cur_chg_list = [change_rate(move(i,df_k_line_tot),df_k_line_tot) for i in mv_list]
+    # df_k_line_tot = pd.concat(df_k_line_list,axis=1)
+    df_k_line_mv_con_chg_list = [move(k*mv,change_rate(move(k*1,df_k_line),df_k_line))
+                                 for k,df_k_line in zip(k_line_k_list,df_k_line_list)
+                                 for mv in mv_list]
+    # df_k_line_mv_con_chg_list = [move(i,df_k_line_con_chg) for i in mv_list]
+    df_k_line_mv_cur_chg_list = [change_rate(move(k*mv,df_k_line),df_k_line)
+                                 for k,df_k_line in zip(k_line_k_list,df_k_line_list)
+                                 for mv in mv_list[2:]]
+    # [change_rate(move(i,df_k_line_tot),df_k_line_tot) for i in mv_list[2:]]
     df_k_line_list = [df[cols_k_line]] + df_k_line_list
     df_k_line_con_k_list = [change_rate(df_k_line_list[i+1],df_k_line_list[i]) for i in range(len(df_k_line_list)-1)]
-    df_k_line_candle_stick = pd.concat([candle_stick(df_k_line[df_k_line.columns[:5]]) for df_k_line in df_k_line_list],axis=1)
-    df_k_line_mv_candle_stick = [move(i,df_k_line_candle_stick) for i in mv_list]
+    # df_k_line_candle_stick = pd.concat([candle_stick(df_k_line[df_k_line.columns[:5]]) for df_k_line in df_k_line_list],axis=1)
+    df_k_line_mv_candle_stick = [move(k*mv,candle_stick(df_k_line[df_k_line.columns[:5]]))
+                                 for k,df_k_line in zip(k_line_k_list,df_k_line_list)
+                                 for mv in mv_list]
+    # [move(i,df_k_line_candle_stick) for i in mv_list]
     # df_change_move_k_line_list = [change_rate(move(k * mv, df_k_line),
     #                                           df[cols_k_line])
     #                               for k, df_k_line in df_k_line_list
@@ -501,8 +529,8 @@ def FE_stock_d_mp(df_stock_d:pd.DataFrame, stock_pool=None, targets=None, start=
         if count_out%10==0 and count_out>0:
             print("Finish processing {0} stocks in {1:.2f}s.".format(count_out, time.time() - start_time))
 
-        # if count_in>=10:
-        #     break
+        if count_in>=10:
+            break
 
     while not q_res.empty():
         res = q_res.get()
