@@ -426,7 +426,7 @@ if __name__ == '__main__':
     # print(Y.index.max(), Y.index.min())
     # print(df_other.index.max(), df_other.index.min())
 
-    # save_shuffle_info()
+    save_shuffle_info()
 
     # lower_bound = 20180101
     # start = 20180701

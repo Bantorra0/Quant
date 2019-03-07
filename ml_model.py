@@ -538,17 +538,19 @@ if __name__ == '__main__':
     pd.set_option("display.max_columns", 10)
     pd.set_option("display.max_rows", 256)
     X, Y, _ = IO_op.read_hdf5(start="2013-01-01", end="2019-01-01",
-                              subsample="100-0")
+                              subsample="10-0")
     print(X.info(memory_usage="deep"))
     del X["industry"]
     # Y["y_l_r"] = Y.apply(
-    #     lambda r: (r["y_l_avg"] + 3*r["y_l_rise"]) / 4
-    #     if r["y_l_avg"] > 0 else (r["y_l_avg"] + 3*r["y_l_decline"]) / 4,
+    #     lambda r: (10*r["y_l_rise"]+0*r["y_l_avg"]) / 10
+    #     if r["y_l_avg"] > 0 else ( 10*r["y_l_decline"]+0*r["y_l_avg"]) / 10,
     #     axis=1)
-    Y["y_l_r"] = Y.apply(
+    Y["y_l_r"]= Y.apply(
         lambda r: r["y_l_rise"]
         if r["y_l_avg"] > 0 else r["y_l_decline"],
-        axis=1)
+        axis=1)*0.75
+    print("=====")
+    # print(Y[Y["y_l_r"]!=ss].iloc[:10])
 
     cols_category = ["area", "market", "exchange", "is_hs"]
     test_start = 20180701
@@ -567,6 +569,7 @@ if __name__ == '__main__':
     X_test = X_test[cond]
     Y_test = Y_test[cond]
     print(X_train.shape, X_test.shape)
+    print(Y_test[Y_test["y_l_r"]!=Y_test["y_l"]].iloc[:20])
 
     lgbm_reg_net = RegressorNetwork()
 
@@ -650,7 +653,7 @@ if __name__ == '__main__':
     plt.figure()
     plt.hist(Y_test[ycol],bins=np.arange(-10, 11) * 0.1)
     plt.figure()
-    plt.hist(Y_test["y_l_avg"],bins=np.arange(-10, 11) * 0.1)
+    plt.hist(Y_test["y_l_avg"].dropna(),bins=np.arange(-10, 11) * 0.1)
 
     lgbm_reg_net.fit(X_train, Y_train[ycol], **paras)
     result = lgbm_reg_net.predict(X_test)
@@ -661,7 +664,7 @@ if __name__ == '__main__':
     #           "intervals":
     #               list(zip(np.arange(start_idx,end_idx) * 0.1, np.arange(
     #                   start_idx+1, end_idx+1) * 0.1))}
-    # col = "layer{0:d}_l2_y_l_pred".format(len(lgbm_reg_net.layers)-1)
+    col = "layer{0:d}_l2_y_l_pred".format(len(lgbm_reg_net.layers)-1)
     # assess_by_revenue(y_pred=result[col], Y_test=Y_test,
     #                   f_revenue=cus_obj.l2_revenue, paras=assess_paras)
 
