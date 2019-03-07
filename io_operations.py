@@ -333,6 +333,8 @@ def read_hdf5(start,end=None,version=None,base_dir = None,
     print("\nTotal concatenating size:",X.shape[0])
     Y = pd.concat(Y_list)
     other = pd.concat(other_list)
+    start = int(start.replace("-",""))
+    end = int(end.replace("-",""))
     date_index = X.index[(X.index>=start) & (X.index<end)].unique()
     print("Result dataset size:",len(Y.loc[date_index]))
     return X.loc[date_index],Y.loc[date_index],other.loc[date_index]
@@ -404,11 +406,11 @@ if __name__ == '__main__':
                "is_clf": False, "threshold": 0.2,"target_col":"f5avg_f1mv"}),
              ]
 
-    save_dataset_in_hdf5(targets=targets, paras=paras,
-                         start_year=2013, start_index=0,
-                         end_year=2019, end_index=0,
-                         slice_length=12,
-                         version="2019-03-06")
+    # save_dataset_in_hdf5(targets=targets, paras=paras,
+    #                      start_year=2013, start_index=0,
+    #                      end_year=2019, end_index=0,
+    #                      slice_length=12,
+    #                      version="2019-03-06")
 
     # X,Y,other = read_hdf5(start="2016-07-01",end="2017-01-01")
     # d_info = load_dataset_info()

@@ -538,11 +538,20 @@ if __name__ == '__main__':
     pd.set_option("display.max_columns", 10)
     pd.set_option("display.max_rows", 256)
     X, Y, _ = IO_op.read_hdf5(start="2013-01-01", end="2019-01-01",
-                              subsample="10-0")
+                              subsample="100-0")
     print(X.info(memory_usage="deep"))
     del X["industry"]
+    # Y["y_l_r"] = Y.apply(
+    #     lambda r: (r["y_l_avg"] + 3*r["y_l_rise"]) / 4
+    #     if r["y_l_avg"] > 0 else (r["y_l_avg"] + 3*r["y_l_decline"]) / 4,
+    #     axis=1)
+    Y["y_l_r"] = Y.apply(
+        lambda r: r["y_l_rise"]
+        if r["y_l_avg"] > 0 else r["y_l_decline"],
+        axis=1)
+
     cols_category = ["area", "market", "exchange", "is_hs"]
-    test_start = "2018-07-01"
+    test_start = 20180701
     trading_dates = Y.index.unique().sort_values(ascending=True)
     train_dates = trading_dates[trading_dates < test_start][:-21]
     test_dates = trading_dates[trading_dates >= test_start][:-21]
@@ -553,7 +562,7 @@ if __name__ == '__main__':
     Y_test = Y.loc[test_dates]
     del X, Y
 
-    ycol = "y_l"
+    ycol = "y_l_r"
     cond = Y_test[ycol].notnull()
     X_test = X_test[cond]
     Y_test = Y_test[cond]
@@ -594,10 +603,11 @@ if __name__ == '__main__':
               {"f_revenue": cus_obj.l2_revenue})
          }
 
-    layers = [layer0,layer1]
-    print(len(layer0),len(layer1))
-    print(layer0)
-    print(layer1)
+    # layers = [layer0,layer1]
+    layers = [layer1]
+    # print(len(layer0),len(layer1))
+    # print(layer0)
+    # print(layer1)
 
     # layers = [
     #     {"custom_revenue_y_l":
@@ -637,21 +647,33 @@ if __name__ == '__main__':
     lgbm_reg_net.insert_multiple_layers(layers)
 
     paras = {"fit":{"categorical_feature":cols_category}}
+    plt.figure()
+    plt.hist(Y_test[ycol],bins=np.arange(-10, 11) * 0.1)
+    plt.figure()
+    plt.hist(Y_test["y_l_avg"],bins=np.arange(-10, 11) * 0.1)
+
     lgbm_reg_net.fit(X_train, Y_train[ycol], **paras)
     result = lgbm_reg_net.predict(X_test)
     start_idx, end_idx = -6,6
-    assess_paras = {"target":"y_l",
-              "output": "y_l_pred",
-              "reg_info": "l2, y_l",
-              "intervals":
-                  list(zip(np.arange(start_idx,end_idx) * 0.1, np.arange(
-                      start_idx+1, end_idx+1) * 0.1))}
-    col = "layer{0:d}_l2_y_l_pred".format(len(lgbm_reg_net.layers)-1)
-    assess_by_revenue(y_pred=result[col], Y_test=Y_test,
-                      f_revenue=cus_obj.l2_revenue, paras=assess_paras)
+    # assess_paras = {"target":"y_l",
+    #           "output": "y_l_pred",
+    #           "reg_info": "l2, y_l",
+    #           "intervals":
+    #               list(zip(np.arange(start_idx,end_idx) * 0.1, np.arange(
+    #                   start_idx+1, end_idx+1) * 0.1))}
+    # col = "layer{0:d}_l2_y_l_pred".format(len(lgbm_reg_net.layers)-1)
+    # assess_by_revenue(y_pred=result[col], Y_test=Y_test,
+    #                   f_revenue=cus_obj.l2_revenue, paras=assess_paras)
 
+    ycol2,ycol3 = "y_l","y_l_avg"
+    print("\n"+ycol)
     pred_interval_summary(lgbm_reg_net,X_test,Y_test[
-        "y_l_rise"],y_test_pred=result[col])
-    pred_interval_summary(lgbm_reg_net, X_test, Y_test["y_l"],y_test_pred=result[col])
+        ycol],y_test_pred=result[col])
+    print("\n"+ycol2)
+    pred_interval_summary(lgbm_reg_net, X_test, Y_test[
+        ycol2], y_test_pred=result[col])
+    print("\n"+ycol3)
+    pred_interval_summary(lgbm_reg_net, X_test, Y_test[ycol3],y_test_pred=result[col])
+
 
     plt.show()
