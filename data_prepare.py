@@ -348,13 +348,15 @@ def FE_single_stock_d(df:pd.DataFrame, targets,start=None,end=None):
             # df_period_mean3 = rolling(t["func"], p3, move(-2 - p1 - p2, df, t["col"]))
             # df_targets_list.extend([df_period_mean1,df_period_mean2,df_period_mean3])
         elif t["func"] == "avg":
-            df_target = rolling("sum", pred_period,
+            tmp = rolling("sum", pred_period,
                                 move(-1, df, cols=["vol","amt"],prefix=False),
                                 prefix=False)
             # print(df_target)
-            df_target = pd.DataFrame(df_target["amt"]/df_target["vol"]*10,
+            df_target = pd.DataFrame(tmp["amt"]/tmp["vol"]*10,
                                      columns=["f{}avg_f1mv".format(
                                          pred_period)])
+            # df_target.loc[tmp.index[tmp["vol"] == 0], "f{}avg_f1mv".format(pred_period)] \
+            #     = df_tomorrow.loc[tmp.index[tmp["vol"] == 0], "close"]
             # print(df["code"].iloc[0])
             # print(pd.concat([df[["avg","open","close"]],df_target],
             #                 axis=1).round(2)[20:])

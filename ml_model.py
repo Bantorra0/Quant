@@ -538,7 +538,7 @@ if __name__ == '__main__':
     pd.set_option("display.max_columns", 10)
     pd.set_option("display.max_rows", 256)
     X, Y, _ = IO_op.read_hdf5(start="2013-01-01", end="2019-01-01",
-                              subsample="10-0")
+                              subsample="50-0")
     print(X.info(memory_usage="deep"))
     del X["industry"]
     # Y["y_l_r"] = Y.apply(
@@ -548,9 +548,16 @@ if __name__ == '__main__':
     Y["y_l_r"]= Y.apply(
         lambda r: r["y_l_rise"]
         if r["y_l_avg"] > 0 else r["y_l_decline"],
-        axis=1)*0.75
-    print("=====")
-    # print(Y[Y["y_l_r"]!=ss].iloc[:10])
+        axis=1)*0.75 + 0.25 * Y["y_l_avg"].fillna(0).values
+    print(Y[Y["y_l_avg"].isnull()].shape)
+    print(Y[Y["y_l_avg"].isnull()].iloc[:20])
+    # ss = Y["y_l_r"] + 0.25 * Y["y_l_avg"].values
+    # print("=====",ss.shape,Y["y_l_r"].shape)
+    # print(Y[Y["y_l_r"]!=ss].iloc[:20])
+    # Y["y_l_r"]=ss
+    cond = Y.notnull().all(axis=1)
+    X = X[cond]
+    Y = Y[cond]
 
     cols_category = ["area", "market", "exchange", "is_hs"]
     test_start = 20180701
@@ -564,8 +571,9 @@ if __name__ == '__main__':
     Y_test = Y.loc[test_dates]
     del X, Y
 
-    ycol = "y_l_r"
-    cond = Y_test[ycol].notnull()
+    ycol1, ycol2, ycol3,ycol4 = "y_l_r", "y_l", "y_l_avg","y_l_rise"
+
+    cond = Y_test[ycol1].notnull()
     X_test = X_test[cond]
     Y_test = Y_test[cond]
     print(X_train.shape, X_test.shape)
@@ -651,11 +659,11 @@ if __name__ == '__main__':
 
     paras = {"fit":{"categorical_feature":cols_category}}
     plt.figure()
-    plt.hist(Y_test[ycol],bins=np.arange(-10, 11) * 0.1)
+    plt.hist(Y_test[ycol1], bins=np.arange(-10, 11) * 0.1)
     plt.figure()
     plt.hist(Y_test["y_l_avg"].dropna(),bins=np.arange(-10, 11) * 0.1)
 
-    lgbm_reg_net.fit(X_train, Y_train[ycol], **paras)
+    lgbm_reg_net.fit(X_train, Y_train[ycol1], **paras)
     result = lgbm_reg_net.predict(X_test)
     start_idx, end_idx = -6,6
     # assess_paras = {"target":"y_l",
@@ -668,15 +676,17 @@ if __name__ == '__main__':
     # assess_by_revenue(y_pred=result[col], Y_test=Y_test,
     #                   f_revenue=cus_obj.l2_revenue, paras=assess_paras)
 
-    ycol2,ycol3 = "y_l","y_l_avg"
-    print("\n"+ycol)
-    pred_interval_summary(lgbm_reg_net,X_test,Y_test[
-        ycol],y_test_pred=result[col])
+    print("\n" + ycol1)
+    pred_interval_summary(lgbm_reg_net, X_test, Y_test[
+        ycol1], y_test_pred=result[col])
     print("\n"+ycol2)
     pred_interval_summary(lgbm_reg_net, X_test, Y_test[
         ycol2], y_test_pred=result[col])
     print("\n"+ycol3)
     pred_interval_summary(lgbm_reg_net, X_test, Y_test[ycol3],y_test_pred=result[col])
+
+    print("\n" + ycol4)
+    pred_interval_summary(lgbm_reg_net, X_test, Y_test[ycol4], y_test_pred=result[col])
 
 
     plt.show()
