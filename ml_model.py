@@ -1,4 +1,3 @@
-import copy
 import os
 import pickle
 import re
@@ -453,9 +452,12 @@ class RegressorNetwork:
         print("\n"+"-"*10+"Train layer {0:d}".format(i)+"-"*10)
         # features_list = []
         # paras_next_layer = copy.deepcopy(paras)
-        # layer_prefix = "layer{0}".format(i)
-        train_slice = slice(*paras["train_indexes"])
-        print(train_slice)
+        # layer_prefix = "layer{0}".format
+        if "train_indexes" in paras:
+            train_slice = slice(*paras["train_indexes"])
+            print(train_slice)
+        else:
+            train_slice = slice(0,None)
 
         for reg_name,(reg,reg_paras) in self.layers[i].items():
             print("\nTrain "+reg_name)
@@ -522,6 +524,7 @@ class RegressorNetwork:
             num_layers = len(self.layers)
         features = None
         for i in range(num_layers):
+            print("layer",i)
             features,_ = self.predict_layer(i,X,**paras)
             if i<num_layers-1:
                 X = pd.concat([X,features],axis=1)
@@ -538,7 +541,7 @@ if __name__ == '__main__':
     pd.set_option("display.max_columns", 10)
     pd.set_option("display.max_rows", 256)
     X, Y, _ = IO_op.read_hdf5(start="2013-01-01", end="2019-01-01",
-                              subsample="50-0")
+                              subsample="10-0")
     print(X.info(memory_usage="deep"))
     del X["industry"]
     # Y["y_l_r"] = Y.apply(
@@ -548,7 +551,7 @@ if __name__ == '__main__':
     Y["y_l_r"]= Y.apply(
         lambda r: r["y_l_rise"]
         if r["y_l_avg"] > 0 else r["y_l_decline"],
-        axis=1)*0.75 + 0.25 * Y["y_l_avg"].fillna(0).values
+        axis=1)*0.75 + 0.25 * Y["y_l_avg"].values
     print(Y[Y["y_l_avg"].isnull()].shape)
     print(Y[Y["y_l_avg"].isnull()].iloc[:20])
     # ss = Y["y_l_r"] + 0.25 * Y["y_l_avg"].values
@@ -560,133 +563,155 @@ if __name__ == '__main__':
     Y = Y[cond]
 
     cols_category = ["area", "market", "exchange", "is_hs"]
-    test_start = 20180701
-    trading_dates = Y.index.unique().sort_values(ascending=True)
-    train_dates = trading_dates[trading_dates < test_start][:-21]
-    test_dates = trading_dates[trading_dates >= test_start][:-21]
+    dates= [20160701,20170101,20170701,20180101,20180701,20190101]
+    # dates = [20180701,20190101]
+    for test_start,test_end in zip(dates[:-1],dates[1:]):
+        print("\ntest period:{0}-{1}".format(test_start,test_end))
+        # test_start = 20180701
+        trading_dates = Y.index.unique().sort_values(ascending=True)
+        train_dates = trading_dates[trading_dates < test_start][:-21]
+        test_dates = trading_dates[(trading_dates >= test_start) & (
+                trading_dates<test_end)]
 
-    X_train = X.loc[train_dates]
-    Y_train = Y.loc[train_dates]
-    X_test = X.loc[test_dates]
-    Y_test = Y.loc[test_dates]
-    del X, Y
+        # X_train = X.loc[train_dates]
+        # Y_train = Y.loc[train_dates]
+        # X_test = X.loc[test_dates]
+        # Y_test = Y.loc[test_dates]
+        # del X, Y
 
-    ycol1, ycol2, ycol3,ycol4 = "y_l_r", "y_l", "y_l_avg","y_l_rise"
+        ycol1, ycol2, ycol3,ycol4 = "y_l_r", "y_l", "y_l_avg","y_l_rise"
+        print(X.loc[train_dates].shape, X.loc[test_dates].shape)
+        lgbm_reg_net = RegressorNetwork()
 
-    cond = Y_test[ycol1].notnull()
-    X_test = X_test[cond]
-    Y_test = Y_test[cond]
-    print(X_train.shape, X_test.shape)
-    print(Y_test[Y_test["y_l_r"]!=Y_test["y_l"]].iloc[:20])
+        regs=[
+            lgbm.LGBMRegressor(n_estimators=10, learning_rate=2, num_leaves=15,
+                               max_depth=8,
+                               objective=cus_obj.custom_revenue_obj,
+                               min_child_samples=30, random_state=0, ),
+            lgbm.LGBMRegressor(n_estimators=10, learning_rate=2, num_leaves=15,
+                               max_depth=8,
+                               objective=cus_obj.custom_revenue2_obj,
+                               min_child_samples=30, random_state=0, ),
+            lgbm.LGBMRegressor(n_estimators=25, num_leaves=31, max_depth=12,
+                               min_child_samples=30, random_state=0,
+                               learning_rate=0.2),
+            lgbm.LGBMRegressor(n_estimators=50, num_leaves=31, max_depth=12,
+                               min_child_samples=30, random_state=0),
+        ]
+        objs = [("custom_revenue",
+                 {"f_revenue":cus_obj.custom_revenue,
+                  "y_transform":cus_obj.custom_revenu_transform}),
+                ("custom_revenue2",
+                 {"f_revenue": cus_obj.custom_revenue2,
+                  "y_transform":cus_obj.custom_revenu2_transform}),
+                ("l2",{"f_revenue": cus_obj.l2_revenue}),
+                ("l2", {"f_revenue": cus_obj.l2_revenue})
+                ]
+        targets = ["y_l_rise", "y_s_rise",
+                   "y_l_decline", "y_s_decline",
+                   "y_l_avg","y_s_avg",
+                   "y_l","y_l_r"]
+        #
+        layer0 = {}
+        for target in targets[:6]:
+            layer0.update(
+                    {obj_type + "_" + target: (reg, {**obj_dict, "target": target})
+                     for (obj_type, obj_dict), reg in
+                     zip(objs[:2], regs[:2])})
+        # del layer0["l2_y_l"]
 
-    lgbm_reg_net = RegressorNetwork()
-
-    reg1=lgbm.LGBMRegressor(n_estimators=10,learning_rate=2,
-                                num_leaves=15,max_depth=8,
-                                objective=cus_obj.custom_revenue_obj,
-                                min_child_samples=30,
-                                random_state=0,)
-    reg2 = lgbm.LGBMRegressor(n_estimators=25, num_leaves=31, max_depth=12,
-                        min_child_samples=30, random_state=0,learning_rate=0.2)
-    reg3 = lgbm.LGBMRegressor(n_estimators=50, num_leaves=31, max_depth=12,
-                       min_child_samples=30, random_state=0)
-    objs = [("custom_revenue",
-             {"f_revenue":cus_obj.custom_revenue,
-              "y_transform":cus_obj.custom_revenu_transform}),
-            ("custom_revenue2",
-             {"f_revenue": cus_obj.custom_revenue2,
-              "y_transform":cus_obj.custom_revenu2_transform}),
-            ("l2",{"f_revenue": cus_obj.l2_revenue})]
-    targets = ["y_l_rise", "y_l_decline", "y_s_rise", "y_s_decline", "y_l"]
-
-    layer0 = {}
-    for target in targets:
-        layer0.update(
+        layer1 = {}
+        for target in targets[:6]:
+            layer1.update(
                 {obj_type + "_" + target: (reg, {**obj_dict, "target": target})
-                 for (obj_type, obj_dict), reg in
-                 zip(objs, [reg1, reg2, reg3])})
-    del layer0["l2_y_l"]
+                 for (obj_type, obj_dict), reg in zip(objs[2:3], regs[2:3])})
 
-    layer1 = {"l2_y_l":
-             (lgbm.LGBMRegressor(n_estimators=50, num_leaves=31, max_depth=12,
-                                 min_child_samples=30,
-                                 random_state=0),
-              {"f_revenue": cus_obj.l2_revenue})
-         }
+        # layer1 = {"l2_y_l":
+        #          (lgbm.LGBMRegressor(n_estimators=50, num_leaves=31, max_depth=12,
+        #                              min_child_samples=30,
+        #                              random_state=0),
+        #           {"f_revenue": cus_obj.l2_revenue})
+        #      }
+        layer2 = {}
+        for target in targets[-1:]:
+            layer2.update(
+                {obj_type + "_" + target: (reg, {**obj_dict, "target": target})
+                 for (obj_type, obj_dict), reg in zip(objs[-1:], regs[-1:])})
 
-    # layers = [layer0,layer1]
-    layers = [layer1]
-    # print(len(layer0),len(layer1))
-    # print(layer0)
-    # print(layer1)
+        # layers = [layer0,layer1]
+        layers = [layer0,layer1,layer2]
+        # print(len(layer0),len(layer1))
+        # print(layer0)
+        # print(layer1)
 
-    # layers = [
-    #     {"custom_revenue_y_l":
-    #         (lgbm.LGBMRegressor(n_estimators=10,learning_rate=2,
-    #                             num_leaves=15,max_depth=8,
-    #                             objective=cus_obj.custom_revenue_obj,
-    #                             min_child_samples=30,
-    #                             random_state=0,),
-    #          {"f_revenue":cus_obj.custom_revenue,
-    #           "y_transform":cus_obj.custom_revenu_transform,
-    #           "target":"y_l"}),
-    #      "custom_revenue2_y_l": (
-    #          lgbm.LGBMRegressor(n_estimators=10, learning_rate=2,
-    #                             num_leaves=15, max_depth=8,
-    #                             objective=cus_obj.custom_revenue2_obj,
-    #                             min_child_samples=30,
-    #                             random_state=0, ),
-    #          {"f_revenue": cus_obj.custom_revenue2,
-    #           "y_transform":cus_obj.custom_revenu2_transform,
-    #           "target": "y_l"}),
-    #      # "l2_y_l":
-    #      #     (lgbm.LGBMRegressor(n_estimators=25, num_leaves=15, max_depth=8,
-    #      #                         min_child_samples=40,
-    #      #                         learning_rate= 0.2,
-    #      #                         random_state=0,),
-    #      #      {"f_revenue": cus_obj.l2_revenue}),
-    #      },
-    #
-    #     {"l2_y_l":
-    #          (lgbm.LGBMRegressor(n_estimators=50, num_leaves=31, max_depth=12,
-    #                              min_child_samples=30,
-    #                              random_state=0),
-    #           {"f_revenue": cus_obj.l2_revenue})
-    #      }
-    # ]
+        # layers = [
+        #     {"custom_revenue_y_l":
+        #         (lgbm.LGBMRegressor(n_estimators=10,learning_rate=2,
+        #                             num_leaves=15,max_depth=8,
+        #                             objective=cus_obj.custom_revenue_obj,
+        #                             min_child_samples=30,
+        #                             random_state=0,),
+        #          {"f_revenue":cus_obj.custom_revenue,
+        #           "y_transform":cus_obj.custom_revenu_transform,
+        #           "target":"y_l"}),
+        #      "custom_revenue2_y_l": (
+        #          lgbm.LGBMRegressor(n_estimators=10, learning_rate=2,
+        #                             num_leaves=15, max_depth=8,
+        #                             objective=cus_obj.custom_revenue2_obj,
+        #                             min_child_samples=30,
+        #                             random_state=0, ),
+        #          {"f_revenue": cus_obj.custom_revenue2,
+        #           "y_transform":cus_obj.custom_revenu2_transform,
+        #           "target": "y_l"}),
+        #      # "l2_y_l":
+        #      #     (lgbm.LGBMRegressor(n_estimators=25, num_leaves=15, max_depth=8,
+        #      #                         min_child_samples=40,
+        #      #                         learning_rate= 0.2,
+        #      #                         random_state=0,),
+        #      #      {"f_revenue": cus_obj.l2_revenue}),
+        #      },
+        #
+        #     {"l2_y_l":
+        #          (lgbm.LGBMRegressor(n_estimators=50, num_leaves=31, max_depth=12,
+        #                              min_child_samples=30,
+        #                              random_state=0),
+        #           {"f_revenue": cus_obj.l2_revenue})
+        #      }
+        # ]
 
-    lgbm_reg_net.insert_multiple_layers(layers)
+        lgbm_reg_net.insert_multiple_layers(layers)
 
-    paras = {"fit":{"categorical_feature":cols_category}}
-    plt.figure()
-    plt.hist(Y_test[ycol1], bins=np.arange(-10, 11) * 0.1)
-    plt.figure()
-    plt.hist(Y_test["y_l_avg"].dropna(),bins=np.arange(-10, 11) * 0.1)
+        paras = {"fit":{"categorical_feature":cols_category}}
+        # plt.figure()
+        # plt.hist(Y.loc[test_dates][ycol1], bins=np.arange(-10, 11) * 0.1)
+        # plt.figure()
+        # plt.hist(Y.loc[test_dates][ycol3],bins=np.arange(-10, 11) * 0.1)
 
-    lgbm_reg_net.fit(X_train, Y_train[ycol1], **paras)
-    result = lgbm_reg_net.predict(X_test)
-    start_idx, end_idx = -6,6
-    # assess_paras = {"target":"y_l",
-    #           "output": "y_l_pred",
-    #           "reg_info": "l2, y_l",
-    #           "intervals":
-    #               list(zip(np.arange(start_idx,end_idx) * 0.1, np.arange(
-    #                   start_idx+1, end_idx+1) * 0.1))}
-    col = "layer{0:d}_l2_y_l_pred".format(len(lgbm_reg_net.layers)-1)
-    # assess_by_revenue(y_pred=result[col], Y_test=Y_test,
-    #                   f_revenue=cus_obj.l2_revenue, paras=assess_paras)
+        lgbm_reg_net.fit(X.loc[train_dates], Y.loc[train_dates][ycol2],
+                         **paras)
+        result = lgbm_reg_net.predict(X.loc[test_dates])
+        start_idx, end_idx = -6,6
+        # assess_paras = {"target":"y_l",
+        #           "output": "y_l_pred",
+        #           "reg_info": "l2, y_l",
+        #           "intervals":
+        #               list(zip(np.arange(start_idx,end_idx) * 0.1, np.arange(
+        #                   start_idx+1, end_idx+1) * 0.1))}
+        col = "layer{0:d}_l2_y_l_r_pred".format(len(lgbm_reg_net.layers)-1)
+        # assess_by_revenue(y_pred=result[col], Y_test=Y_test,
+        #                   f_revenue=cus_obj.l2_revenue, paras=assess_paras)
 
-    print("\n" + ycol1)
-    pred_interval_summary(lgbm_reg_net, X_test, Y_test[
-        ycol1], y_test_pred=result[col])
-    print("\n"+ycol2)
-    pred_interval_summary(lgbm_reg_net, X_test, Y_test[
-        ycol2], y_test_pred=result[col])
-    print("\n"+ycol3)
-    pred_interval_summary(lgbm_reg_net, X_test, Y_test[ycol3],y_test_pred=result[col])
+        print("\n" + ycol1)
+        pred_interval_summary(lgbm_reg_net, X.loc[test_dates], Y.loc[test_dates][
+            ycol1], y_test_pred=result[col])
+        print("\n"+ycol2)
+        pred_interval_summary(lgbm_reg_net, X.loc[test_dates], Y.loc[test_dates][
+            ycol2], y_test_pred=result[col])
+        print("\n"+ycol3)
+        pred_interval_summary(lgbm_reg_net, X.loc[test_dates], Y.loc[test_dates][ycol3],y_test_pred=result[col])
 
-    print("\n" + ycol4)
-    pred_interval_summary(lgbm_reg_net, X_test, Y_test[ycol4], y_test_pred=result[col])
+        print("\n" + ycol4)
+        pred_interval_summary(lgbm_reg_net, X.loc[test_dates], Y.loc[test_dates][ycol4], y_test_pred=result[col])
 
 
     plt.show()

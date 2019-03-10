@@ -223,8 +223,15 @@ def save_shuffle_info(n=4,version=None, base_dir=None,
                       f_info_name=None):
     d_info = load_dataset_info(version,base_dir,f_info_name)
 
-    shuffles = {}
+    # shuffles = {}
+    if "shuffle" in d_info:
+        shuffles = d_info["shuffle"]
+    else:
+        shuffles = {}
+
     for k,v in d_info["length"].items():
+        if k in shuffles:
+            continue
         a = np.arange(v)
         for i in range(n):
             np.random.shuffle(a)
@@ -378,6 +385,7 @@ def get_latest_version(base_dir=r"datasets",
 
 
 if __name__ == '__main__':
+
     targets = [{"period": 20, "func": "max", "col": "high"},
                {"period": 20, "func": "min", "col": "low"},
                {"period": 20, "func": "avg", "col": ""},
@@ -406,11 +414,11 @@ if __name__ == '__main__':
                "is_clf": False, "threshold": 0.2,"target_col":"f5avg_f1mv"}),
              ]
 
-    # save_dataset_in_hdf5(targets=targets, paras=paras,
-    #                      start_year=2013, start_index=0,
-    #                      end_year=2019, end_index=0,
-    #                      slice_length=12,
-    #                      version="2019-03-06")
+    save_dataset_in_hdf5(targets=targets, paras=paras,
+                         start_year=2019, start_index=0,
+                         end_year=2020, end_index=0,
+                         slice_length=12,
+                         version="2019-03-06")
 
     # X,Y,other = read_hdf5(start="2016-07-01",end="2017-01-01")
     # d_info = load_dataset_info()
