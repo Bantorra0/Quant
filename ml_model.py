@@ -626,12 +626,6 @@ if __name__ == '__main__':
                 {obj_type + "_" + target: (reg, {**obj_dict, "target": target})
                  for (obj_type, obj_dict), reg in zip(objs[2:3], regs[2:3])})
 
-        # layer1 = {"l2_y_l":
-        #          (lgbm.LGBMRegressor(n_estimators=50, num_leaves=31, max_depth=12,
-        #                              min_child_samples=30,
-        #                              random_state=0),
-        #           {"f_revenue": cus_obj.l2_revenue})
-        #      }
         layer2 = {}
         for target in targets[-1:]:
             layer2.update(
@@ -643,41 +637,6 @@ if __name__ == '__main__':
         # print(len(layer0),len(layer1))
         # print(layer0)
         # print(layer1)
-
-        # layers = [
-        #     {"custom_revenue_y_l":
-        #         (lgbm.LGBMRegressor(n_estimators=10,learning_rate=2,
-        #                             num_leaves=15,max_depth=8,
-        #                             objective=cus_obj.custom_revenue_obj,
-        #                             min_child_samples=30,
-        #                             random_state=0,),
-        #          {"f_revenue":cus_obj.custom_revenue,
-        #           "y_transform":cus_obj.custom_revenu_transform,
-        #           "target":"y_l"}),
-        #      "custom_revenue2_y_l": (
-        #          lgbm.LGBMRegressor(n_estimators=10, learning_rate=2,
-        #                             num_leaves=15, max_depth=8,
-        #                             objective=cus_obj.custom_revenue2_obj,
-        #                             min_child_samples=30,
-        #                             random_state=0, ),
-        #          {"f_revenue": cus_obj.custom_revenue2,
-        #           "y_transform":cus_obj.custom_revenu2_transform,
-        #           "target": "y_l"}),
-        #      # "l2_y_l":
-        #      #     (lgbm.LGBMRegressor(n_estimators=25, num_leaves=15, max_depth=8,
-        #      #                         min_child_samples=40,
-        #      #                         learning_rate= 0.2,
-        #      #                         random_state=0,),
-        #      #      {"f_revenue": cus_obj.l2_revenue}),
-        #      },
-        #
-        #     {"l2_y_l":
-        #          (lgbm.LGBMRegressor(n_estimators=50, num_leaves=31, max_depth=12,
-        #                              min_child_samples=30,
-        #                              random_state=0),
-        #           {"f_revenue": cus_obj.l2_revenue})
-        #      }
-        # ]
 
         lgbm_reg_net.insert_multiple_layers(layers)
 
