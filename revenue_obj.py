@@ -4,6 +4,8 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 
+import pickle
+
 
 def custom_revenue_obj(y_true,y_pred):
     y_true = pd.Series(y_true)
@@ -136,6 +138,10 @@ if __name__ == '__main__':
     decay_learning_rate = lambda n:initial_learning_rate/(1+n/50)
     f = lgbm.reset_parameter(learning_rate=decay_learning_rate)
     reg1.fit(X_train, t_train,callbacks=[f])
+    # reg1.set_params(objective=None)
+    reg1._fobj=None
+    print(reg1)
+    print(pickle.dumps(reg1))
 
 
     y_pred1 = reg1.predict(X_test)
@@ -159,110 +165,110 @@ if __name__ == '__main__':
             "revenue"].sum(), sum(result1["buy_pct"] > threshold))
 
 
-    # Try revenue obj2
-    reg2 = lgbm.LGBMRegressor(num_leaves=16, max_depth=6, n_estimators=10,
-                              min_child_samples=5,
-                              objective=custom_revenue_obj2, learning_rate=2)
-    decay_learning_rate = lambda n: initial_learning_rate / (1 + n / 50)
-    # f = lgbm.reset_parameter(learning_rate=decay_learning_rate)
-    # reg3.fit(X_train, t_train,callbacks=[f])
-    reg2.fit(X_train, t_train)
-    y_pred2 = reg2.predict(X_test)
-
-    plt.figure()
-    plt.hist(y_pred2)
-    plt.title("y_pred3")
-    result2 = pd.DataFrame()
-    result2["buy_pct"] = y_pred2
-    result2["increase"] = t_test
-    r, revenue, tot_revenue = get_revenue2(t_test, y_pred2)
-    result2["return_rate"] = r
-    result2["revenue"] = revenue
-
-    print("\n"+"-"*10+"\nPredict buy_pct using revenue_obj2:")
-    print(result2[result2["buy_pct"] > 0.8])
-    print(reg2)
-    print(tot_revenue, sum(r * 0.5))
-    for i in range(1, 10):
-        threshold = i * 0.1
-        print(">{0}:".format(threshold),
-              result2[result2["buy_pct"] > threshold]["revenue"].sum(),
-              sum(result2["buy_pct"] > threshold))
-
-
-    # Try normal reg.
-    reg0 = lgbm.LGBMRegressor(num_leaves=16, max_depth=6, n_estimators=50, learning_rate= 0.2,
-                              min_child_samples=5)
-    reg0.fit(X_train, t_train)
-    y_pred0 = reg0.predict(X_test)
-
-    result0 = pd.DataFrame()
-    result0["increase"] = t_test
-    result0["pred"] = y_pred0
-    r,_,_ = get_revenue(t_test, y_pred0)
-    result0["return_rate"] = r
-    print("\n"+"-"*10+"\nPredict increase:")
-    for i in range(0,11):
-        threshold = i*0.05
-        # print("\n>{0}:".format(threshold))
-        # print(result2[result2["pred"]> threshold])
-        print(">{0}:".format(threshold), result0[result0["pred"] > threshold]["return_rate"].sum(), sum(result0["pred"] > threshold))
-
-    # print(reg0.predict(X_train,pred_leaf=True)[:10])
-
-
-
-    # plt.show()
-
-    X_train1 = pd.DataFrame(X_train).copy()
-    X_train1["y_pred1"] = reg1.predict(X_train)
-    sigmoid = pd.Series(1 / (1 + np.exp(-X_train1["y_pred1"])))
-    X_train1["y_pred1_sigmoid"] = sigmoid
-    X_train1["y_pred2"] = reg2.predict(X_train)
-    X_train1["y_pred0"] = reg0.predict(X_train)
-    categorical_columns = []
-    for prefix, reg in zip(["reg0","reg1","reg2"],[reg0,reg1,reg2]):
-        leaves = reg.predict(X_train,pred_leaf=True)
-        print(type(leaves),leaves.shape)
-        trees = leaves.shape[1]
-        for i in range(trees):
-            categorical_columns.append(prefix+"_tree{}_leaf".format(i))
-            X_train1[prefix+"_tree{}_leaf".format(i)] = leaves[:,i]
-
-    X_test1 = pd.DataFrame(X_test).copy()
-    X_test1["y_pred1"] = reg1.predict(X_test)
-    sigmoid = pd.Series(1 / (1 + np.exp(-X_test1["y_pred1"])))
-    X_test1["y_pred1_sigmoid"] = sigmoid
-    X_test1["y_pred2"] = reg2.predict(X_test)
-    X_test1["y_pred0"] = reg0.predict(X_test)
-    for prefix, reg in zip(["reg0", "reg1", "reg2"], [reg0, reg1, reg2]):
-        leaves = reg.predict(X_test, pred_leaf=True)
-        trees = leaves.shape[1]
-        for i in range(trees):
-            X_test1[prefix + "_tree{}_leaf".format(i)] = leaves[:, i]
-
-
-    reg1_0 = lgbm.LGBMRegressor(num_leaves=31, max_depth=12, n_estimators=400, learning_rate= 0.1,
-                              min_child_samples=5)
-    reg1_0.fit(X_train1,t_train,categorical_feature=categorical_columns)
-    y_pred1_0 = reg1_0.predict(X_test1)
-
-    result1_0 = pd.DataFrame()
-    result1_0["increase"] = t_test
-    result1_0["pred"] = y_pred1_0
-    r, _, _ = get_revenue(t_test, y_pred1_0)
-    result1_0["return_rate"] = r
-    print("\n" + "-" * 10 + "\nPredict increase:")
-    for i in range(0, 11):
-        threshold = i * 0.05
-        # print("\n>{0}:".format(threshold))
-        # print(result2[result2["pred"]> threshold])
-        print(">{0}:".format(threshold), result1_0[result1_0["pred"] > threshold]["return_rate"].sum(),
-              sum(result1_0["pred"] > threshold))
-
-    feature = derive_feature(X_test)
-    filtered_feature = np.where(((feature > 1.5) & (feature < 2)), 1, 0) + np.where(((feature > 3) & (feature < 4)), 1, 0)
-    print(sum(np.where(((feature > 1.5)), 1, 0)*result1["return_rate"]),
-        sum(filtered_feature * result1["return_rate"]),
-        sum(filtered_feature))
+    # # Try revenue obj2
+    # reg2 = lgbm.LGBMRegressor(num_leaves=16, max_depth=6, n_estimators=10,
+    #                           min_child_samples=5,
+    #                           objective=custom_revenue_obj2, learning_rate=2)
+    # decay_learning_rate = lambda n: initial_learning_rate / (1 + n / 50)
+    # # f = lgbm.reset_parameter(learning_rate=decay_learning_rate)
+    # # reg3.fit(X_train, t_train,callbacks=[f])
+    # reg2.fit(X_train, t_train)
+    # y_pred2 = reg2.predict(X_test)
+    #
+    # plt.figure()
+    # plt.hist(y_pred2)
+    # plt.title("y_pred3")
+    # result2 = pd.DataFrame()
+    # result2["buy_pct"] = y_pred2
+    # result2["increase"] = t_test
+    # r, revenue, tot_revenue = get_revenue2(t_test, y_pred2)
+    # result2["return_rate"] = r
+    # result2["revenue"] = revenue
+    #
+    # print("\n"+"-"*10+"\nPredict buy_pct using revenue_obj2:")
+    # print(result2[result2["buy_pct"] > 0.8])
+    # print(reg2)
+    # print(tot_revenue, sum(r * 0.5))
+    # for i in range(1, 10):
+    #     threshold = i * 0.1
+    #     print(">{0}:".format(threshold),
+    #           result2[result2["buy_pct"] > threshold]["revenue"].sum(),
+    #           sum(result2["buy_pct"] > threshold))
+    #
+    #
+    # # Try normal reg.
+    # reg0 = lgbm.LGBMRegressor(num_leaves=16, max_depth=6, n_estimators=50, learning_rate= 0.2,
+    #                           min_child_samples=5)
+    # reg0.fit(X_train, t_train)
+    # y_pred0 = reg0.predict(X_test)
+    #
+    # result0 = pd.DataFrame()
+    # result0["increase"] = t_test
+    # result0["pred"] = y_pred0
+    # r,_,_ = get_revenue(t_test, y_pred0)
+    # result0["return_rate"] = r
+    # print("\n"+"-"*10+"\nPredict increase:")
+    # for i in range(0,11):
+    #     threshold = i*0.05
+    #     # print("\n>{0}:".format(threshold))
+    #     # print(result2[result2["pred"]> threshold])
+    #     print(">{0}:".format(threshold), result0[result0["pred"] > threshold]["return_rate"].sum(), sum(result0["pred"] > threshold))
+    #
+    # # print(reg0.predict(X_train,pred_leaf=True)[:10])
+    #
+    #
+    #
+    # # plt.show()
+    #
+    # X_train1 = pd.DataFrame(X_train).copy()
+    # X_train1["y_pred1"] = reg1.predict(X_train)
+    # sigmoid = pd.Series(1 / (1 + np.exp(-X_train1["y_pred1"])))
+    # X_train1["y_pred1_sigmoid"] = sigmoid
+    # X_train1["y_pred2"] = reg2.predict(X_train)
+    # X_train1["y_pred0"] = reg0.predict(X_train)
+    # categorical_columns = []
+    # for prefix, reg in zip(["reg0","reg1","reg2"],[reg0,reg1,reg2]):
+    #     leaves = reg.predict(X_train,pred_leaf=True)
+    #     print(type(leaves),leaves.shape)
+    #     trees = leaves.shape[1]
+    #     for i in range(trees):
+    #         categorical_columns.append(prefix+"_tree{}_leaf".format(i))
+    #         X_train1[prefix+"_tree{}_leaf".format(i)] = leaves[:,i]
+    #
+    # X_test1 = pd.DataFrame(X_test).copy()
+    # X_test1["y_pred1"] = reg1.predict(X_test)
+    # sigmoid = pd.Series(1 / (1 + np.exp(-X_test1["y_pred1"])))
+    # X_test1["y_pred1_sigmoid"] = sigmoid
+    # X_test1["y_pred2"] = reg2.predict(X_test)
+    # X_test1["y_pred0"] = reg0.predict(X_test)
+    # for prefix, reg in zip(["reg0", "reg1", "reg2"], [reg0, reg1, reg2]):
+    #     leaves = reg.predict(X_test, pred_leaf=True)
+    #     trees = leaves.shape[1]
+    #     for i in range(trees):
+    #         X_test1[prefix + "_tree{}_leaf".format(i)] = leaves[:, i]
+    #
+    #
+    # reg1_0 = lgbm.LGBMRegressor(num_leaves=31, max_depth=12, n_estimators=400, learning_rate= 0.1,
+    #                           min_child_samples=5)
+    # reg1_0.fit(X_train1,t_train,categorical_feature=categorical_columns)
+    # y_pred1_0 = reg1_0.predict(X_test1)
+    #
+    # result1_0 = pd.DataFrame()
+    # result1_0["increase"] = t_test
+    # result1_0["pred"] = y_pred1_0
+    # r, _, _ = get_revenue(t_test, y_pred1_0)
+    # result1_0["return_rate"] = r
+    # print("\n" + "-" * 10 + "\nPredict increase:")
+    # for i in range(0, 11):
+    #     threshold = i * 0.05
+    #     # print("\n>{0}:".format(threshold))
+    #     # print(result2[result2["pred"]> threshold])
+    #     print(">{0}:".format(threshold), result1_0[result1_0["pred"] > threshold]["return_rate"].sum(),
+    #           sum(result1_0["pred"] > threshold))
+    #
+    # feature = derive_feature(X_test)
+    # filtered_feature = np.where(((feature > 1.5) & (feature < 2)), 1, 0) + np.where(((feature > 3) & (feature < 4)), 1, 0)
+    # print(sum(np.where(((feature > 1.5)), 1, 0)*result1["return_rate"]),
+    #     sum(filtered_feature * result1["return_rate"]),
+    #     sum(filtered_feature))
 

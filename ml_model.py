@@ -463,6 +463,7 @@ class RegressorNetwork:
             print("\nTrain "+reg_name)
             t0 = time.time()
             reg.fit(X.iloc[train_slice],y.iloc[train_slice],**paras["fit"])
+            reg._fobj=None
             print("Time usage: {0:.2f}s".format(time.time()-t0))
             print(reg)
 
@@ -583,20 +584,36 @@ if __name__ == '__main__':
         print(X.loc[train_dates].shape, X.loc[test_dates].shape)
         lgbm_reg_net = RegressorNetwork()
 
-        regs=[
-            lgbm.LGBMRegressor(n_estimators=10, learning_rate=2, num_leaves=15,
-                               max_depth=8,
-                               objective=cus_obj.custom_revenue_obj,
-                               min_child_samples=30, random_state=0, ),
-            lgbm.LGBMRegressor(n_estimators=10, learning_rate=2, num_leaves=15,
-                               max_depth=8,
-                               objective=cus_obj.custom_revenue2_obj,
-                               min_child_samples=30, random_state=0, ),
-            lgbm.LGBMRegressor(n_estimators=25, num_leaves=31, max_depth=12,
-                               min_child_samples=30, random_state=0,
-                               learning_rate=0.2),
-            lgbm.LGBMRegressor(n_estimators=50, num_leaves=31, max_depth=12,
-                               min_child_samples=30, random_state=0),
+        # regs=[
+        #     lgbm.LGBMRegressor(n_estimators=10, learning_rate=2, num_leaves=15,
+        #                        max_depth=8,
+        #                        objective=cus_obj.custom_revenue_obj,
+        #                        min_child_samples=30, random_state=0, ),
+        #     lgbm.LGBMRegressor(n_estimators=10, learning_rate=2, num_leaves=15,
+        #                        max_depth=8,
+        #                        objective=cus_obj.custom_revenue2_obj,
+        #                        min_child_samples=30, random_state=0, ),
+        #     lgbm.LGBMRegressor(n_estimators=25, num_leaves=31, max_depth=12,
+        #                        min_child_samples=30, random_state=0,
+        #                        learning_rate=0.2),
+        #     lgbm.LGBMRegressor(n_estimators=50, num_leaves=31, max_depth=12,
+        #                        min_child_samples=30, random_state=0),
+        # ]
+        reg_params = [
+            {"n_estimators": 10, "learning_rate": 2, "num_leaves": 15,
+             "max_depth": 8,
+             "objective": cus_obj.custom_revenue_obj,
+             "min_child_samples": 30, "random_state": 0, },
+            {"n_estimators": 10, "learning_rate": 2, "num_leaves": 15,
+             "max_depth": 8,
+             "objective": cus_obj.custom_revenue2_obj,
+             "min_child_samples": 30, "random_state": 0, },
+            {"n_estimators": 25, "learning_rate": 0.2, "num_leaves": 31,
+             "max_depth": 12,
+             "min_child_samples": 30, "random_state": 0, },
+            {"n_estimators": 50, "learning_rate": 0.1, "num_leaves": 31,
+             "max_depth": 12,
+             "min_child_samples": 30, "random_state": 0, },
         ]
         objs = [("custom_revenue",
                  {"f_revenue":cus_obj.custom_revenue,
@@ -615,22 +632,22 @@ if __name__ == '__main__':
         layer0 = {}
         for target in targets[:6]:
             layer0.update(
-                    {obj_type + "_" + target: (reg, {**obj_dict, "target": target})
-                     for (obj_type, obj_dict), reg in
-                     zip(objs[:2], regs[:2])})
+                    {obj_type + "_" + target: (lgbm.LGBMRegressor(**kwargs), {**obj_dict, "target": target})
+                     for (obj_type, obj_dict), kwargs in
+                     zip(objs[:2], reg_params[:2])})
         # del layer0["l2_y_l"]
 
         layer1 = {}
         for target in targets[:6]:
             layer1.update(
-                {obj_type + "_" + target: (reg, {**obj_dict, "target": target})
-                 for (obj_type, obj_dict), reg in zip(objs[2:3], regs[2:3])})
+                {obj_type + "_" + target: (lgbm.LGBMRegressor(**kwargs), {**obj_dict, "target": target})
+                 for (obj_type, obj_dict), kwargs in zip(objs[2:3], reg_params[2:3])})
 
         layer2 = {}
         for target in targets[-1:]:
             layer2.update(
-                {obj_type + "_" + target: (reg, {**obj_dict, "target": target})
-                 for (obj_type, obj_dict), reg in zip(objs[-1:], regs[-1:])})
+                {obj_type + "_" + target: (lgbm.LGBMRegressor(**kwargs), {**obj_dict, "target": target})
+                 for (obj_type, obj_dict), kwargs in zip(objs[-1:], reg_params[-1:])})
 
         # layers = [layer0,layer1]
         layers = [layer0,layer1,layer2]
