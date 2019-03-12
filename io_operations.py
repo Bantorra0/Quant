@@ -114,7 +114,8 @@ def save_dataset_in_hdf5(targets, paras, start_year:int, start_index:int, end_ye
         if store is not None \
                 and "/X/"+key in store.keys() \
                 and "/Y/"+key in store.keys() \
-                and "/other/"+key in store.keys():
+                and "/other/"+key in store.keys()\
+                and key!=max([key[-14:] for key in store.keys()]):
                 # X,Y,df_other = store["X/"+key],store["Y/"+key],store["other/"+key]
             skip = True
 
@@ -411,7 +412,7 @@ if __name__ == '__main__':
                "threshold": 0.1}),
              ("y_s_avg",
               {"pred_period": 5, "is_high": True,
-               "is_clf": False, "threshold": 0.2,"target_col":"f5avg_f1mv"}),
+               "is_clf": False, "threshold": 0.1,"target_col":"f5avg_f1mv"}),
              ]
 
     save_dataset_in_hdf5(targets=targets, paras=paras,

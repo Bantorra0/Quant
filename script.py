@@ -1,26 +1,13 @@
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-
-import constants as const
-import db_operations as dbop
-import data_prepare as dp
-import ml_model
-import customized_obj as cus_obj
-
-import xgboost.sklearn as xgb
-import lightgbm.sklearn as lgbm
-import sklearn as sk
-
 import datetime
-import time
-import multiprocessing as mp
 import os
 import pickle
 
+import lightgbm.sklearn as lgbm
+import pandas as pd
+
+import customized_obj as cus_obj
 import io_operations as IO_op
 import ml_model as ml
-
 
 
 def find_max_min_point(outer_slope,outer):
@@ -117,7 +104,41 @@ def get_return_rate(df_single_stock_d:pd.DataFrame, loss_limit=0.1, retracement=
     return result
 
 
+def update_dataset():
+    targets = [{"period": 20, "func": "max", "col": "high"},
+               {"period": 20, "func": "min", "col": "low"},
+               {"period": 20, "func": "avg", "col": ""},
+               {"period": 5, "func": "max", "col": "high"},
+               {"period": 5, "func": "min", "col": "low"},
+               {"period": 5, "func": "avg", "col": ""}, ]
+    paras = [("y_l_rise",
+              {"pred_period": 20, "is_high": True, "is_clf": False,
+               "threshold": 0.2}),
+             ("y_l_decline",
+              {"pred_period": 20,"is_high": False,"is_clf": False,
+               "threshold": 0.2}),
+             ("y_l_avg",
+              {"pred_period": 20, "is_high": True, "is_clf": False,
+               "threshold": 0.2, "target_col": "f20avg_f1mv"}),
+             ("y_s_rise",
+              {"pred_period": 5,"is_high": True,"is_clf": False,
+               "threshold": 0.1}),
+             ("y_s_decline",
+              {"pred_period": 5, "is_high": False, "is_clf": False,
+               "threshold": 0.1}),
+             ("y_s_avg",
+              {"pred_period": 5, "is_high": True,"is_clf": False,
+               "threshold": 0.1,"target_col": "f5avg_f1mv"}), ]
+
+    IO_op.save_dataset_in_hdf5(targets=targets, paras=paras, start_year=2019,
+                         start_index=0, end_year=2020, end_index=0,
+                         slice_length=12, version="2019-03-06")
+    IO_op.save_shuffle_info()
+
+
 if __name__ == '__main__':
+    # update_dataset()
+    #
     # pd.set_option("display.max_columns", 10)
     # pd.set_option("display.max_rows", 256)
     # base_dir = "predict_results"
@@ -179,17 +200,10 @@ if __name__ == '__main__':
     # lgbm_reg_net = ml.RegressorNetwork()
     # lgbm_reg_net.insert_multiple_layers(layers)
     #
-    # # model_dir = "models"
-    # # model_f_name = "lgbm_reg_net"
-    # # model_path = os.path.join(model_dir, model_f_name + "_{0}".format(
-    # #     datetime.datetime.now().strftime("%Y%m%d")))
-    # # with open(model_path,mode="wb") as f:
-    # #     pickle.dump(lgbm_reg_net, f)
-    #
     # paras = {"fit": {"categorical_feature": cols_category}}
     # for i in range(lgbm_reg_net.get_num_layers()):
-    #     X, Y, _ = IO_op.read_hdf5(start="2018-01-01", end="2019-01-01",
-    #                               subsample="500-{0}".format(i))
+    #     X, Y, _ = IO_op.read_hdf5(start="2013-01-01", end="2019-02-10",
+    #                               subsample="10-{0}".format(i))
     #     print(X.info(memory_usage="deep"))
     #     del X["industry"]
     #
@@ -234,17 +248,18 @@ if __name__ == '__main__':
     #     datetime.datetime.now().strftime("%Y%m%d")))
     # with open(model_path, mode="wb") as f:
     #     pickle.dump(lgbm_reg_net, f)
-    #
-    # X, _, df_other = IO_op.read_hdf5(start="2019-01-01", end="2020-01-01",
-    #                           subsample="1-0")
+
+    X, _, df_other = IO_op.read_hdf5(start="2019-01-01", end="2020-01-01",
+                              # subsample="1-0"
+                                     )
+    predict_dates = sorted(X.index.unique())[-20:]
+    print(predict_dates)
     # print(X.info(memory_usage="deep"))
     # del X["industry"]
     # predict_dates = sorted(X.index.unique())[-20:]
     # df_all = pd.concat([X,df_other[["code"]]],axis=1).loc[predict_dates]
     # X = df_all[df_all.columns.difference(["code"])]
     # df_codes = df_all[["code"]]
-    #
-    #
     #
     # for i in range(lgbm_reg_net.get_num_layers()):
     #     result = lgbm_reg_net.predict(X,i+1)
@@ -254,12 +269,13 @@ if __name__ == '__main__':
     #     cols = [col for col in df.columns if col[-4:] != "leaf"]
     #     df[cols].to_csv(os.path.join(base_dir, "pred_" + f_name))
 
-    df = pd.DataFrame(np.random.normal(10,2,size=(1000,4)),columns=["open","high","low","close"])
-    df["vol"]=100
-    t0 = time.time()
-    r = get_return_rate(df)
-    print("Get return rate time:",time.time()-t0)
-    print(r)
+
+    # df = pd.DataFrame(np.random.normal(10,2,size=(1000,4)),columns=["open","high","low","close"])
+    # df["vol"]=100
+    # t0 = time.time()
+    # r = get_return_rate(df)
+    # print("Get return rate time:",time.time()-t0)
+    # print(r)
 
 
 
