@@ -1,6 +1,9 @@
 import datetime
+import time
 import os
 import pickle
+import schedule
+import gc
 
 import lightgbm.sklearn as lgbm
 import pandas as pd
@@ -8,100 +11,19 @@ import pandas as pd
 import customized_obj as cus_obj
 import io_operations as IO_op
 import ml_model as ml
+from collect import *
 
 
-def find_max_min_point(outer_slope,outer):
-    pass
+def collect_data():
+    db_type = "sqlite3"
 
+    index_pool = dbop.get_all_indexes()
+    update_indexes(index_pool, db_type)
 
-def tidyup():
-    base_dir = "predict_results"
-    for f in os.listdir(base_dir):
-        if f[:4] == "pred":
-            continue
-        df = pd.read_csv(os.path.join(base_dir, f))
-        cols = [col for col in df.columns if col[-4:] != "leaf"]
-        df[cols].to_csv(os.path.join(base_dir, "pred_" + f), index=False)
+    stock_pool = get_stock_pool()
+    update_stocks(stock_pool, db_type=db_type)
 
-
-def get_return_rate(df_single_stock_d:pd.DataFrame, loss_limit=0.1, retracement=0.1, retracement_inc_pct=0.25,
-                    holding_days=20, holding_threshold=0.1,is_truncated=True):
-    # Cleaning input.
-    df_single_stock_d = \
-        df_single_stock_d[(df_single_stock_d["vol"]>0)
-                          & (df_single_stock_d[["open","high","low","close"]].notnull().all(axis=1))].copy()
-    df_single_stock_d = df_single_stock_d.sort_index(ascending=True)
-
-    # Result dataframe
-    result = pd.Series()
-    result.index.name = "date"
-
-    # Dataframe for intermediate result(info of holding shares).
-    df_tmp = pd.DataFrame(columns=["open","max","idx"])
-    df_tmp.index.name="date"
-
-    for i in range(1,len(df_single_stock_d.index)):
-        curr_dt = df_single_stock_d.index[i]
-        prev_dt = df_single_stock_d.index[i-1]
-
-        prev_low = df_single_stock_d.loc[prev_dt,"low"]
-        prev_close = df_single_stock_d.loc[prev_dt, "close"]
-        curr_open = df_single_stock_d.loc[curr_dt,"open"]
-
-        # Try stop loss first.
-        stop_loss_cond = prev_low <= df_tmp["open"]*(1-retracement)
-        stop_loss_idx = df_tmp.index[stop_loss_cond]
-        result = result.append(curr_open/df_tmp.loc[stop_loss_idx]["open"]-1)
-        # df_tmp = df_tmp[~stop_loss_cond]
-        # del df_tmp.loc[stop_loss_idx]
-        df_tmp =df_tmp.drop(stop_loss_idx,axis=0)
-
-        # Try stop profit next.
-        stop_profit_points = df_tmp["max"]*0.9
-        stop_profit_points2 = df_tmp["open"]+(df_tmp["max"]-df_tmp["open"])*(1 - retracement_inc_pct)
-        idx = stop_profit_points.index[stop_profit_points>stop_profit_points2]
-        stop_profit_points.loc[idx] = stop_profit_points2.loc[idx]
-        stop_profit_cond = prev_low <= stop_profit_points
-        stop_profit_idx = df_tmp.index[stop_profit_cond]
-        result = result.append(curr_open/df_tmp.loc[stop_profit_idx]["open"]-1)
-        # df_tmp = df_tmp[~stop_profit_cond]
-        # del df_tmp.loc[stop_profit_idx]
-        df_tmp =df_tmp.drop(stop_profit_idx,axis=0)
-
-
-        # Try to sell if holding for too long.
-        holding_too_long_cond1 = (i-1-df_tmp["idx"]>=holding_days) & (df_tmp["max"]/df_tmp["open"]-1<holding_threshold)
-        holding_too_long_idx1 = df_tmp.index[holding_too_long_cond1]
-        result = result.append(curr_open/df_tmp.loc[holding_too_long_idx1]["open"]-1)
-        # df_tmp = df_tmp[~holding_too_long_cond1]
-        # del df_tmp.loc[holding_too_long_idx1]
-        df_tmp=df_tmp.drop(holding_too_long_idx1,axis=0)
-
-        holding_too_long_cond2 = \
-            (i - 1 - df_tmp["idx"] >= holding_days*1.5) \
-            & (prev_close / df_tmp["open"] - 1 < holding_threshold)
-        holding_too_long_idx2 = df_tmp.index[holding_too_long_cond2]
-        result = result.append(curr_open / df_tmp.loc[holding_too_long_idx2]["open"] - 1)
-        # df_tmp = df_tmp[~holding_too_long_cond2]
-        # del df_tmp.loc[holding_too_long_idx2]
-        df_tmp =df_tmp.drop(holding_too_long_idx2,axis=0)
-
-        # Buy in at the beginning of current date with open price.Add new record.
-        open,high = df_single_stock_d.loc[curr_dt,["open","high"]]
-        df_tmp.loc[prev_dt] = list([open,high,i-1])
-        # Update max.
-        df_tmp.loc[df_tmp.index[df_tmp["max"]<high],"max"]=high
-        # print(stop_loss_idx)
-        # print(stop_profit_idx)
-        # print(holding_too_long_idx1)
-        # print(holding_too_long_idx2)
-        # print(df_tmp)
-        # print(result.shape)
-
-    if is_truncated:
-        curr_open = df_single_stock_d.loc[df_single_stock_d.index[-1], "open"]
-        result = result.append(curr_open / df_tmp["open"] - 1)
-    return result
+    dc.fillna_stock_day(db_type=db_type, start="2000-01-01")
 
 
 def update_dataset():
@@ -136,12 +58,9 @@ def update_dataset():
     IO_op.save_shuffle_info(update_mode="latest")
 
 
-if __name__ == '__main__':
-    # update_dataset()
-    #
+def train_model():
     pd.set_option("display.max_columns", 10)
     pd.set_option("display.max_rows", 256)
-    base_dir = "predict_results"
 
     cols_category = ["area", "market", "exchange", "is_hs"]
     ycol1, ycol2, ycol3, ycol4 = "y_l_r", "y_l", "y_l_avg", "y_l_rise"
@@ -195,15 +114,20 @@ if __name__ == '__main__':
         layer2.update(
             {obj_type + "_" + target: (lgbm.LGBMRegressor(**kwargs), {**obj_dict, "target": target})
              for (obj_type, obj_dict), kwargs in zip(objs[-1:], reg_params[-1:])})
-    layers = [layer0,layer1, layer2]
+    layers = [layer0, layer1, layer2]
 
     lgbm_reg_net = ml.RegressorNetwork()
     lgbm_reg_net.insert_multiple_layers(layers)
 
     paras = {"fit": {"categorical_feature": cols_category}}
+    trading_dates = sorted(dbop.get_trading_dates())
+    end = str(trading_dates[-20])
+    print(end)
+    # end = "-".join([end[:4], end[4:6], end[6:]])
+    # print(end)
     for i in range(lgbm_reg_net.get_num_layers()):
-        X, Y, _ = IO_op.read_hdf5(start="2013-01-01", end="2019-02-10",
-                                  subsample="10-{0}".format(i))
+        X, Y, _ = IO_op.read_hdf5(start="2013-01-01", end=end,
+                                  subsample="500-{0}".format(i))
         print(X.info(memory_usage="deep"))
         del X["industry"]
 
@@ -221,16 +145,16 @@ if __name__ == '__main__':
         train_dates = trading_dates[:-21]
         X = X.loc[train_dates]
         Y = Y.loc[train_dates]
-        print("Train dates:{0}-{1}".format(min(train_dates),max(train_dates)))
+        print("Train dates:{0}-{1}".format(min(train_dates), max(train_dates)))
         print(X.shape)
 
-        if i>0:
+        if i > 0:
             for j in range(i):
                 features, _ = lgbm_reg_net.predict_layer(j, X)
                 X = pd.concat([X, features], axis=1)
 
-        lgbm_reg_net.fit_layer(i,X,Y[ycol1],**paras)
-        del X,Y
+        lgbm_reg_net.fit_layer(i, X, Y[ycol1], **paras)
+        del X, Y
 
     model_dir = "models"
     model_f_name = "lgbm_reg_net"
@@ -239,31 +163,44 @@ if __name__ == '__main__':
     with open(model_path, mode="wb") as f:
         pickle.dump(lgbm_reg_net, f)
 
+    return lgbm_reg_net
+
+
+def predict(model_net):
     X, _, df_other = IO_op.read_hdf5(start="2019-01-01", end="2020-01-01",
-                              # subsample="1-0"
+                                     # subsample="1-0"
                                      )
     print(X.info(memory_usage="deep"))
     del X["industry"]
     predict_dates = sorted(X.index.unique())[-20:]
-    df_all = pd.concat([X,df_other[["code"]]],axis=1).loc[predict_dates]
+    df_all = pd.concat([X, df_other[["code"]]], axis=1).loc[predict_dates]
     X = df_all[df_all.columns.difference(["code"])]
     df_codes = df_all[["code"]]
 
-    for i in range(lgbm_reg_net.get_num_layers()):
-        result = lgbm_reg_net.predict(X,i+1)
-        df = pd.concat([df_codes,result],axis=1)
-        f_name = "result_{0}_layer{1}.csv".format(max(predict_dates),i)
-        df.to_csv(os.path.join(base_dir,f_name))
+    base_dir = "predict_results"
+    for i in range(model_net.get_num_layers()):
+        result = model_net.predict(X, i + 1)
+        df = pd.concat([df_codes, result], axis=1)
+        f_name = "result_{0}_layer{1}.csv".format(max(predict_dates), i)
+        df.to_csv(os.path.join(base_dir, f_name))
         cols = [col for col in df.columns if col[-4:] != "leaf"]
         df[cols].to_csv(os.path.join(base_dir, "pred_" + f_name))
 
 
-    # df = pd.DataFrame(np.random.normal(10,2,size=(1000,4)),columns=["open","high","low","close"])
-    # df["vol"]=100
-    # t0 = time.time()
-    # r = get_return_rate(df)
-    # print("Get return rate time:",time.time()-t0)
-    # print(r)
+def daily_job():
+    print("Daily job start!")
+    # collect_data()
+    # update_dataset()
+    # model_net = train_model()
+    # predict(model_net)
+    print("Daily job end!")
+    gc.collect()
 
+
+if __name__ == '__main__':
+    schedule.every().day.at("17:58").do(daily_job)
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
 
 

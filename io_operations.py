@@ -220,19 +220,28 @@ def save_dataset_info(d_info,version=None, base_dir=None,
         pickle.dump(d_info, f_info)
 
 
-def save_shuffle_info(n=4,version=None, base_dir=None,
-                      f_info_name=None):
+def save_shuffle_info(n=4, version=None, base_dir=None,
+                      f_info_name=None, update_mode="latest"):
     d_info = load_dataset_info(version,base_dir,f_info_name)
 
-    # shuffles = {}
     if "shuffle" in d_info:
         shuffles = d_info["shuffle"]
     else:
         shuffles = {}
 
     for k,v in d_info["length"].items():
-        if k in shuffles:
-            continue
+        if update_mode== "latest":
+            if k in shuffles and k!=max(d_info["length"].keys()):
+                continue
+        elif update_mode=="missing":
+            if k in shuffles:
+                continue
+        elif update_mode=="all":
+            pass
+        else:
+            raise ValueError("update_mode={0} is not supported".format(update_mode))
+
+        print("Update shuffle:",k)
         a = np.arange(v)
         for i in range(n):
             np.random.shuffle(a)
@@ -387,39 +396,39 @@ def get_latest_version(base_dir=r"datasets",
 
 if __name__ == '__main__':
 
-    targets = [{"period": 20, "func": "max", "col": "high"},
-               {"period": 20, "func": "min", "col": "low"},
-               {"period": 20, "func": "avg", "col": ""},
-               {"period": 5, "func": "max", "col": "high"},
-               {"period": 5, "func": "min", "col": "low"},
-               {"period": 5, "func": "avg", "col": ""},
-               ]
-    paras = [("y_l_rise",
-              {"pred_period": 20, "is_high": True, "is_clf": False,
-               "threshold": 0.2}),
-             ("y_l_decline",
-              {"pred_period": 20, "is_high": False, "is_clf": False,
-               "threshold": 0.2}),
-             ("y_l_avg",
-              {"pred_period": 20, "is_high": True,
-               "is_clf": False, "threshold": 0.2,
-               "target_col": "f20avg_f1mv"}),
-             ("y_s_rise",
-              {"pred_period": 5, "is_high": True,"is_clf": False,
-               "threshold": 0.1}),
-             ("y_s_decline",
-              {"pred_period": 5,"is_high": False,"is_clf": False,
-               "threshold": 0.1}),
-             ("y_s_avg",
-              {"pred_period": 5, "is_high": True,
-               "is_clf": False, "threshold": 0.1,"target_col":"f5avg_f1mv"}),
-             ]
-
-    save_dataset_in_hdf5(targets=targets, paras=paras,
-                         start_year=2019, start_index=0,
-                         end_year=2020, end_index=0,
-                         slice_length=12,
-                         version="2019-03-06")
+    # targets = [{"period": 20, "func": "max", "col": "high"},
+    #            {"period": 20, "func": "min", "col": "low"},
+    #            {"period": 20, "func": "avg", "col": ""},
+    #            {"period": 5, "func": "max", "col": "high"},
+    #            {"period": 5, "func": "min", "col": "low"},
+    #            {"period": 5, "func": "avg", "col": ""},
+    #            ]
+    # paras = [("y_l_rise",
+    #           {"pred_period": 20, "is_high": True, "is_clf": False,
+    #            "threshold": 0.2}),
+    #          ("y_l_decline",
+    #           {"pred_period": 20, "is_high": False, "is_clf": False,
+    #            "threshold": 0.2}),
+    #          ("y_l_avg",
+    #           {"pred_period": 20, "is_high": True,
+    #            "is_clf": False, "threshold": 0.2,
+    #            "target_col": "f20avg_f1mv"}),
+    #          ("y_s_rise",
+    #           {"pred_period": 5, "is_high": True,"is_clf": False,
+    #            "threshold": 0.1}),
+    #          ("y_s_decline",
+    #           {"pred_period": 5,"is_high": False,"is_clf": False,
+    #            "threshold": 0.1}),
+    #          ("y_s_avg",
+    #           {"pred_period": 5, "is_high": True,
+    #            "is_clf": False, "threshold": 0.1,"target_col":"f5avg_f1mv"}),
+    #          ]
+    #
+    # save_dataset_in_hdf5(targets=targets, paras=paras,
+    #                      start_year=2019, start_index=0,
+    #                      end_year=2020, end_index=0,
+    #                      slice_length=12,
+    #                      version="2019-03-06")
 
     # X,Y,other = read_hdf5(start="2016-07-01",end="2017-01-01")
     # d_info = load_dataset_info()
@@ -435,7 +444,7 @@ if __name__ == '__main__':
     # print(Y.index.max(), Y.index.min())
     # print(df_other.index.max(), df_other.index.min())
 
-    save_shuffle_info()
+    save_shuffle_info(update_mode="latest")
 
     # lower_bound = 20180101
     # start = 20180701
