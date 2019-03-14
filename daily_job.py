@@ -127,7 +127,7 @@ def train_model():
     # print(end)
     for i in range(lgbm_reg_net.get_num_layers()):
         X, Y, _ = IO_op.read_hdf5(start="2013-01-01", end=end,
-                                  subsample="500-{0}".format(i))
+                                  subsample="10-{0}".format(i))
         print(X.info(memory_usage="deep"))
         del X["industry"]
 
@@ -187,18 +187,28 @@ def predict(model_net):
         df[cols].to_csv(os.path.join(base_dir, "pred_" + f_name))
 
 
-def daily_job():
-    print("Daily job start!")
-    # collect_data()
+def daily_job1():
+    print("Daily job1 start!")
+    collect_data()
     # update_dataset()
     # model_net = train_model()
     # predict(model_net)
-    print("Daily job end!")
+    print("Daily job1 end!")
+    gc.collect()
+
+def daily_job2():
+    print("Daily job2 start!")
+    # collect_data()
+    update_dataset()
+    model_net = train_model()
+    predict(model_net)
+    print("Daily job2 end!")
     gc.collect()
 
 
 if __name__ == '__main__':
-    schedule.every().day.at("17:58").do(daily_job)
+    schedule.every().day.at("17:00").do(daily_job1)
+    schedule.every().day.at("23:55").do(daily_job2)
     while True:
         schedule.run_pending()
         time.sleep(1)
