@@ -107,7 +107,7 @@ def get_return_rate(df_single_stock_d:pd.DataFrame, loss_limit=0.1, retracement=
     if is_truncated:
         curr_open = df_single_stock_d.loc[df_single_stock_d.index[-1], "open"]
         result = result.append(curr_open / df_tmp["open"] - 1)
-    return result
+    return result.sort_index()
 
 
 def get_return_rate2(df_single_stock_d: pd.DataFrame, loss_limit=0.1, retracement=0.1, retracement_inc_pct=0.25,
@@ -120,7 +120,7 @@ def get_return_rate2(df_single_stock_d: pd.DataFrame, loss_limit=0.1, retracemen
 
     # Result dataframe
     # result = pd.DataFrame(columns="sell_price")
-    result = pd.Series(index=df.index)
+    result = pd.Series(index=df_single_stock_d.index[:-1])
     # result = pd.Series()
     result.index.name = "date"
 
@@ -174,7 +174,7 @@ def get_return_rate2(df_single_stock_d: pd.DataFrame, loss_limit=0.1, retracemen
         # result = result.append(pd.Series(curr_open,index=df_tmp))
         result.loc[df_tmp.index] = curr_open
 
-    return result
+    return result.sort_index()
 
 
 def update_dataset():
@@ -382,7 +382,7 @@ if __name__ == '__main__':
     from constants import *
     df = dbop.create_df(cursor, STOCK_DAY[TABLE],"2018-01-01")
     print(df.shape)
-    df  = df[df["code"]=='300045.SZ']
+    df  = df[df["code"]=='300045.SZ'].set_index("date")
     print(df.shape)
 
     t0 = time.time()
@@ -391,7 +391,8 @@ if __name__ == '__main__':
     t0 = time.time()
     r2 = get_return_rate2(df)
     print("t2:", time.time() - t0)
-    print((r1==r2).all())
+    # print((r1==r2).all())
+    print(r1)
     print(r2)
 
 

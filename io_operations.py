@@ -8,6 +8,15 @@ import pandas as pd
 import ml_model
 
 
+def int2str(date:int):
+    date = str(date)
+    if len(date)!=8:
+        raise ValueError("date {0} of length {1} is not valid"
+                         .format(date,len(date)))
+    date = "-".join([date[:4],date[4:6],date[6:8]])
+    return date
+
+
 def get_interval_dates(slice_length=6):
     if slice_length is None:
         slice_length=6
@@ -263,6 +272,11 @@ def read_hdf5(start,end=None,version=None,base_dir = None,
     :param version: the date of file, formatted same as above.
     :return:
     """
+    if type(start)==int:
+        start = int2str(start)
+    if type(end)==int:
+        end = int2str(end)
+
     start_yr = start[:4]
     start_mon = start[5:7]
     start_day = start[8:10]

@@ -63,7 +63,7 @@ def train_model():
     pd.set_option("display.max_rows", 256)
 
     cols_category = ["area", "market", "exchange", "is_hs"]
-    ycol1, ycol2, ycol3, ycol4 = "y_l_r", "y_l", "y_l_avg", "y_l_rise"
+    # ycol1, ycol2, ycol3, ycol4 = "y_l_r", "y_l", "y_l_avg", "y_l_rise"
 
     reg_params = [
         {"n_estimators": 10, "learning_rate": 2, "num_leaves": 15,
@@ -77,7 +77,7 @@ def train_model():
         {"n_estimators": 25, "learning_rate": 0.2, "num_leaves": 31,
          "max_depth": 12,
          "min_child_samples": 30, "random_state": 0, },
-        {"n_estimators": 50, "learning_rate": 0.1, "num_leaves": 31,
+        {"n_estimators": 30, "learning_rate": 0.1, "num_leaves": 31,
          "max_depth": 12,
          "min_child_samples": 30, "random_state": 0, },
     ]
@@ -153,7 +153,7 @@ def train_model():
                 features, _ = lgbm_reg_net.predict_layer(j, X)
                 X = pd.concat([X, features], axis=1)
 
-        lgbm_reg_net.fit_layer(i, X, Y[ycol1], **paras)
+        lgbm_reg_net.fit_layer(i, X, Y, **paras)
         del X, Y
 
     model_dir = "models"
@@ -190,7 +190,7 @@ def predict(model_net):
 def daily_job1():
     print("Daily job1 start!")
     collect_data()
-    # update_dataset()
+    update_dataset()
     # model_net = train_model()
     # predict(model_net)
     print("Daily job1 end!")
@@ -199,7 +199,7 @@ def daily_job1():
 def daily_job2():
     print("Daily job2 start!")
     # collect_data()
-    update_dataset()
+    # update_dataset()
     model_net = train_model()
     predict(model_net)
     print("Daily job2 end!")
@@ -208,7 +208,7 @@ def daily_job2():
 
 if __name__ == '__main__':
     schedule.every().day.at("17:00").do(daily_job1)
-    schedule.every().day.at("23:55").do(daily_job2)
+    schedule.every().day.at("18:16").do(daily_job2)
     while True:
         schedule.run_pending()
         time.sleep(1)

@@ -448,7 +448,7 @@ class RegressorNetwork:
         return features,categorical_features
 
 
-    def fit_layer(self, i, X, y, **paras):
+    def fit_layer(self, i, X, Y, **paras):
         print("\n"+"-"*10+"Train layer {0:d}".format(i)+"-"*10)
         # features_list = []
         # paras_next_layer = copy.deepcopy(paras)
@@ -461,8 +461,10 @@ class RegressorNetwork:
 
         for reg_name,(reg,reg_paras) in self.layers[i].items():
             print("\nTrain "+reg_name)
+            target = reg_paras["target"]
             t0 = time.time()
-            reg.fit(X.iloc[train_slice],y.iloc[train_slice],**paras["fit"])
+            reg.fit(X.iloc[train_slice], Y[target].iloc[train_slice], **paras[
+                "fit"])
             reg._fobj=None
             print("Time usage: {0:.2f}s".format(time.time()-t0))
             print(reg)
@@ -476,7 +478,7 @@ class RegressorNetwork:
         self.is_trained[i] = True
 
 
-    def fit(self, X, y, **paras):
+    def fit(self, X, Y, **paras):
         print("\n" + "-" * 20 + "Train network" + "-" * 20)
         num_layers = self.get_num_layers()
         n = len(X)
@@ -488,8 +490,8 @@ class RegressorNetwork:
                 features,feature_info = self.predict_layer(i-1,X)
                 X = pd.concat([X,features],axis=1)
             paras["train_indexes"] = (split_points[i],split_points[i+1])
-            print("\n",X.shape,y.shape,paras)
-            self.fit_layer(i, X, y, **paras)
+            print("\n", X.shape, Y.shape, paras)
+            self.fit_layer(i, X, Y, **paras)
 
 
     def predict_layer(self,i,X,y=None, **paras):
@@ -688,6 +690,5 @@ if __name__ == '__main__':
 
         print("\n" + ycol4)
         pred_interval_summary(lgbm_reg_net, X.loc[test_dates], Y.loc[test_dates][ycol4], y_test_pred=result[col])
-
 
     plt.show()
