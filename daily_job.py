@@ -206,9 +206,15 @@ def daily_job2():
     gc.collect()
 
 
+def daily_job():
+    daily_job1()
+    daily_job2()
+
+
 if __name__ == '__main__':
-    schedule.every().day.at("17:00").do(daily_job1)
-    schedule.every().day.at("18:16").do(daily_job2)
+    # schedule.every().day.at("17:00").do(daily_job1)
+    # schedule.every().day.at("18:16").do(daily_job2)
+    schedule.every().day.at("17:00").do(daily_job)
     while True:
         schedule.run_pending()
         time.sleep(1)
