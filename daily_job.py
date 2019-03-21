@@ -182,7 +182,7 @@ def predict(model_net):
         result = model_net.predict(X, i + 1)
         df = pd.concat([df_codes, result], axis=1)
         f_name = "result_{0}_layer{1}.csv".format(max(predict_dates), i)
-        df.to_csv(os.path.join(base_dir, f_name))
+        # df.to_csv(os.path.join(base_dir, f_name))
         cols = [col for col in df.columns if col[-4:] != "leaf"]
         df[cols].to_csv(os.path.join(base_dir, "pred_" + f_name))
 
