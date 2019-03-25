@@ -27,7 +27,7 @@ def tidyup():
 
 
 def get_return_rate(df_single_stock_d:pd.DataFrame, loss_limit=0.1, retracement=0.1, retracement_inc_pct=0.25,
-                    holding_days=20, holding_threshold=0.1,is_truncated=True):
+                    holding_days=20, holding_threshold=0.1,max_days=20,is_truncated=True):
     # Cleaning input.
     df_single_stock_d = \
         df_single_stock_d[(df_single_stock_d["vol"]>0)
@@ -51,10 +51,12 @@ def get_return_rate(df_single_stock_d:pd.DataFrame, loss_limit=0.1, retracement=
         curr_open = df_single_stock_d.loc[curr_dt,"open"]
 
         # Try stop profit next.
-        stop_profit_points = df_tmp["max"] * 0.9
-        stop_profit_points2 = df_tmp["open"] + (df_tmp["max"] - df_tmp["open"]) * (1 - retracement_inc_pct)
-        cond = stop_profit_points > stop_profit_points2
-        stop_profit_points.loc[cond] = stop_profit_points2.loc[cond]
+        # stop_profit_points = df_tmp["max"] * 0.9
+        # stop_profit_points2 = df_tmp["open"] + (df_tmp["max"] - df_tmp["open"]) * (1 - retracement_inc_pct)
+        # cond = stop_profit_points > stop_profit_points2
+        # stop_profit_points.loc[cond] = stop_profit_points2.loc[cond]
+
+        stop_profit_points = df_tmp["open"] * (1-loss_limit) + (df_tmp["max"] - df_tmp["open"]) * (1 - retracement_inc_pct)
         stop_profit_cond = prev_low <= stop_profit_points
         # stop_profit_idx = df_tmp.index[stop_profit_cond]
         result = result.append(curr_open / df_tmp.loc[stop_profit_cond]["open"] - 1)
@@ -64,33 +66,40 @@ def get_return_rate(df_single_stock_d:pd.DataFrame, loss_limit=0.1, retracement=
         df_tmp = df_tmp[~stop_profit_cond]
 
 
-        # Try stop loss first.
-        stop_loss_cond = (prev_low <= df_tmp["open"]*(1-retracement))
-        # stop_loss_idx = df_tmp.index[stop_loss_cond]
-        result = result.append(curr_open/df_tmp.loc[stop_loss_cond]["open"]-1)
-        # df_tmp = df_tmp[~stop_loss_cond]
-        # del df_tmp.loc[stop_loss_idx]
-        df_tmp =df_tmp[~stop_loss_cond]
+        # # Try stop loss first.
+        # stop_loss_cond = (prev_low <= df_tmp["open"]*(1-retracement))
+        # # stop_loss_idx = df_tmp.index[stop_loss_cond]
+        # result = result.append(curr_open/df_tmp.loc[stop_loss_cond]["open"]-1)
+        # # df_tmp = df_tmp[~stop_loss_cond]
+        # # del df_tmp.loc[stop_loss_idx]
+        # df_tmp =df_tmp[~stop_loss_cond]
 
 
-        # Try to sell if holding for too long.
-        holding_too_long_cond1 = (i-1-df_tmp["idx"]>=holding_days) & (df_tmp["max"]/df_tmp["open"]-1<holding_threshold)
-        # holding_too_long_idx1 = df_tmp.index[holding_too_long_cond1]
-        result = result.append(curr_open/df_tmp.loc[holding_too_long_cond1]["open"]-1)
-        # df_tmp = df_tmp[~holding_too_long_cond1]
-        # del df_tmp.loc[holding_too_long_idx1]
-        # df_tmp=df_tmp.drop(holding_too_long_idx1,axis=0)
-        df_tmp=df_tmp[~holding_too_long_cond1]
-
-        holding_too_long_cond2 = \
-            (i - 1 - df_tmp["idx"] >= holding_days*1.5) \
-            & (prev_close / df_tmp["open"] - 1 < holding_threshold)
-        # holding_too_long_idx2 = df_tmp.index[holding_too_long_cond2]
-        result = result.append(curr_open / df_tmp.loc[holding_too_long_cond2]["open"] - 1)
+        # # Try to sell if holding for too long.
+        # holding_too_long_cond1 = (i-1-df_tmp["idx"]>=holding_days) & (df_tmp["max"]/df_tmp["open"]-1<holding_threshold)
+        # # holding_too_long_idx1 = df_tmp.index[holding_too_long_cond1]
+        # result = result.append(curr_open/df_tmp.loc[holding_too_long_cond1]["open"]-1)
+        # # df_tmp = df_tmp[~holding_too_long_cond1]
+        # # del df_tmp.loc[holding_too_long_idx1]
+        # # df_tmp=df_tmp.drop(holding_too_long_idx1,axis=0)
+        # df_tmp=df_tmp[~holding_too_long_cond1]
+        #
+        # holding_too_long_cond2 = \
+        #     (i - 1 - df_tmp["idx"] >= holding_days*1.5) \
+        #     & (prev_close / df_tmp["open"] - 1 < holding_threshold)
+        # # holding_too_long_idx2 = df_tmp.index[holding_too_long_cond2]
+        # result = result.append(curr_open / df_tmp.loc[holding_too_long_cond2]["open"] - 1)
+        # # df_tmp = df_tmp[~holding_too_long_cond2]
+        # # del df_tmp.loc[holding_too_long_idx2]
+        # # df_tmp =df_tmp.drop(holding_too_long_idx2,axis=0)
         # df_tmp = df_tmp[~holding_too_long_cond2]
-        # del df_tmp.loc[holding_too_long_idx2]
-        # df_tmp =df_tmp.drop(holding_too_long_idx2,axis=0)
-        df_tmp = df_tmp[~holding_too_long_cond2]
+
+        # Sell if max_days is not none and max_days is exceeded.
+        if max_days is not None:
+            cond = (i - 1 - df_tmp["idx"] >= max_days)
+            result = result.append(curr_open / df_tmp.loc[cond]["open"] - 1)
+            df_tmp = df_tmp[~cond]
+
 
         # Buy in at the beginning of current date with open price.Add new record.
         open,high = df_single_stock_d.loc[curr_dt,["open","high"]]
@@ -111,7 +120,7 @@ def get_return_rate(df_single_stock_d:pd.DataFrame, loss_limit=0.1, retracement=
 
 
 def get_return_rate2(df_single_stock_d: pd.DataFrame, loss_limit=0.1, retracement=0.1, retracement_inc_pct=0.25,
-                    holding_days=20, holding_threshold=0.1, is_truncated=True):
+                    holding_days=20, holding_threshold=0.1,max_days=20, is_truncated=True):
     # Cleaning input.
     df_single_stock_d = \
         df_single_stock_d[(df_single_stock_d["vol"] > 0)
@@ -133,26 +142,31 @@ def get_return_rate2(df_single_stock_d: pd.DataFrame, loss_limit=0.1, retracemen
         prev_dt = df_single_stock_d.index[i - 1]
 
         prev_low = df_single_stock_d.loc[prev_dt, "low"]
-        prev_close = df_single_stock_d.loc[prev_dt, "close"]
+        # prev_close = df_single_stock_d.loc[prev_dt, "close"]
         curr_open = df_single_stock_d.loc[curr_dt, "open"]
 
-        # Try stop loss first.
-        mask = (prev_low <= df_tmp["open"] * (1 - retracement))
+        # # Try stop loss first.
+        # mask = (prev_low <= df_tmp["open"] * (1 - retracement))
 
-        # Try stop profit next.
-        stop_profit_points = df_tmp["max"] * 0.9
-        stop_profit_points2 = df_tmp["open"] + (df_tmp["max"] - df_tmp["open"]) * (1 - retracement_inc_pct)
-        cond = stop_profit_points > stop_profit_points2
-        stop_profit_points.loc[cond] = stop_profit_points2.loc[cond]
-        mask |= prev_low <= stop_profit_points
+        # Try to sell based on retracement.
+        stop_profit_points = df_tmp["open"] * (1-loss_limit) + (df_tmp["max"] - df_tmp["open"]) * (1 - retracement_inc_pct)
+        # stop_profit_points2 = df_tmp["open"] + (df_tmp["max"] - df_tmp["open"]) * (1 - retracement_inc_pct)
+        # cond = stop_profit_points > stop_profit_points2
+        # stop_profit_points.loc[cond] = stop_profit_points2.loc[cond]
+        # mask |= prev_low <= stop_profit_points
+        mask = prev_low <= stop_profit_points
 
-        # Try to sell if holding for too long.
-        mask |= (i - 1 - df_tmp["idx"] >= holding_days) & (
-                    df_tmp["max"] / df_tmp["open"] - 1 < holding_threshold)
+        # Sell if max_days is not none and max_days is exceeded.
+        if max_days is not None:
+            mask |= (i - 1 - df_tmp["idx"] >= max_days)
 
-        mask |= \
-            (i - 1 - df_tmp["idx"] >= holding_days * 1.5) \
-            & (prev_close / df_tmp["open"] - 1 < holding_threshold)
+        # # Try to sell if holding for too long.
+        # mask |= (i - 1 - df_tmp["idx"] >= holding_days) & (
+        #             df_tmp["max"] / df_tmp["open"] - 1 < holding_threshold)
+        #
+        # mask |= \
+        #     (i - 1 - df_tmp["idx"] >= holding_days * 1.5) \
+        #     & (prev_close / df_tmp["open"] - 1 < holding_threshold)
 
         # conditions = [stop_loss_cond, stop_profit_cond, holding_too_long_cond1, holding_too_long_cond2]
         # mask = conditions[0]
