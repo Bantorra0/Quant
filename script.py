@@ -100,7 +100,6 @@ def get_return_rate(df_single_stock_d:pd.DataFrame, loss_limit=0.1, retracement=
             result = result.append(curr_open / df_tmp.loc[cond]["open"] - 1)
             df_tmp = df_tmp[~cond]
 
-
         # Buy in at the beginning of current date with open price.Add new record.
         open,high = df_single_stock_d.loc[curr_dt,["open","high"]]
         df_tmp.loc[prev_dt] = list([open,high,i-1])
