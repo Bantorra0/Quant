@@ -191,15 +191,11 @@ def daily_job1():
     print("Daily job1 start!")
     collect_data()
     update_dataset()
-    # model_net = train_model()
-    # predict(model_net)
     print("Daily job1 end!")
     gc.collect()
 
 def daily_job2():
     print("Daily job2 start!")
-    # collect_data()
-    # update_dataset()
     model_net = train_model()
     predict(model_net)
     print("Daily job2 end!")
