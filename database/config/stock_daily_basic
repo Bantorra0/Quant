@@ -1,0 +1,20 @@
+create::
+create table stock_daily_basic
+(
+code	varchar(45),
+date	varchar(45),
+close	decimal(20,4),
+turnover_rate	decimal(20,4),
+turnover_rate_f	decimal(20,4),
+volume_ratio	decimal(20,4),
+pe	decimal(20,4),
+pe_ttm	decimal(20,4),
+pb	decimal(20,4),
+ps	decimal(20,4),
+ps_ttm	decimal(20,4),
+total_share	decimal(20,4),
+float_share	decimal(20,4),
+free_share	decimal(20,4),
+total_mv	decimal(20,4),
+circ_mv	decimal(20,4)
+);

@@ -112,7 +112,6 @@ def insert_to_db(row, db_type: str, table_name, columns):
 
 def download_single_index_day(code, db_type: str, update=False,
                               start="2000-01-01", end=None, verbose=0):
-    download_failure = 0
     try:
         # Set start to the newest date in table if update is true.
         if update:
@@ -125,7 +124,6 @@ def download_single_index_day(code, db_type: str, update=False,
         df = ts.get_k_data(code=code, start=start, end=end)
 
     except Exception as err:
-        download_failure += 1
         print(err)
         print('No DATA Code:', code)
         return False
@@ -241,9 +239,11 @@ def collect_single_stock_day(code, db_type: str, update=False,
                                             table=const.STOCK_DAY[const.TABLE],
                                             cols=const.STOCK_DAY[const.COLUMNS], conn=conn,
                                             close=False)
-    elif df_single_stock_day:
+    elif not df_single_stock_day:
         # df_single_stock_day==False, download fails.
         download_failure = 1
+    else:
+        raise ValueError
 
     if close_db:
         dbop.close_db(conn)
@@ -263,8 +263,10 @@ def collect_single_index_day(code:str, db_type: str, update=False,
                                             table=const.INDEX_DAY[const.TABLE],
                                             cols=const.INDEX_DAY[const.COLUMNS], conn=conn,
                                             close=False)
-    else:
+    elif not df_single_index_day:
         download_failure = 1
+    else:
+        raise ValueError
 
     return download_failure, write_failure,conn
 
@@ -273,14 +275,16 @@ def collect_stock_basic(db_type: str, update=False):
     conn = dbop.connect_db(db_type)
     download_failure, write_failure = 0, 0
     for df_single_stock_basic in download_stock_basic(db_type=db_type):
-        if type(df_single_stock_basic) != int:
+        if type(df_single_stock_basic) == pd.DataFrame:
             conn, failure = dbop.write2db(df_single_stock_basic,
                                           table=const.STOCK_BASIC[const.TABLE],
                                           cols=const.STOCK_BASIC[const.COLUMNS],
                                           conn=conn, close=False)
             write_failure += failure
-        else:
+        elif type(df_single_stock_basic)==int and df_single_stock_basic>0:
             download_failure = df_single_stock_basic
+        else:
+            raise ValueError
         time.sleep(1)
     dbop.close_db(conn)
     return download_failure, write_failure
@@ -386,6 +390,121 @@ def update_stocks(stock_pool, db_type="sqlite3", verbose=0, print_freq=1):
         dbop.close_db(conn)
 
 
+def download_single_stock_daily_basic(code, db_type: str, update=False,
+                              start="2000-01-01", end=None, verbose=0):
+    pro = _init_api(const.TOKEN)
+    try:
+        # Set start to the newest date in table if update is true.
+        if update:
+            latest_date = dbop.get_latest_date(const.STOCK_DAILY_BASIC[const.TABLE], code, db_type)
+            if latest_date:
+                start = datetime.datetime.strptime(latest_date, "%Y-%m-%d") - datetime.timedelta(days=5)
+                start = start.strftime('%Y-%m-%d')
+
+        if verbose > -1:
+            print("start:", start)
+
+        # Download daily_basic data and adj_factor(复权因子).
+        # pro.daily_basic accepts start_date with format "YYYYmmdd".
+        start = str(start).replace("-", "")
+        if end:
+            end = str(end).replace("-", "")
+
+        kwargs = {"ts_code":code, "start_date":start, "end_date":end}
+        daily_basic = pro.daily_basic(**kwargs)
+
+    except Exception as err:
+        print(err)
+        print('No DATA Code:', code)
+        return False
+
+    else:
+        # Unify column names.
+        df = unify_df_col_nm(daily_basic)
+
+        # Unify date format from "YYYYmmdd" to "YYYY-mm-dd".
+        df["date"] = df["date"].apply(
+            lambda d: datetime.datetime.strptime(d, "%Y%m%d").strftime(
+                '%Y-%m-%d'))
+
+        if verbose > -1:
+            print(df["date"].min(), daily_basic["date"].max())
+            print(df.shape)
+        return df
+
+
+def collect_single_stock_daily_basic(code, db_type: str, update=False,
+                             start="2000-01-01", verbose=0, conn=None, close_db=False):
+    if conn is None:
+        conn = dbop.connect_db(db_type)
+    download_failure, write_failure = 0, 0
+    df_single_stock_daily_basic = download_single_stock_daily_basic(code=code, db_type=db_type,
+                                                    update=update, start=start,
+                                                    verbose=verbose)
+    if type(df_single_stock_daily_basic)==pd.DataFrame:
+        conn, write_failure = dbop.write2db(df_single_stock_daily_basic,
+                                            table=const.STOCK_DAY[const.TABLE],
+                                            cols=const.STOCK_DAY[const.COLUMNS], conn=conn,
+                                            close=False)
+    elif not df_single_stock_daily_basic:
+        # df_single_stock_daily_basic==False, download fails.
+        download_failure = 1
+
+    if close_db:
+        dbop.close_db(conn)
+    return download_failure, write_failure
+
+
+def update_stock_daily_basic(stock_pool, db_type="sqlite3", verbose=0, print_freq=1):
+    print("Stocks:", len(stock_pool))
+    conn=dbop.connect_db(db_type)
+
+    pool = mp.Pool(processes=1)
+
+    # Use manager.dict() or manager.list() to share objects between processes.
+    # Return mutable objects (refs) may cause error because memory is not shared between process..
+    # manager = mp.Manager()
+    # d = manager.dict()
+
+    start_time = time.time()
+    for i, stock in enumerate(stock_pool):
+        if i % print_freq == 0:
+            print('Seq:', str(i + 1), 'of', str(len(stock_pool)), '  Code:', str(stock))
+        kwargs = {"code": stock, "db_type": db_type,
+                  "update": True, "verbose": verbose,
+                  "conn": None, "close_db": True,
+                  }
+
+        download_failure = 1
+        write_failure = 0
+        while download_failure > 0 or write_failure > 0:
+            # Use pickle to send and receive objects in mp,
+            # which may raise error in case of unpicklable objects, e.g. sqlite3.connector.
+            # That's why conn is not passed, returned and reused.
+            res = pool.apply_async(func=collect_single_stock_daily_basic,kwds=kwargs)
+            try:
+                t0 =time.time()
+
+                download_failure, write_failure = res.get(
+                    timeout=const.TIMEOUT)
+                t1 = time.time()
+                if t1-t0<0.3:
+                    time.sleep(0.3-(t1-t0))
+            except mp.TimeoutError as err:
+                print("Timeout: {}s,".format(const.TIMEOUT), type(err))
+                download_failure=1
+                pool.terminate()
+                pool = mp.Pool(processes=1)
+                continue
+
+    end_time = time.time()
+
+    print("Total collecting time: {:.1f}s".format(end_time-start_time))
+
+    if conn:
+        dbop.close_db(conn)
+
+
 def update_stock_basic(db_type="sqlite3", initialize=False):
     if initialize:
         init_table(const.STOCK_BASIC[const.TABLE], "sqlite3")
@@ -413,29 +532,31 @@ def get_stock_pool():
     return stock_pool
 
 
+
+
 if __name__ == '__main__':
-    db_type = "sqlite3"
-
-    # update_stock_basic()
-
-    index_pool = dbop.get_all_indexes()
-    update_indexes(index_pool,db_type)
-
-    # cursor = dbop.connect_db(db_type).cursor()
-    # df_stock_basic = dbop.create_df(cursor, const.STOCK_BASIC[const.TABLE])
-    # stock_pool = sorted(df_stock_basic[df_stock_basic["is_hs"] != "N"]["code"])
-    # update_stock_list()
-
-    stock_pool = get_stock_pool()
-    update_stocks(stock_pool, db_type=db_type)
-
-    dc.fillna_stock_day(db_type=db_type,start="2000-01-01")
-
-
     # p = mp.Process(target=collect_single_stock_day, kwargs=kwargs)
     # p.start()
     # time.sleep(0.1)
     # if p.is_alive():
     #     p.terminate()
     #     print("Kill")
+
+    db_type = "sqlite3"
+
+    # update_stock_basic()
+
+    # index_pool = dbop.get_all_indexes()
+    # update_indexes(index_pool,db_type)
+
+    stock_pool = get_stock_pool()
+    # update_stocks(stock_pool, db_type=db_type)
+
+    # init_table(const.STOCK_DAILY_BASIC[const.TABLE],db_type=db_type)
+    update_stock_daily_basic(stock_pool=stock_pool,db_type=db_type)
+
+    # dc.fillna_stock_day(db_type=db_type,start="2000-01-01")
+
+
+
 

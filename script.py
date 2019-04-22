@@ -27,7 +27,7 @@ def tidyup():
 
 
 def get_return_rate(df_single_stock_d:pd.DataFrame, loss_limit=0.1, retracement=0.1, retracement_inc_pct=0.25,
-                    holding_days=20, holding_threshold=0.1,max_days=20,is_truncated=True):
+                    holding_days=20, holding_threshold=0.1,max_days=60,new_high_days_limit=20, is_truncated=True):
     # Cleaning input.
     df_single_stock_d = \
         df_single_stock_d[(df_single_stock_d["vol"]>0)
@@ -35,20 +35,19 @@ def get_return_rate(df_single_stock_d:pd.DataFrame, loss_limit=0.1, retracement=
     df_single_stock_d = df_single_stock_d.sort_index(ascending=True)
 
     # Result dataframe
-    result = pd.Series()
+    result = pd.Series(index=df_single_stock_d.index)
     result.index.name = "date"
 
     # Dataframe for intermediate result(info of holding shares).
-    df_tmp = pd.DataFrame(columns=["open","max","idx"])
+    df_tmp = pd.DataFrame(columns=["open","max","buy_idx","high_idx"])
     df_tmp.index.name="date"
 
     for i in range(1,len(df_single_stock_d.index)):
         curr_dt = df_single_stock_d.index[i]
         prev_dt = df_single_stock_d.index[i-1]
 
-        prev_low = df_single_stock_d.loc[prev_dt,"low"]
-        prev_close = df_single_stock_d.loc[prev_dt, "close"]
-        curr_open = df_single_stock_d.loc[curr_dt,"open"]
+        prev_low, prev_high = df_single_stock_d.loc[prev_dt, ["low", "high"]]
+        curr_open, curr_high = df_single_stock_d.loc[curr_dt, ["open", "high"]]
 
         # Try stop profit next.
         # stop_profit_points = df_tmp["max"] * 0.9
@@ -59,7 +58,8 @@ def get_return_rate(df_single_stock_d:pd.DataFrame, loss_limit=0.1, retracement=
         stop_profit_points = df_tmp["open"] * (1-loss_limit) + (df_tmp["max"] - df_tmp["open"]) * (1 - retracement_inc_pct)
         stop_profit_cond = prev_low <= stop_profit_points
         # stop_profit_idx = df_tmp.index[stop_profit_cond]
-        result = result.append(curr_open / df_tmp.loc[stop_profit_cond]["open"] - 1)
+        # result = result.append(curr_open / df_tmp.loc[stop_profit_cond]["open"] - 1)
+        result.loc[df_tmp.index[stop_profit_cond]] = curr_open
         # df_tmp = df_tmp[~stop_profit_cond]
         # del df_tmp.loc[stop_profit_idx]
         # df_tmp =df_tmp.drop(stop_profit_idx,axis=0)
@@ -96,15 +96,19 @@ def get_return_rate(df_single_stock_d:pd.DataFrame, loss_limit=0.1, retracement=
 
         # Sell if max_days is not none and max_days is exceeded.
         if max_days is not None:
-            cond = (i - 1 - df_tmp["idx"] >= max_days)
-            result = result.append(curr_open / df_tmp.loc[cond]["open"] - 1)
+            cond = (i - df_tmp["buy_idx"] >= max_days)
+            result.loc[df_tmp.index[cond]] = curr_open
+            df_tmp = df_tmp[~cond]
+
+        if new_high_days_limit is not None:
+            cond = (prev_high <= df_tmp["max"]) & (i-1-df_tmp["high_idx"]>=20)
+            result.loc[df_tmp.index[cond]] = curr_open
             df_tmp = df_tmp[~cond]
 
         # Buy in at the beginning of current date with open price.Add new record.
-        open,high = df_single_stock_d.loc[curr_dt,["open","high"]]
-        df_tmp.loc[prev_dt] = list([open,high,i-1])
+        df_tmp.loc[prev_dt] = list([curr_open,curr_high,i,i])
         # Update max.
-        df_tmp.loc[df_tmp["max"]<high,"max"]=high
+        df_tmp.loc[df_tmp["max"]<curr_high,["max","high_idx"]]=[curr_high,i]
         # print(stop_loss_idx)
         # print(stop_profit_idx)
         # print(holding_too_long_idx1)
@@ -114,12 +118,12 @@ def get_return_rate(df_single_stock_d:pd.DataFrame, loss_limit=0.1, retracement=
 
     if is_truncated:
         curr_open = df_single_stock_d.loc[df_single_stock_d.index[-1], "open"]
-        result = result.append(curr_open / df_tmp["open"] - 1)
+        result.loc[df_tmp.index] = curr_open
     return result.sort_index()
 
 
 def get_return_rate2(df_single_stock_d: pd.DataFrame, loss_limit=0.1, retracement=0.1, retracement_inc_pct=0.25,
-                    holding_days=20, holding_threshold=0.1,max_days=20, is_truncated=True):
+                    holding_days=20, holding_threshold=0.1,max_days=60,new_high_days_limit=20, is_truncated=True):
     # Cleaning input.
     df_single_stock_d = \
         df_single_stock_d[(df_single_stock_d["vol"] > 0)
@@ -128,21 +132,21 @@ def get_return_rate2(df_single_stock_d: pd.DataFrame, loss_limit=0.1, retracemen
 
     # Result dataframe
     # result = pd.DataFrame(columns="sell_price")
-    result = pd.Series(index=df_single_stock_d.index[:-1])
+    result = pd.Series(index=df_single_stock_d.index)
     # result = pd.Series()
     result.index.name = "date"
 
     # Dataframe for intermediate result(info of holding shares).
-    df_tmp = pd.DataFrame(columns=["open", "max", "idx"])
+    df_tmp = pd.DataFrame(columns=["open", "max", "buy_idx","high_idx"])
     df_tmp.index.name = "date"
 
     for i in range(1, len(df_single_stock_d.index)):
         curr_dt = df_single_stock_d.index[i]
         prev_dt = df_single_stock_d.index[i - 1]
 
-        prev_low = df_single_stock_d.loc[prev_dt, "low"]
-        # prev_close = df_single_stock_d.loc[prev_dt, "close"]
-        curr_open = df_single_stock_d.loc[curr_dt, "open"]
+        prev_low,prev_high = df_single_stock_d.loc[prev_dt, ["low","high"]]
+        curr_open, curr_high = df_single_stock_d.loc[curr_dt, ["open", "high"]]
+
 
         # # Try stop loss first.
         # mask = (prev_low <= df_tmp["open"] * (1 - retracement))
@@ -157,7 +161,10 @@ def get_return_rate2(df_single_stock_d: pd.DataFrame, loss_limit=0.1, retracemen
 
         # Sell if max_days is not none and max_days is exceeded.
         if max_days is not None:
-            mask |= (i - 1 - df_tmp["idx"] >= max_days)
+            mask |= (i - df_tmp["buy_idx"] >= max_days)
+
+        if new_high_days_limit is not None:
+            mask |= (prev_high <= df_tmp["max"]) & (i-1-df_tmp["high_idx"]>=20)
 
         # # Try to sell if holding for too long.
         # mask |= (i - 1 - df_tmp["idx"] >= holding_days) & (
@@ -176,10 +183,9 @@ def get_return_rate2(df_single_stock_d: pd.DataFrame, loss_limit=0.1, retracemen
         df_tmp = df_tmp[~mask]
 
         # Buy in at the beginning of current date with open price.Add new record.
-        open, high = df_single_stock_d.loc[curr_dt, ["open", "high"]]
-        df_tmp.loc[prev_dt] = list([open, high, i - 1])
+        df_tmp.loc[prev_dt] = list([curr_open, curr_high, i, i])
         # Update max.
-        df_tmp.loc[df_tmp["max"] < high, "max"] = high
+        df_tmp.loc[df_tmp["max"] < curr_high, ["max","high_idx"]] = [curr_high,i]
 
     if is_truncated:
         curr_open = df_single_stock_d.loc[df_single_stock_d.index[-1], "open"]
@@ -390,23 +396,30 @@ if __name__ == '__main__':
     # print("t2:", time.time() - t0)
     # print(r)
 
-    import db_operations as dbop
-    cursor = dbop.connect_db("sqlite3").cursor()
-    from constants import *
-    df = dbop.create_df(cursor, STOCK_DAY[TABLE],"2018-01-01")
-    print(df.shape)
-    df  = df[df["code"]=='300045.SZ'].set_index("date")
-    print(df.shape)
+    # import db_operations as dbop
+    # cursor = dbop.connect_db("sqlite3").cursor()
+    # from constants import *
+    # df = dbop.create_df(cursor, STOCK_DAY[TABLE],"2013-01-01")
+    # print(df.shape)
+    # df  = df[df["code"]=='600352.SH'].set_index("date")
+    # print(df.shape)
+    #
+    # t0 = time.time()
+    # r1 = get_return_rate(df)
+    # print("t1:", time.time() - t0)
+    # t0 = time.time()
+    # r2 = get_return_rate2(df)
+    # print("t2:", time.time() - t0)
+    # print((r1.dropna()==r2.dropna()).all())
+    # df=pd.concat([r1, r2],axis=1)
+    # print(df[df[0]!=df[1]])
+    # print(r1)
+    # print(r2)
 
-    t0 = time.time()
-    r1 = get_return_rate(df)
-    print("t1:", time.time() - t0)
-    t0 = time.time()
-    r2 = get_return_rate2(df)
-    print("t2:", time.time() - t0)
-    # print((r1==r2).all())
-    print(r1)
-    print(r2)
-
+    import collect
+    api = collect._init_api()
+    df = api.daily_basic(ts_code="600352.SH",start_date="20190101")
+    pd.set_option("display.max_columns",20)
+    print(df)
 
 
