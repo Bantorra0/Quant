@@ -148,7 +148,7 @@ def save_dataset_in_hdf5(targets, paras, start_year:int, start_index:int, end_ye
 
             # df_other[["qfq_avg", "f1mv_qfq_avg"]] = df_other[
             #     ["qfq_avg", "f1mv_qfq_avg"]].fillna(float("inf"))
-            df_other["delist_date"] = df_other["delist_date"].fillna("")
+            # df_other["delist_date"] = df_other["delist_date"].fillna("")
 
             d_info["length"][key] = len(X)
             if "columns" not in d_info:
@@ -168,6 +168,57 @@ def save_dataset_in_hdf5(targets, paras, start_year:int, start_index:int, end_ye
 
     if store is None:
         store = pd.HDFStore(f_hdf_path)
+    print(store.keys())
+    for key in sorted(store.keys()):
+        print(key,store[key].shape)
+    store.close()
+
+    print(d_info)
+    with open(f_info_path,"wb") as f_info:
+        pickle.dump(d_info,f_info)
+
+
+def add_cols_to_hdf5_dataset(df, data_type:str,start_year:int, start_index:int, end_year:int,
+                         end_index:int, slice_length=None,
+                         version=None, base_dir=r"datasets",f_info_name="stock_d_info"):
+    hdf5_keys,slice_length = get_hdf5_keys(
+        start_year=start_year,start_index=start_index,
+        end_year=end_year,end_index=end_index,slice_length=slice_length)
+
+    if version is None:
+        version = get_latest_version(base_dir,f_info_name)
+    f_hdf_name = "stock_d.hdf"
+    f_hdf_name = _add_suffix_to_file_names(f_hdf_name, version)
+    f_hdf_path = os.path.join(base_dir,f_hdf_name)
+    if f_hdf_name in os.listdir(base_dir):
+        store = pd.HDFStore(f_hdf_path)
+    else:
+        raise ValueError("{0} doess not exist!".format(f_hdf_path))
+
+    # Load dataset info file.
+    if f_info_name is None:
+        f_info_name = "stock_d_info"
+    f_info_name = _add_suffix_to_file_names(f_info_name, version)
+    f_info_path = os.path.join(base_dir,f_info_name)
+    if f_info_name in os.listdir(base_dir):
+        with open(f_info_path,"rb") as f_info:
+            d_info = pickle.load(f_info)
+    else:
+        raise ValueError("{0} does not exist!".format(f_hdf_path))
+
+    for key in hdf5_keys:
+        print("key:",key)
+        df_old = store["{0}/".format(data_type) + key].reset_index()
+        if "code" not in df_old:
+            df_old = pd.concat([df_old,store["other/"+key]["code"]],axis=1)
+        df_new = df_old.merge(df.reset_index(),how="left",on=["code","date"]).set_index("date")
+        store["{0}/".format(data_type) + key] = df_new
+
+        if "columns" in d_info:
+            d_info["columns"][data_type] = df_new.columns
+        else:
+            raise ValueError("columns not in info file!")
+
     print(store.keys())
     for key in sorted(store.keys()):
         print(key,store[key].shape)
@@ -451,8 +502,8 @@ if __name__ == '__main__':
     # for k,v in sorted(d_info["length"].items()):
     #     print(k,v)
     #
-    # X, Y, df_other = read_hdf5(start="2016-07-01", end="2017-01-01",
-    #                            subsample="10-5")
+    X, Y, df_other = read_hdf5(start="2016-07-01", end="2017-01-01",
+                               subsample="10-5")
     # print(X.shape, Y.shape, df_other.shape)
     # print(X.index.max(),X.index.min())
     # print(Y.index.max(), Y.index.min())
