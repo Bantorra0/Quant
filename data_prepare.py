@@ -568,6 +568,9 @@ def FE_stock_d_mp(df_stock_d:pd.DataFrame, stock_pool=None, targets=None, start=
     return df_stock_d_FE, cols_not_in_X
 
 
+
+
+
 def FE_index_d(df_idx_d: pd.DataFrame, start=None):
     df_idx_d = prepare_index_d(df_idx_d)
     cols_move = ["open", "high", "low", "close", "vol"]
@@ -633,7 +636,7 @@ def FE_index_d(df_idx_d: pd.DataFrame, start=None):
     return df_idx_d
 
 
-def proc_stock_basic(df_stock_basic:pd.DataFrame):
+def prepare_stock_basic(df_stock_basic:pd.DataFrame):
     cols_category = ["area", "industry", "market", "exchange", "is_hs"]
     df_stock_basic = df_stock_basic.copy()
     # print(df_stock_basic[df_stock_basic[cols_category].isna().any(axis=1)][
@@ -673,7 +676,7 @@ def prepare_data(cursor, targets=None, start=None, lowerbound=None, end=None,upp
 
     # Prepare df_stock_basic
     df_stock_basic = dbop.create_df(cursor, const.STOCK_BASIC[const.TABLE])
-    df_stock_basic, cols_category, enc = proc_stock_basic(df_stock_basic)
+    df_stock_basic, cols_category, enc = prepare_stock_basic(df_stock_basic)
     print(df_stock_basic[cols_category].iloc[:10])
 
     # Prepare df_stock_d_FE
@@ -741,3 +744,43 @@ def feature_select(X, y):
     print("selected feature number:", X_new.shape)
 
     return X_new, model
+
+
+def mp_stock(df_input:pd.DataFrame, target: callable, stock_pool=None, print_freq=10,**kwargs):
+    num_p = mp.cpu_count()
+    p_pool = mp.Pool(processes=mp.cpu_count())
+    q_res = queue.Queue()
+    start_time = time.time()
+    count_in = 0
+    count_out = 0
+    df_result_list = []
+    for code, df in df_input.groupby("code"):
+        if stock_pool and code not in stock_pool:
+            continue
+
+        q_res.put(p_pool.apply_async(func=target, args=(df,), kwds=kwargs))
+        count_in+=1
+
+        if count_in>=num_p:
+            res = q_res.get()
+            df_result_list.append(res.get())
+            q_res.task_done()
+            count_out += 1
+
+        if count_out % print_freq==0 and count_out>0:
+            print("{0}: Finish processing {1} stocks in {2:.2f}s.".format(target.__name__,count_out, time.time() - start_time))
+
+    while not q_res.empty():
+        res = q_res.get()
+        df_result_list.append(res.get())
+        q_res.task_done()
+        count_out += 1
+    del q_res
+
+    df_result = pd.concat(df_result_list, sort=False,axis=0)
+    print("{0}: Total processing time for {0} stocks:{1:.2f}s".format(target.__name__,count_out, time.time() - start_time))
+    print("in",count_in,"out",count_out)
+    print("Shape of resulting dataframe:",df_result.shape)
+    df_result.index.name = "date"
+
+    return df_result

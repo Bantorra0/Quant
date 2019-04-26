@@ -7,9 +7,12 @@ import lightgbm.sklearn as lgbm
 import pandas as pd
 import numpy as np
 
+import db_operations as dbop
 import customized_obj as cus_obj
 import io_operations as IO_op
+import data_prepare as dp
 import ml_model as ml
+from constants import *
 
 
 def find_max_min_point(outer_slope,outer):
@@ -28,11 +31,17 @@ def tidyup():
 
 def get_return_rate(df_single_stock_d:pd.DataFrame, loss_limit=0.1, retracement=0.1, retracement_inc_pct=0.25,
                     holding_days=20, holding_threshold=0.1,max_days=60,new_high_days_limit=20, is_truncated=True):
+    if len(df_single_stock_d[(df_single_stock_d["vol"]>0)
+                          & (df_single_stock_d[["open","high","low","close"]].notnull().all(axis=1))]) == 0:
+        print(df_single_stock_d.sort_index())
+        return None
+
     # Cleaning input.
     df_single_stock_d = \
         df_single_stock_d[(df_single_stock_d["vol"]>0)
                           & (df_single_stock_d[["open","high","low","close"]].notnull().all(axis=1))].copy()
     df_single_stock_d = df_single_stock_d.sort_index(ascending=True)
+
 
     # Result dataframe
     result = pd.Series(index=df_single_stock_d.index)
@@ -228,6 +237,34 @@ def update_dataset():
     IO_op.save_shuffle_info(update_mode="latest")
 
 
+def test_api():
+    import collect
+    api = collect._init_api()
+    df = api.daily_basic(ts_code="600352.SH", start_date="20190101")
+    pd.set_option("display.max_columns", 20)
+    print(df)
+
+
+def test_get_return_rate():
+    cursor = dbop.connect_db("sqlite3").cursor()
+    df = dbop.create_df(cursor, STOCK_DAY[TABLE], "2013-01-01")
+    print(df.shape)
+    df = df[df["code"] == '600352.SH'].set_index("date")
+    print(df.shape)
+
+    t0 = time.time()
+    r1 = get_return_rate(df)
+    print("t1:", time.time() - t0)
+    t0 = time.time()
+    r2 = get_return_rate2(df)
+    print("t2:", time.time() - t0)
+    print((r1.dropna() == r2.dropna()).all())
+    df = pd.concat([r1, r2], axis=1)
+    print(df[df[0] != df[1]])
+    print(r1)
+    print(r2)
+
+
 if __name__ == '__main__':
     # update_dataset()
     #
@@ -396,30 +433,27 @@ if __name__ == '__main__':
     # print("t2:", time.time() - t0)
     # print(r)
 
-    # import db_operations as dbop
-    # cursor = dbop.connect_db("sqlite3").cursor()
-    # from constants import *
-    # df = dbop.create_df(cursor, STOCK_DAY[TABLE],"2013-01-01")
-    # print(df.shape)
-    # df  = df[df["code"]=='600352.SH'].set_index("date")
-    # print(df.shape)
-    #
+    cursor = dbop.connect_db("sqlite3").cursor()
+    df = dbop.create_df(cursor, STOCK_DAY[TABLE], start="2013-01-01").set_index("date")
+    # print(df.dropna())
+    print(df.shape)
+    df_return_rate = dp.mp_stock(df_input=df,target=get_return_rate,stock_pool=None,print_freq=1)
+    print(df_return_rate.shape)
+    print(df_return_rate)
     # t0 = time.time()
     # r1 = get_return_rate(df)
     # print("t1:", time.time() - t0)
     # t0 = time.time()
     # r2 = get_return_rate2(df)
     # print("t2:", time.time() - t0)
-    # print((r1.dropna()==r2.dropna()).all())
-    # df=pd.concat([r1, r2],axis=1)
-    # print(df[df[0]!=df[1]])
+    # print((r1.dropna() == r2.dropna()).all())
+    # df = pd.concat([r1, r2], axis=1)
+    # print(df[df[0] != df[1]])
     # print(r1)
     # print(r2)
 
-    import collect
-    api = collect._init_api()
-    df = api.daily_basic(ts_code="600352.SH",start_date="20190101")
-    pd.set_option("display.max_columns",20)
-    print(df)
+
+
+
 
 

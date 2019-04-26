@@ -163,6 +163,7 @@ def create_df(cursor, table_name, start=None, where_clause=None):
     else:
         sql_select = "select * from {0}".format(table_name)
 
+    print(sql_select)
     cursor.execute(sql_select)
     df = pd.DataFrame(cursor.fetchall())
     df.columns = cols_from_cur(cursor)
