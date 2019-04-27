@@ -68,6 +68,25 @@ def _sql_insert(db_type: str, table_name: str, cols: [str]):
         raise ValueError("{} not supported".format(db_type))
 
 
+def _sql_replace(db_type: str, table_name: str, cols: [str]):
+    # placeholders = {"mysql": "%s", "sqlite3": "?"}
+    DB_INFOS = {"mysql":
+                    {"placeholder":"%s","replace_clause":"REPLACE INTO"},
+                "sqlite3":
+                    {"placeholder":"?","replace_clause":"INSERT OR REPLACE "
+                                                        "INTO"}}
+    if db_type in DB_INFOS:
+        sql_insert = "{0} {1} "\
+                         .format(DB_INFOS[db_type]["replace_clause"],table_name) \
+                     + "({})".format(", ".join(cols)) \
+                     + " VALUES ({})"\
+                         .format(", ".join(DB_INFOS[db_type]["placeholder"]*len(cols)))
+
+        return sql_insert
+    else:
+        raise ValueError("{} not supported".format(db_type))
+
+
 def get_latest_date(table,code, db_type:str):
     conn = connect_db(db_type=db_type)
     cursor = conn.cursor()
@@ -121,30 +140,49 @@ def write2db(df:pd.DataFrame, table, cols, db_type="sqlite3",
     cursor = conn.cursor()
 
     write_failure = 0
-    for _, row in df.iterrows():
-        if "date" in row.index:
-            args = row["code"],row["date"]
-        else:
-            args = (row["code"],)
-        # Try to delete the row first if exists.
-        try:
-            cursor.execute(("delete from {0} where code='{1}' "
-                            "and date='{2}'").format(table,*args))
-        except Exception as e:
-            pass
+    params = [tuple(row) for _,row in df[list(cols)].iterrows()]
+    # print(params)
+    try:
+        # Row is a series and only accepts indexes of type list to get values.
+        # It fails if given tuple indexes, that's why list(cols) is used.
+        # tuple(row[list(cols)]) is used to prevent type error in method cursor.execute(sql, paras)
+        # cursor.execute(
+        #     _sql_insert(db_type, table_name=table, cols=cols),tuple(row[list(cols)]))
+        # print(_sql_replace(db_type, table_name=table, cols=cols))
+        cursor.executemany(_sql_replace(db_type, table_name=table, cols=cols),
+                           params)
+    except Exception as err:
+        # Failure should not happen, because the original row is deleted.
+        # However, if it does, print and count it.
+        write_failure += 1
+        print("write err",err)
 
-        try:
-            # Row is a series and only accepts indexes of type list to get values.
-            # It fails if given tuple indexes, that's why list(cols) is used.
-            # tuple(row[list(cols)]) is used to prevent type error in method cursor.execute(sql, paras)
-            cursor.execute(
-                _sql_insert(db_type, table_name=table, cols=cols),tuple(row[list(cols)]))
-        except Exception as err:
-            # Failure should not happen, because the original row is deleted.
-            # However, if it does, print and count it.
-            write_failure += 1
-            print(err)
-            continue
+    # for _, row in df.iterrows():
+    #     if "date" in row.index:
+    #         args = row["code"],row["date"]
+    #     else:
+    #         args = (row["code"],)
+    #     # Try to delete the row first if exists.
+    #     try:
+    #         cursor.execute(("delete from {0} where code='{1}' "
+    #                         "and date='{2}'").format(table,*args))
+    #     except Exception as e:
+    #         pass
+    #
+    #     try:
+    #         # Row is a series and only accepts indexes of type list to get values.
+    #         # It fails if given tuple indexes, that's why list(cols) is used.
+    #         # tuple(row[list(cols)]) is used to prevent type error in method cursor.execute(sql, paras)
+    #         # cursor.execute(
+    #         #     _sql_insert(db_type, table_name=table, cols=cols),tuple(row[list(cols)]))
+    #         cursor.executemany(_sql_replace(db_type, table_name=table,
+    #                                         cols=cols),df[cols].values)
+    #     except Exception as err:
+    #         # Failure should not happen, because the original row is deleted.
+    #         # However, if it does, print and count it.
+    #         write_failure += 1
+    #         print(err)
+    #         continue
     if close:
         close_db(conn)
     else:

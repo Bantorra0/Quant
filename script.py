@@ -434,12 +434,16 @@ if __name__ == '__main__':
     # print(r)
 
     cursor = dbop.connect_db("sqlite3").cursor()
-    df = dbop.create_df(cursor, STOCK_DAY[TABLE], start="2013-01-01").set_index("date")
+    df = dbop.create_df(cursor, STOCK_DAY[TABLE],
+                        start="2013-01-01",
+                        # where_clause="code='002349.SZ'"
+                        ).set_index("date")
     # print(df.dropna())
     print(df.shape)
+    print(df[df.isnull().any(axis=1)])
     df_return_rate = dp.mp_stock(df_input=df,target=get_return_rate,stock_pool=None,print_freq=1)
-    print(df_return_rate.shape)
-    print(df_return_rate)
+    # print(df_return_rate.shape)
+    # print(df_return_rate)
     # t0 = time.time()
     # r1 = get_return_rate(df)
     # print("t1:", time.time() - t0)

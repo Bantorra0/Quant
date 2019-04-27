@@ -502,14 +502,19 @@ if __name__ == '__main__':
     # for k,v in sorted(d_info["length"].items()):
     #     print(k,v)
     #
-    X, Y, df_other = read_hdf5(start="2016-07-01", end="2017-01-01",
-                               subsample="10-5")
+    X, _, df_other = read_hdf5(start="2016-01-01", end="2017-01-01",
+                               subsample="10-0")
+    cols=["open","high","low","close"]
+    print(df_other.columns)
+    df = pd.concat([X,df_other],ignore_index=True,axis=1)
+    df=df[df["code"] == "002349.SZ"]
+    print(df[df.isnull().any(axis=1)])
     # print(X.shape, Y.shape, df_other.shape)
     # print(X.index.max(),X.index.min())
     # print(Y.index.max(), Y.index.min())
     # print(df_other.index.max(), df_other.index.min())
 
-    save_shuffle_info(update_mode="latest")
+    # save_shuffle_info(update_mode="latest")
 
     # lower_bound = 20180101
     # start = 20180701

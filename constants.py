@@ -26,7 +26,7 @@ STOCK_BASIC = {
 STOCK_DAILY_BASIC = {
     TABLE: "stock_daily_basic",
     COLUMNS:
-        ('ts_code', 'trade_date', 'close', 'turnover_rate', 'turnover_rate_f', 'volume_ratio', 'pe', 'pe_ttm', 'pb',
+        ('code', 'date', 'close', 'turnover_rate', 'turnover_rate_f', 'volume_ratio', 'pe', 'pe_ttm', 'pb',
          'ps', 'ps_ttm', 'total_share', 'float_share', 'free_share', 'total_mv', 'circ_mv')
 }
 
