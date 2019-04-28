@@ -96,7 +96,7 @@ def insert_to_db(row, db_type: str, table_name, columns):
 
 
 def download_single_index_day(code, db_type: str, update=False,
-                              start="2000-01-01", end=None, verbose=0):
+                              start=20000101, end=None, verbose=0):
     try:
         # Set start to the newest date in table if update is true.
         if update:
@@ -108,9 +108,9 @@ def download_single_index_day(code, db_type: str, update=False,
 
         # df = ts.get_k_data(code=code, start=start, end=end)
         pro = _init_api()
-        start = str(start).replace("-", "")
-        if end:
-            end = str(end).replace("-", "")
+        # start = str(start).replace("-", "")
+        # if end:
+        #     end = str(end).replace("-", "")
         kwargs = {"ts_code": code, "start_date": start,
                   "end_date": end}
         df = pro.index_daily(**kwargs)
@@ -124,31 +124,32 @@ def download_single_index_day(code, db_type: str, update=False,
         # df["date"] = df["date"].astype(str)
         # Unify column names.
         df.columns = unify_col_names(df.columns)
-        df = df.astype({"date":int})
+        df["date"] = df["date"].astype(int)
         if verbose > -1:
             print(df.shape)
         return df
 
 
 def download_single_stock_day(code, db_type: str, update=False,
-                              start="2000-01-01", end=None, verbose=0):
+                              start=20000101, end=None, verbose=0):
     pro = _init_api(const.TOKEN)
     try:
         # Set start to the newest date in table if update is true.
         if update:
             latest_date = dbop.get_latest_date(const.STOCK_DAY[const.TABLE], code, db_type)
             if latest_date:
-                start = datetime.datetime.strptime(latest_date, "%Y-%m-%d") - datetime.timedelta(days=5)
-                start = start.strftime('%Y-%m-%d')
+                # start = datetime.datetime.strptime(latest_date, "%Y-%m-%d") - datetime.timedelta(days=5)
+                # start = start.strftime('%Y-%m-%d')
+                start = latest_date
 
         if verbose > -1:
             print("start:", start)
 
         # Download daily data and adj_factor(复权因子).
         # pro.daily accepts start_date with format "YYYYmmdd".
-        start = str(start).replace("-", "")
-        if end:
-            end = str(end).replace("-", "")
+        # start = str(start).replace("-", "")
+        # if end:
+        #     end = str(end).replace("-", "")
 
         kwargs = {"ts_code":code, "start_date":start,
                             "end_date":end}
@@ -181,9 +182,10 @@ def download_single_stock_day(code, db_type: str, update=False,
         df = unify_df_col_nm(df)
 
         # Unify date format from "YYYYmmdd" to "YYYY-mm-dd".
-        df["date"] = df["date"].apply(
-            lambda d: datetime.datetime.strptime(d, "%Y%m%d").strftime(
-                '%Y-%m-%d'))
+        # df["date"] = df["date"].apply(
+        #     lambda d: datetime.datetime.strptime(d, "%Y%m%d").strftime(
+        #         '%Y-%m-%d'))
+        df["date"] = df["date"].astype(int)
 
         if verbose > -1:
             print(df.shape)
@@ -191,7 +193,7 @@ def download_single_stock_day(code, db_type: str, update=False,
         return df
 
 
-def download_stock_basic(db_type: str):
+def download_stock_basic():
     pro = _init_api(const.TOKEN)
     download_failure = 0
     status_list = ["L", "D", "P"]  # L上市，D退市，P暂停上市。
@@ -386,24 +388,25 @@ def update_stocks(stock_pool, db_type="sqlite3", update=True, verbose=0,
 
 
 def download_single_stock_daily_basic(code, db_type: str, update,
-                              start="2000-01-01", end=None, verbose=0):
+                              start=20000101, end=None, verbose=0):
     pro = _init_api(const.TOKEN)
     try:
         # Set start to the newest date in table if update is true.
         if update:
             latest_date = dbop.get_latest_date(const.STOCK_DAILY_BASIC[const.TABLE], code, db_type)
             if latest_date:
-                start = datetime.datetime.strptime(latest_date, "%Y-%m-%d") - datetime.timedelta(days=5)
-                start = start.strftime('%Y-%m-%d')
+                # start = datetime.datetime.strptime(latest_date, "%Y-%m-%d") - datetime.timedelta(days=5)
+                # start = start.strftime('%Y-%m-%d')
+                start = latest_date
 
         if verbose > -1:
             print("start:", start)
 
         # Download daily_basic data and adj_factor(复权因子).
         # pro.daily_basic accepts start_date with format "YYYYmmdd".
-        start = str(start).replace("-", "")
-        if end:
-            end = str(end).replace("-", "")
+        # start = str(start).replace("-", "")
+        # if end:
+        #     end = str(end).replace("-", "")
 
         kwargs = {"ts_code":code, "start_date":start, "end_date":end}
         print(start)
@@ -419,9 +422,10 @@ def download_single_stock_daily_basic(code, db_type: str, update,
         df = unify_df_col_nm(daily_basic)
 
         # Unify date format from "YYYYmmdd" to "YYYY-mm-dd".
-        df["date"] = df["date"].apply(
-            lambda d: datetime.datetime.strptime(d, "%Y%m%d").strftime(
-                '%Y-%m-%d'))
+        # df["date"] = df["date"].apply(
+        #     lambda d: datetime.datetime.strptime(d, "%Y%m%d").strftime(
+        #         '%Y-%m-%d'))
+        df["date"]=df["date"].astype(int)
 
         if verbose > -1:
             print(df["date"].min(), daily_basic["date"].max())

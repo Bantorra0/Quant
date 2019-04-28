@@ -399,15 +399,18 @@ def corr(X,Y):
     cond = (X.notnull().all(axis=1)) & (Y.notnull().all(axis=1))
     print(sum(cond))
     X,Y = X[cond],Y[cond]
+    X = X[X.columns[X.abs().sum()>0]]
     # print(X[X.isnull().any(axis=1)])
     # print(Y[Y.isnull().any(axis=1)])
     print(X.shape,Y.shape)
-    Xt = X.T
+    xcols,ycols = X.columns,Y.columns
+    Xt,Y = X.values.T,Y.values
     # print(Xt.shape,Y.shape)
     n = len(Y)
-    numerator = Xt.dot(Y)/len(Y)-pd.DataFrame(Xt.mean(axis=1)).dot(pd.DataFrame(Y.mean(axis=0)).T)
-    denominator = np.sqrt(pd.DataFrame(Xt.var(axis=1)).dot(pd.DataFrame(Y.var(axis=0)).T))
-    corr = numerator/denominator *n/(n-1)
+    numerator = Xt.dot(Y)/len(Y)-\
+                Xt.mean(axis=1).reshape(-1,1).dot(Y.mean(axis=0).reshape(1,-1))
+    denominator = np.sqrt(Xt.var(axis=1).reshape(-1,1).dot(Y.var(axis=0).reshape(1,-1)))
+    corr = pd.DataFrame(numerator/denominator *n/(n-1),columns=ycols,index=xcols)
 
     return corr
 

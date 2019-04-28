@@ -285,8 +285,6 @@ def update_db(table, cols, db_type="sqlite3",
 
 
 if __name__ == '__main__':
-
     import constants as const
-    update_db(table=const.STOCK_DAY[const.TABLE],
-              cols=const.STOCK_DAY[const.COLUMNS])
-
+    update_db(table=const.STOCK_DAILY_BASIC[const.TABLE],
+              cols=const.STOCK_DAILY_BASIC[const.COLUMNS])

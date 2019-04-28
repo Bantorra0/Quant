@@ -506,10 +506,11 @@ if __name__ == '__main__':
     print(get_f_info_path())
     d_info = load_dataset_info()
     X_columns = d_info["columns"]["X"]
-    cols = {"X":[col for col in X_columns[:10] if "sz" not in col and "sh" not in col and "cyb" not in col]}
+    cols = {"X":[col for col in X_columns[:20] if "sz" not in col and "sh"
+                 not in col and "cyb" not in col]}
     print(cols)
-    X, Y, df_other = read_hdf5(start="2018-01-01", end="2020-01-01",
-                               subsample="1000-0",columns=cols)
+    X, Y, df_other = read_hdf5(start="2015-01-01", end="2020-01-01",
+                               subsample="100-0",columns=cols)
     print(ml_model.corr(X,Y))
 
     # cols=["open","high","low","close"]

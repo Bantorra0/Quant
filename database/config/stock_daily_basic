@@ -2,7 +2,7 @@ create::
 create table stock_daily_basic
 (
 code	varchar(45),
-date	varchar(45),
+date	int(9),
 close	decimal(20,4),
 turnover_rate	decimal(20,4),
 turnover_rate_f	decimal(20,4),

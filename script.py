@@ -128,6 +128,10 @@ def get_return_rate(df_single_stock_d:pd.DataFrame, loss_limit=0.1, retracement=
     if is_truncated:
         curr_open = df_single_stock_d.loc[df_single_stock_d.index[-1], "open"]
         result.loc[df_tmp.index] = curr_open
+
+    result = pd.DataFrame(result,columns=["r"])
+    result["code"] = df_single_stock_d["code"].iloc[0]
+    # print(result)
     return result.sort_index()
 
 
@@ -434,14 +438,16 @@ if __name__ == '__main__':
     # print(r)
 
     cursor = dbop.connect_db("sqlite3").cursor()
+    start = "2013-01-01"
     df = dbop.create_df(cursor, STOCK_DAY[TABLE],
-                        start="2013-01-01",
+                        start=start,
                         # where_clause="code='002349.SZ'"
                         ).set_index("date")
     # print(df.dropna())
     print(df.shape)
-    print(df[df.isnull().any(axis=1)])
+    # print(df[df.isnull().any(axis=1)])
     df_return_rate = dp.mp_stock(df_input=df,target=get_return_rate,stock_pool=None,print_freq=1)
+    df_return_rate.to_parquet(r"datasets\return_rate0_{}".format(start))
     # print(df_return_rate.shape)
     # print(df_return_rate)
     # t0 = time.time()
