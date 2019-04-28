@@ -392,6 +392,18 @@ def get_feature_importance(reg, features:list):
     return df.sort_values("importance_raw",ascending=False)
 
 
+def corr(X,Y):
+    Xt = X.T
+    # print(Xt.shape,Y.shape)
+    n = len(Y)
+    numerator = Xt.dot(Y)/len(Y)-pd.DataFrame(Xt.mean(axis=1)).dot(pd.DataFrame(Y.mean(axis=0)).T)
+    denominator = np.sqrt(pd.DataFrame(Xt.var(axis=1)).dot(pd.DataFrame(Y.var(axis=0)).T))
+    corr = numerator/denominator *n/(n-1)
+
+    return corr
+
+
+
 class RegressorNetwork:
     def __init__(self):
         self.layers = []
