@@ -267,7 +267,7 @@ def load_dataset_info(version=None, base_dir=None,
 
     f_info_path,f_info_name = get_f_info_path(version,base_dir,f_info_name)
     if f_info_name not in os.listdir(base_dir):
-        raise ValueError("{0} not is directory {1}".format(f_info_name,base_dir))
+        raise ValueError("{0} is not in directory {1}".format(f_info_name,base_dir))
     with open(f_info_path,"rb") as f_info:
         d_info = pickle.load(f_info)
     return d_info
@@ -502,13 +502,21 @@ if __name__ == '__main__':
     # for k,v in sorted(d_info["length"].items()):
     #     print(k,v)
     #
-    X, _, df_other = read_hdf5(start="2016-01-01", end="2017-01-01",
-                               subsample="10-0")
-    cols=["open","high","low","close"]
-    print(df_other.columns)
-    df = pd.concat([X,df_other],ignore_index=True,axis=1)
-    df=df[df["code"] == "002349.SZ"]
-    print(df[df.isnull().any(axis=1)])
+
+    print(get_f_info_path())
+    d_info = load_dataset_info()
+    X_columns = d_info["columns"]["X"]
+    cols = {"X":[col for col in X_columns[:10] if "sz" not in col and "sh" not in col and "cyb" not in col]}
+    print(cols)
+    X, Y, df_other = read_hdf5(start="2018-01-01", end="2020-01-01",
+                               subsample="1000-0",columns=cols)
+    print(ml_model.corr(X,Y))
+
+    # cols=["open","high","low","close"]
+    # print(df_other.columns)
+    # df = pd.concat([X,df_other],ignore_index=True,axis=1)
+    # df=df[df["code"] == "002349.SZ"]
+    # print(df[df.isnull().any(axis=1)])
     # print(X.shape, Y.shape, df_other.shape)
     # print(X.index.max(),X.index.min())
     # print(Y.index.max(), Y.index.min())

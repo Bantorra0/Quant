@@ -393,6 +393,15 @@ def get_feature_importance(reg, features:list):
 
 
 def corr(X,Y):
+    pd.set_option("display.max_columns",25)
+    X = X.replace([np.inf, -np.inf], np.nan)
+    Y = Y.replace([np.inf, -np.inf], np.nan)
+    cond = (X.notnull().all(axis=1)) & (Y.notnull().all(axis=1))
+    print(sum(cond))
+    X,Y = X[cond],Y[cond]
+    # print(X[X.isnull().any(axis=1)])
+    # print(Y[Y.isnull().any(axis=1)])
+    print(X.shape,Y.shape)
     Xt = X.T
     # print(Xt.shape,Y.shape)
     n = len(Y)

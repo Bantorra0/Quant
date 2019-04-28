@@ -2,12 +2,13 @@ create::
 create table index_day
 (
 code  varchar(45),
-date     varchar(45),
+date     int(9),
 open  decimal(20,2),
 high     decimal(20,2),
 low      decimal(20,2),
 close    decimal(20,2),
-vol   int(20),
+vol   decimal(20,2),
+amt   decimal(20,2),
 primary key(code,date)
 );
 

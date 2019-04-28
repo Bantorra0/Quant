@@ -11,6 +11,7 @@ import constants as const
 import data_cleaning as dc
 import db_operations as dbop
 import df_operations as dfop
+from db_operations import init_table
 
 
 def stck_pools():
@@ -62,22 +63,6 @@ def _init_api(token=const.TOKEN):
     return ts.pro_api()
 
 
-def init_table(table_name, db_type):
-    conn = dbop.connect_db(db_type)
-    cursor = conn.cursor()
-
-    configs = dbop.parse_config(path="database\\config\\{}".format(table_name))
-    sql_drop = "drop table {}".format(table_name)
-    sql_create = configs["create"]
-    print(sql_create)
-    try:
-        cursor.execute(sql_drop)
-    except Exception as e:
-        pass
-    cursor.execute(sql_create)
-    dbop.close_db(conn)
-
-
 def _get_col_names(cursor):
     return [desc[0] for desc in cursor.description]
 
@@ -121,7 +106,14 @@ def download_single_index_day(code, db_type: str, update=False,
         if verbose > -1:
             print("start:", start)
 
-        df = ts.get_k_data(code=code, start=start, end=end)
+        # df = ts.get_k_data(code=code, start=start, end=end)
+        pro = _init_api()
+        start = str(start).replace("-", "")
+        if end:
+            end = str(end).replace("-", "")
+        kwargs = {"ts_code": code, "start_date": start,
+                  "end_date": end}
+        df = pro.index_daily(**kwargs)
 
     except Exception as err:
         print(err)
@@ -132,6 +124,7 @@ def download_single_index_day(code, db_type: str, update=False,
         # df["date"] = df["date"].astype(str)
         # Unify column names.
         df.columns = unify_col_names(df.columns)
+        df = df.astype({"date":int})
         if verbose > -1:
             print(df.shape)
         return df

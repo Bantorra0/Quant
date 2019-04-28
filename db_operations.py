@@ -4,12 +4,12 @@ import pymysql
 from constants import STOCK_DAY,INDEX_DAY,TABLE,COLUMNS
 
 
-def connect_db(db_type:str):
+def connect_db(db_type:str,timeout=10):
     if db_type== "mysql":
         return pymysql.connect(host='127.0.0.1', user='root', passwd='Bantorra',
                              db='quant', charset='utf8')
     elif db_type == "sqlite3":
-        return sqlite3.connect("database\\stock.db")
+        return sqlite3.connect("database\\stock.db",timeout=timeout)
     else:
         raise ValueError("{} not supported".format(db_type))
 
@@ -52,6 +52,24 @@ def _parse_config_tab_details(config_tab_details:str):
     split_symbol = "-"*2
     config_cols, config_others = config_tab_details.split(split_symbol)
     pass
+
+
+def init_table(table_name, db_type):
+    conn = connect_db(db_type)
+    cursor = conn.cursor()
+
+    configs = parse_config(path="database\\config\\{}".format(table_name))
+    sql_drop = "drop table {}".format(table_name)
+    print(sql_drop)
+    sql_create = configs["create"]
+    print(sql_create)
+    try:
+        cursor.execute(sql_drop)
+    except Exception as e:
+        print(e)
+        pass
+    cursor.execute(sql_create)
+    close_db(conn)
 
 
 def cols_from_cur(cursor):
@@ -208,8 +226,67 @@ def create_df(cursor, table_name, start=None, where_clause=None):
     return df
 
 
+def get_df(table,db_type="sqlite3"):
+    conn = connect_db(db_type)
+    cursor = conn.cursor()
+    cursor.execute("select * from {0}".format(table))
+
+    df = pd.DataFrame(cursor.fetchall(), columns=cols_from_cur(cursor))
+    close_db(conn)
+    del conn,cursor
+    return df
+
+
+def update_db(table, cols, db_type="sqlite3",
+             conn=None, close=True):
+    import time
+    t0 = time.time()
+    # df = get_df(table=table,db_type=db_type)
+    conn = connect_db(db_type=db_type)
+    cursor = conn.cursor()
+    df = create_df(cursor,table_name=table)
+    close_db(conn)
+
+    print(df.shape, time.time()-t0)
+    print(df.info(memory_usage="deep"))
+    # time.sleep(3)
+
+    init_table(table_name=table,db_type=db_type)
+
+    if df["date"].dtype=="object":
+        df["date"] = df["date"].apply(lambda s:s.replace("-","")).astype(int)
+    print(time.time()-t0)
+
+    params = (tuple(row) for _,row in df[list(cols)].iterrows())
+    # print(params)
+    write_failure = 0
+    conn = connect_db(db_type)
+    cursor = conn.cursor()
+    try:
+        # Row is a series and only accepts indexes of type list to get values.
+        # It fails if given tuple indexes, that's why list(cols) is used.
+        # tuple(row[list(cols)]) is used to prevent type error in method cursor.execute(sql, paras)
+        cursor.executemany(_sql_replace(db_type, table_name=table, cols=cols),
+                           params)
+    except Exception as err:
+        # Failure should not happen, because the original row is deleted.
+        # However, if it does, print and count it.
+        write_failure += 1
+        print("write err",err)
+
+    print(time.time()-t0)
+
+    if close:
+        close_db(conn)
+    else:
+        conn.commit()
+    print("-"*10,"\nWrite failure:{0}\n".format(write_failure))
+    return conn,write_failure
+
+
 if __name__ == '__main__':
-    cursor = connect_db("sqlite3").cursor()
-    cursor.execute("select * from stock_day where date>='2018-08-15'")
-    for row in cursor.fetchall():
-        print(row)
+
+    import constants as const
+    update_db(table=const.STOCK_DAY[const.TABLE],
+              cols=const.STOCK_DAY[const.COLUMNS])
+
