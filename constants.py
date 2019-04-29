@@ -12,7 +12,7 @@ STOCK_DAY = {
 INDEX_DAY = {
     TABLE: "index_day",
     COLUMNS:
-        ("code", "date", "open", "high", "low", "close", "vol")
+        ("code", "date", "open", "high", "low", "close", "vol","amt")
 }
 
 STOCK_BASIC = {
