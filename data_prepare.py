@@ -8,6 +8,7 @@ import sklearn as sk
 
 import constants as const
 import db_operations as dbop
+import collect
 
 
 def _check_int(arg):
@@ -569,9 +570,9 @@ def FE_stock_d_mp(df_stock_d:pd.DataFrame, stock_pool=None, targets=None, start=
 
 
 
-
-
 def FE_index_d(df_idx_d: pd.DataFrame, start=None):
+    index_pool = collect.get_index_pool()
+
     df_idx_d = prepare_index_d(df_idx_d)
     cols_move = ["open", "high", "low", "close", "vol"]
     cols_fq = ["open", "high", "low", "close","avg"]
@@ -582,13 +583,13 @@ def FE_index_d(df_idx_d: pd.DataFrame, start=None):
     rolling_k_list = [-3, -5, -10, -20, -60, -120, -250, -500]
 
     df_idx_list = []
-    for name, df in df_idx_d.groupby("code"):
+    for code, df in df_idx_d.groupby("code"):
         df = df.sort_index(ascending=False)
         del df["code"]
 
-        df["avg"] = (df["open"]+df["close"]+df["high"]+df["close"])/4
+        df["avg"] = (df["open"]+df["high"]+df["low"]+df["close"])/4
 
-        # print("df",df.index.name)
+        # print("df",df.index.code)
 
         df_basic_con_chg = change_rate(move(1, df[cols_move]), df[cols_move])
         df_basic_mv_con_chg_list = [move(i, df_basic_con_chg) for i in mv_list]
@@ -622,15 +623,16 @@ def FE_index_d(df_idx_d: pd.DataFrame, start=None):
                    + df_basic_mv_candle_list\
                    + df_rolling_flat_list
         tmp = pd.concat(tmp_list, axis=1, sort=False)
-        # print("tmp_list",[t.index.name for t in tmp_list],pd.concat(
-        #     tmp_list,axis=1,sort=False).index.name)
-        # print("tmp",tmp.index.name)
+        # print("tmp_list",[t.index.code for t in tmp_list],pd.concat(
+        #     tmp_list,axis=1,sort=False).index.code)
+        # print("tmp",tmp.index.code)
+        name = index_pool[index_pool["code"]==code]["shortcut"].iloc[0]
         df_idx_list.append(_prefix(name, tmp[tmp.index>=start]))
 
-    # print("df_idx_list:",df_idx_list[0].index.name)
+    # print("df_idx_list:",df_idx_list[0].index.code)
 
     df_idx_d = pd.concat(df_idx_list, axis=1, sort=False)
-    # print("df_idx_d:",df_idx_d.index.name)
+    # print("df_idx_d:",df_idx_d.index.code)
     df_idx_d.index.name="date"
     # print("Idx_d columns:",len(df_idx_d.columns))
     return df_idx_d

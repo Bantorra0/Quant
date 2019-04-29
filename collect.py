@@ -313,19 +313,19 @@ def update(db_type="sqlite3"):
     dc.fillna_stock_day(db_type=db_type)
 
 
-def update_indexes(index_pool, db_type="sqlite3", update=True,verbose=0,
+def update_indexes(index_pool:pd.DataFrame, db_type="sqlite3", update=True,verbose=0,
                    print_freq=1):
     print("Indexes:", len(index_pool))
     t0 = time.time()
     conn = dbop.connect_db(db_type)
-    for i, index in enumerate(index_pool):
+    for i, index in index_pool.iterrows():
         if i % print_freq == 0:
-            print('Seq:', str(i + 1), 'of', str(len(index_pool)), '  Code:', str(index))
+            print('Seq:', str(i + 1), 'of', str(len(index_pool)), '  Code:', str(index["name"]))
         download_failure = 1
         write_failure = 0
         while download_failure > 0 or write_failure > 0:
             download_failure, write_failure, conn = collect_single_index_day(
-                index, db_type, update=update, verbose=verbose, conn=conn)
+                code=index["code"], db_type=db_type, update=update, verbose=verbose, conn=conn)
 
             # Sleep to make sure each iteration take 0.3s,
             # because the server has a limit of 200 api connections per min.
@@ -536,6 +536,9 @@ def get_stock_pool():
     return stock_pool
 
 
+def get_index_pool():
+    df = pd.read_csv(r"database\\index_list.csv")
+    return df
 
 
 if __name__ == '__main__':
@@ -551,13 +554,15 @@ if __name__ == '__main__':
     # update_stock_basic()
 
     # index_pool = dbop.get_all_indexes()
-    # update_indexes(index_pool,db_type,update=True)
+    index_pool = get_index_pool()
+    print(index_pool)
+    update_indexes(index_pool,db_type,update=True)
 
-    stock_pool = get_stock_pool()
+    # stock_pool = get_stock_pool()
     # update_stocks(stock_pool, db_type=db_type,update=False)
 
     # init_table(const.STOCK_DAILY_BASIC[const.TABLE],db_type=db_type)
-    update_stock_daily_basic(stock_pool=stock_pool,db_type=db_type,update=True)
+    # update_stock_daily_basic(stock_pool=stock_pool,db_type=db_type,update=True)
 
     # dc.fillna_stock_day(db_type=db_type,start="2000-01-01")
 

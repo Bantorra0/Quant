@@ -510,7 +510,7 @@ if __name__ == '__main__':
                  not in col and "cyb" not in col]}
     print(cols)
     X, Y, df_other = read_hdf5(start="2015-01-01", end="2020-01-01",
-                               subsample="100-0",columns=cols)
+                               subsample="1-0",columns=cols)
     print(ml_model.corr(X,Y))
 
     # cols=["open","high","low","close"]
