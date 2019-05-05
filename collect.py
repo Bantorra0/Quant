@@ -555,15 +555,15 @@ if __name__ == '__main__':
 
     # index_pool = dbop.get_all_indexes()
     index_pool = get_index_pool()
-    print(index_pool)
-    init_table(const.INDEX_DAY[const.TABLE],db_type=db_type)
+    # print(index_pool)
+    # init_table(const.INDEX_DAY[const.TABLE],db_type=db_type)
     update_indexes(index_pool,db_type,update=True)
 
-    # stock_pool = get_stock_pool()
-    # update_stocks(stock_pool, db_type=db_type,update=False)
+    stock_pool = get_stock_pool()
+    update_stocks(stock_pool, db_type=db_type,update=True)
 
     # init_table(const.STOCK_DAILY_BASIC[const.TABLE],db_type=db_type)
-    # update_stock_daily_basic(stock_pool=stock_pool,db_type=db_type,update=True)
+    update_stock_daily_basic(stock_pool=stock_pool,db_type=db_type,update=True)
 
     # dc.fillna_stock_day(db_type=db_type,start="2000-01-01")
 
