@@ -459,6 +459,12 @@ def get_latest_version(base_dir=r"datasets",
     version = info_file[-10:]
     return version
 
+def info(df):
+    print(len(df))
+    df_info = df.isnull().sum(axis=0)
+    print(df_info.sort_values(ascending=False))
+    print(list(df_info[df_info==len(df)].index))
+
 
 if __name__ == '__main__':
 
@@ -510,9 +516,18 @@ if __name__ == '__main__':
     cols = {"X":[col for col in X_columns[:20] if "sz" not in col and "sh"
                  not in col and "cyb" not in col]}
     print(cols)
-    X, Y, df_other = read_hdf5(start="2015-01-01", end="2020-01-01",
-                               subsample="1-0",columns=cols)
-    print(ml_model.corr(X,Y))
+    X, Y, df_other = read_hdf5(start="2018-07-01", end="2019-01-01",
+                               subsample="1-0",columns=None)
+    # print(ml_model.corr(X,Y))
+
+
+
+
+    info(X)
+    info(Y)
+    info(df_other)
+
+
 
     # cols=["open","high","low","close"]
     # print(df_other.columns)

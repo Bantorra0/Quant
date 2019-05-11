@@ -259,7 +259,10 @@ def prepare_stock_d(df_stck_d):
 
 
 def prepare_index_d(df_idx_d):
-    # df_idx_d["date"]=df_idx_d["date"].apply(lambda x:x.replace("-", "")).astype(int)
+    if df_idx_d["date"].dtype=="object":
+        df_idx_d["date"]=df_idx_d["date"].apply(lambda x:x.replace("-", "")).astype(int)
+
+    df_idx_d["avg"] = df_idx_d["amt"]/df_idx_d["vol"] * 10
     df_idx_d = df_idx_d.set_index("date").sort_index(ascending=False)
     return df_idx_d
 
@@ -592,7 +595,7 @@ def FE_index_d(df_idx_d: pd.DataFrame, start=None):
         df = df.sort_index(ascending=False)
         del df["code"]
 
-        df["avg"] = (df["open"]+df["high"]+df["low"]+df["close"])/4
+        # df["avg"] = (df["open"]+df["high"]+df["low"]+df["close"])/4
 
         # print("df",df.index.code)
 
