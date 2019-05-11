@@ -392,6 +392,7 @@ def read_hdf5(start,end=None,version=None,base_dir = None,
             df_other = store["other/"+key].iloc[idx]
             print("Current subsample size(length):",len(idx))
         elif type(subsample)==set:
+
             X = store["X/" + key].iloc[idx]
             Y = store["Y/" + key].iloc[idx]
             df_other = store["other/" + key].iloc[idx]

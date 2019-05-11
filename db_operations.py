@@ -211,7 +211,7 @@ def write2db(df:pd.DataFrame, table, cols, db_type="sqlite3",
 
 def create_df(cursor, table_name, start=None, where_clause=None):
     if start:
-        start_cond = "date>='{0}'".format(start)
+        start_cond = "date>={0}".format(start)
         where_clause = where_clause+" and "+start_cond if where_clause else start_cond
 
     if where_clause:

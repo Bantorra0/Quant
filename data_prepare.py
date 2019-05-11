@@ -5,11 +5,13 @@ import time
 import numpy as np
 import pandas as pd
 import sklearn as sk
+import sklearn.preprocessing as preproc
 
 import constants as const
 import db_operations as dbop
 import collect
 
+IDX = pd.IndexSlice
 
 def _check_int(arg):
     if type(arg) not in [int,np.int,np.int8,np.int16,np.int32]:
@@ -247,15 +249,17 @@ def k_line(k:int, df:pd.DataFrame):
 
 
 def prepare_stock_d(df_stck_d):
-    df_stck_d["date"] = df_stck_d["date"].apply(lambda x:x.replace("-", "")).astype(int)
-    df_stck_d = df_stck_d.set_index(["date"]).sort_index(ascending=False)
-    df_stck_d = df_stck_d[
-        ["code", "open", "high", "low", "close", "vol", "amt", "adj_factor"]]
+    # if df_stck_d["date"].dtypes!=int:
+    #
+    #     df_stck_d["date"] = df_stck_d["date"].apply(lambda x:x.replace("-", "")).astype(int)
+    df_stck_d = df_stck_d.set_index(["date","code"]).sort_index()
+    # df_stck_d = df_stck_d[
+    #     ["code", "open", "high", "low", "close", "vol", "amt", "adj_factor"]]
     return df_stck_d
 
 
 def prepare_index_d(df_idx_d):
-    df_idx_d["date"]=df_idx_d["date"].apply(lambda x:x.replace("-", "")).astype(int)
+    # df_idx_d["date"]=df_idx_d["date"].apply(lambda x:x.replace("-", "")).astype(int)
     df_idx_d = df_idx_d.set_index("date").sort_index(ascending=False)
     return df_idx_d
 
@@ -282,8 +286,7 @@ def prepare_each_stock(df_stock_d, qfq_type="hfq"):
 
     # 前复权
     if qfq_type=="qfq":
-        fq_factor = np.array(df_stock_d["adj_factor"]
-                             / df_stock_d["adj_factor"].iloc[0])
+        fq_factor = df_stock_d["adj_factor"]/ df_stock_d["adj_factor"].iloc[0]
     else:
         fq_factor = df_stock_d["adj_factor"]
 
@@ -447,16 +450,18 @@ def FE_single_stock_d(df:pd.DataFrame, targets,start=None,end=None):
                         + df_rolling_change_list
                         + [df_not_in_X], axis=1, sort=False)
 
-    cols_not_in_X = ["code"]+list(df_not_in_X.columns)
+    # cols_not_in_X = ["code"]+list(df_not_in_X.columns)
+    cols_not_in_X = list(df_not_in_X.columns)
 
-    if start:
-        if type(start) == str:
-            start = int(start.replace("-",""))
-        df_stck = df_stck[df_stck.index >= start]
-    if end:
-        if type(end) == str:
-            end = int(end.replace("-",""))
-        df_stck = df_stck[df_stck.index < end]
+    df_stck = df_stck.loc[IDX[start:end, :], :]
+    # if start:
+    #     if type(start) == str:
+    #         start = int(start.replace("-",""))
+    #     df_stck = df_stck.loc[IDX[start:end,:],:]
+    # if end:
+    #     if type(end) == str:
+    #         end = int(end.replace("-",""))
+    #     df_stck = df_stck[df_stck.index < end]
 
     # print("Stock_d columns:",len(df_stck.columns),len(cols_not_in_X))
     return df_stck, cols_not_in_X
@@ -495,7 +500,7 @@ def FE_stock_d(df_stock_d:pd.DataFrame, stock_pool=None, targets=None, start=Non
     print("Total processing time for {0} stocks:{1:.2f}s".format(i + 1, time.time() - start_time))
     print("Shape of df_stock_d_FE:", df_stock_d_FE.shape)
 
-    df_stock_d_FE.index.name = "date"
+    # df_stock_d_FE.index.name = "date"
 
     return df_stock_d_FE, cols_not_in_X
 
@@ -524,7 +529,7 @@ def FE_stock_d_mp(df_stock_d:pd.DataFrame, stock_pool=None, targets=None, start=
     count_out = 0
     # df_stock_d_FE = pd.DataFrame()  # Initialize as an empty dataframe.
     df_stock_d_list = []
-    for code, df in df_stock_d.groupby("code"):
+    for code, df in df_stock_d.groupby(level="code"):
         if stock_pool and code not in stock_pool:
             # print("skip")
             continue
@@ -564,7 +569,7 @@ def FE_stock_d_mp(df_stock_d:pd.DataFrame, stock_pool=None, targets=None, start=
     print("Total processing time for {0} stocks:{1:.2f}s".format(count_out, time.time() - start_time))
     print("in",count_in,"out",count_out)
     print("Shape of df_stock_d_FE:",df_stock_d_FE.shape)
-    df_stock_d_FE.index.name = "date"
+    # df_stock_d_FE.index.name = "date"
 
     return df_stock_d_FE, cols_not_in_X
 
@@ -633,19 +638,20 @@ def FE_index_d(df_idx_d: pd.DataFrame, start=None):
 
     df_idx_d = pd.concat(df_idx_list, axis=1, sort=False)
     # print("df_idx_d:",df_idx_d.index.code)
-    df_idx_d.index.name="date"
+    # df_idx_d.index.name="date"
     # print("Idx_d columns:",len(df_idx_d.columns))
     return df_idx_d
 
 
 def prepare_stock_basic(df_stock_basic:pd.DataFrame):
+    df_stock_basic = df_stock_basic.set_index("code")
     cols_category = ["area", "industry", "market", "exchange", "is_hs"]
     df_stock_basic = df_stock_basic.copy()
     # print(df_stock_basic[df_stock_basic[cols_category].isna().any(axis=1)][
     #           cols_category])
     df_stock_basic.loc[:,cols_category] = df_stock_basic[cols_category].fillna("")
 
-    enc = sk.preprocessing.OrdinalEncoder()
+    enc = preproc.OrdinalEncoder()
     val_enc = enc.fit_transform(df_stock_basic[cols_category])
     df_stock_basic.loc[:, cols_category] = val_enc
     print("basic:",np.max(val_enc))
@@ -668,13 +674,13 @@ def prepare_stock_basic(df_stock_basic:pd.DataFrame):
 def prepare_data(cursor, targets=None, start=None, lowerbound=None, end=None,upper_bound=None,stock_pool=None):
     print("start:",start,"\tlowerbound:", lowerbound)
 
-    if type(lowerbound)==int:
-        lowerbound = str(lowerbound)
-        lowerbound = lowerbound[:4]+"-"+lowerbound[4:6]+"-"+lowerbound[6:8]
-
-    if type(upper_bound)==int:
-        upper_bound = str(upper_bound)
-        upper_bound = upper_bound[:4]+"-"+upper_bound[4:6]+"-"+upper_bound[6:8]
+    # if type(lowerbound)==int:
+    #     lowerbound = str(lowerbound)
+    #     lowerbound = lowerbound[:4]+"-"+lowerbound[4:6]+"-"+lowerbound[6:8]
+    #
+    # if type(upper_bound)==int:
+    #     upper_bound = str(upper_bound)
+    #     upper_bound = upper_bound[:4]+"-"+upper_bound[4:6]+"-"+upper_bound[6:8]
 
     # Prepare df_stock_basic
     df_stock_basic = dbop.create_df(cursor, const.STOCK_BASIC[const.TABLE])
@@ -683,7 +689,7 @@ def prepare_data(cursor, targets=None, start=None, lowerbound=None, end=None,upp
 
     # Prepare df_stock_d_FE
     if end:
-        where_clause = "date<'{0}'".format(upper_bound)
+        where_clause = "date<{0}".format(upper_bound)
         df_stock_d = dbop.create_df(cursor, const.STOCK_DAY[const.TABLE], lowerbound,where_clause=where_clause)
     else:
         df_stock_d = dbop.create_df(cursor, const.STOCK_DAY[const.TABLE], lowerbound)
@@ -693,30 +699,30 @@ def prepare_data(cursor, targets=None, start=None, lowerbound=None, end=None,upp
                                                targets=targets,
                                                start=start,end=end)
 
-    df_stock_d_FE = df_stock_d_FE[df_stock_d_FE.index>=start]
+    # df_stock_d_FE = df_stock_d_FE.loc[IDX[start:end,:],:]
     print(df_stock_d_FE.shape)
     # print(df_stock_d_FE.index.name)
 
     # Prepare df_index_d_FE
     df_index_d = dbop.create_df(cursor, const.INDEX_DAY[const.TABLE], lowerbound)
     df_index_d_FE = FE_index_d(df_index_d, start=start)
-    df_index_d_FE = df_index_d_FE[df_index_d_FE>=start]
+    df_index_d_FE = df_index_d_FE.sort_index().loc[start:end,:]
     print(df_index_d_FE.shape, len(df_index_d_FE.index.unique()))
     # print(df_index_d_FE.index.name)
 
     print("step0")
     # Merge three df.
     df_all = df_stock_d_FE.join(df_index_d_FE, how="left")
-    df_all.index.name = "date"
-    df_all = df_all.reset_index()\
-        .merge(df_stock_basic, on="code",how="left")\
-        .set_index(["date"])
+    # df_all.index.name = "date"
+    df_all = df_all.join(df_stock_basic, how="left")
 
     print("step1")
     df_all["list_days"] = -1
     # col_index = list(df_all.columns).index("list_days")
+
+    #todo: change date data in stock basic to int type.
     df_all["list_date"] = df_all["list_date"].apply(lambda x:x.replace("-","")).astype(int)
-    df_all["list_days"] = df_all.index-df_all["list_date"]
+    df_all["list_days"] = df_all.index.get_level_values("date")-df_all["list_date"]
     # for i in range(len(df_all.index)):
     #     date = datetime.datetime.strptime(df_all.index[i],"%Y-%m-%d")
     #     row = df_all.iloc[i]
@@ -731,7 +737,7 @@ def prepare_data(cursor, targets=None, start=None, lowerbound=None, end=None,upp
     cols_not_in_X += list(df_stock_basic.columns.difference(
         cols_category+["code"]))
     print(df_all.shape)
-    print(df_all[df_all["list_days"]<0][["code","list_date","list_days"]])
+    print(df_all[df_all["list_days"]<0][["list_date","list_days"]])
 
     return df_all[df_all.columns.difference(cols_not_in_X)], df_all[cols_not_in_X], cols_category, enc
 
@@ -783,6 +789,20 @@ def mp_stock(df_input:pd.DataFrame, target: callable, stock_pool=None, print_fre
     print("{0}: Total processing time for {0} stocks:{1:.2f}s".format(target.__name__,count_out, time.time() - start_time))
     print("in",count_in,"out",count_out)
     print("Shape of resulting dataframe:",df_result.shape)
-    df_result.index.name = "date"
+    # df_result.index.name = "date"
 
     return df_result
+
+
+if __name__ == '__main__':
+    import db_operations as dbop
+    cursor = dbop.connect_db("sqlite3").cursor()
+    targets = [{"period": 20, "func": "max", "col": "high"},
+                          {"period": 20, "func": "min", "col": "low"},
+                          {"period": 20, "func": "avg", "col": ""},
+                          {"period": 5, "func": "max", "col": "high"},
+                          {"period": 5, "func": "min", "col": "low"},
+                          {"period": 5, "func": "avg", "col": ""},
+                          ]
+    df1,df2,_,_ = prepare_data(cursor=cursor,targets=targets,start=20180901,lowerbound=20180101,stock_pool=["600352.SH","000581.SZ","002440.SZ"])
+    print(df1)

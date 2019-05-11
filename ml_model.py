@@ -415,6 +415,21 @@ def corr(X,Y):
     return corr
 
 
+def assess_feature(feature:pd.Series,y:pd.Series):
+    # max_,min_ = feature.max(),feature.min()
+    df = pd.concat([feature,y]).dropna()
+    df.columns = ["feature","y"]
+    df = df.set_index("feature").sort_index()
+    min_,max_ = df.index[0],df.index[-1]
+    interval = (max_-min_)/100
+    df_bins = pd.DataFrame(columns=["left","right","y_mean","cnt"])
+    left = min_
+    for i in range(100):
+        df_interval = df.loc[left:left+interval]
+
+
+
+
 
 class RegressorNetwork:
     def __init__(self):
