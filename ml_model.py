@@ -415,17 +415,35 @@ def corr(X,Y):
     return corr
 
 
-def assess_feature(feature:pd.Series,y:pd.Series):
+def assess_feature(feature:pd.Series,y:pd.Series,bin_min_pct=0.001,bin_num=100):
     # max_,min_ = feature.max(),feature.min()
-    df = pd.concat([feature,y]).dropna()
+    df = pd.concat([feature,y],axis=1).dropna()
     df.columns = ["feature","y"]
     df = df.set_index("feature").sort_index()
     min_,max_ = df.index[0],df.index[-1]
+    n = len(df)
     interval = (max_-min_)/100
-    df_bins = pd.DataFrame(columns=["left","right","y_mean","cnt"])
-    left = min_
-    for i in range(100):
-        df_interval = df.loc[left:left+interval]
+    df_bins = pd.DataFrame(columns=["left","right","y_mean","y_median","cnt"])
+    left,right = min_, min_+interval
+    cnt = 0
+    for i in range(bin_num):
+        df_interval = df.loc[left:right]
+        if len(df_interval) < n*bin_min_pct and i<bin_num-1:
+            right += interval
+            continue
+
+        # df_bins.loc[i] = {"left": left, "right": right,
+        #                   "y_mean": df_interval["y"].mean(), "y_median": df_interval["y"].median(),
+        #                   "cnt": df_interval["y"].count()}
+        df_bins.loc[cnt] = [left,right,
+                          df_interval["y"].mean(),df_interval["y"].median(),
+                          df_interval["y"].count()]
+        left += interval
+        right += interval
+        cnt+=1
+    return df_bins
+
+
 
 
 

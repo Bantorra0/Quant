@@ -15,6 +15,9 @@ import ml_model as ml
 from constants import *
 
 
+IDX = pd.IndexSlice
+
+
 def find_max_min_point(outer_slope,outer):
     pass
 
@@ -45,11 +48,11 @@ def get_return_rate(df_single_stock_d:pd.DataFrame, loss_limit=0.1, retracement=
 
     # Result dataframe
     result = pd.Series(index=df_single_stock_d.index)
-    result.index.name = "date"
+    # result.index.name = "date"
 
     # Dataframe for intermediate result(info of holding shares).
-    df_tmp = pd.DataFrame(columns=["open","max","buy_idx","high_idx"])
-    df_tmp.index.name="date"
+    df_tmp = pd.DataFrame(columns=["date","code","open","max","buy_idx","high_idx"]).set_index(["date","code"])
+    # df_tmp.index.name="date"
 
     for i in range(1,len(df_single_stock_d.index)):
         curr_dt = df_single_stock_d.index[i]
@@ -110,12 +113,13 @@ def get_return_rate(df_single_stock_d:pd.DataFrame, loss_limit=0.1, retracement=
             df_tmp = df_tmp[~cond]
 
         if new_high_days_limit is not None:
-            cond = (prev_high <= df_tmp["max"]) & (i-1-df_tmp["high_idx"]>=20)
+            # cond = (prev_high <= df_tmp["max"]) & (i-1-df_tmp["high_idx"]>=new_high_days_limit)
+            cond = (i-1-df_tmp["high_idx"]>=new_high_days_limit)
             result.loc[df_tmp.index[cond]] = curr_open
             df_tmp = df_tmp[~cond]
 
         # Buy in at the beginning of current date with open price.Add new record.
-        df_tmp.loc[prev_dt] = list([curr_open,curr_high,i,i])
+        df_tmp.loc[prev_dt,:] = list([curr_open,curr_high,i,i])
         # Update max.
         df_tmp.loc[df_tmp["max"]<curr_high,["max","high_idx"]]=[curr_high,i]
         # print(stop_loss_idx)
@@ -129,8 +133,8 @@ def get_return_rate(df_single_stock_d:pd.DataFrame, loss_limit=0.1, retracement=
         curr_open = df_single_stock_d.loc[df_single_stock_d.index[-1], "open"]
         result.loc[df_tmp.index] = curr_open
 
-    result = pd.DataFrame(result,columns=["r"])
-    result["code"] = df_single_stock_d["code"].iloc[0]
+    # result = pd.DataFrame(result,columns=["r"])
+    # result["code"] = df_single_stock_d["code"].iloc[0]
     # print(result)
     return result.sort_index()
 
@@ -143,15 +147,13 @@ def get_return_rate2(df_single_stock_d: pd.DataFrame, loss_limit=0.1, retracemen
                           & (df_single_stock_d[["open", "high", "low", "close"]].notnull().all(axis=1))].copy()
     df_single_stock_d = df_single_stock_d.sort_index(ascending=True)
 
-    # Result dataframe
     # result = pd.DataFrame(columns="sell_price")
     result = pd.Series(index=df_single_stock_d.index)
-    # result = pd.Series()
-    result.index.name = "date"
+    # result.index.name = "date"
 
     # Dataframe for intermediate result(info of holding shares).
-    df_tmp = pd.DataFrame(columns=["open", "max", "buy_idx","high_idx"])
-    df_tmp.index.name = "date"
+    df_tmp = pd.DataFrame(columns=["date","code","open","max","buy_idx","high_idx"]).set_index(["date","code"])
+    # df_tmp.index.name = "date"
 
     for i in range(1, len(df_single_stock_d.index)):
         curr_dt = df_single_stock_d.index[i]
@@ -177,7 +179,9 @@ def get_return_rate2(df_single_stock_d: pd.DataFrame, loss_limit=0.1, retracemen
             mask |= (i - df_tmp["buy_idx"] >= max_days)
 
         if new_high_days_limit is not None:
-            mask |= (prev_high <= df_tmp["max"]) & (i-1-df_tmp["high_idx"]>=20)
+            # mask |= (prev_high <= df_tmp["max"]) & (i-1-df_tmp["high_idx"]>=new_high_days_limit)
+            mask |= (i-1-df_tmp["high_idx"]>=new_high_days_limit)
+
 
         # # Try to sell if holding for too long.
         # mask |= (i - 1 - df_tmp["idx"] >= holding_days) & (
@@ -196,7 +200,7 @@ def get_return_rate2(df_single_stock_d: pd.DataFrame, loss_limit=0.1, retracemen
         df_tmp = df_tmp[~mask]
 
         # Buy in at the beginning of current date with open price.Add new record.
-        df_tmp.loc[prev_dt] = list([curr_open, curr_high, i, i])
+        df_tmp.loc[prev_dt,:] = list([curr_open, curr_high, i, i])
         # Update max.
         df_tmp.loc[df_tmp["max"] < curr_high, ["max","high_idx"]] = [curr_high,i]
 
@@ -438,27 +442,30 @@ if __name__ == '__main__':
     # print(r)
 
     cursor = dbop.connect_db("sqlite3").cursor()
-    start = "2013-01-01"
+    start = 20170101
     df = dbop.create_df(cursor, STOCK_DAY[TABLE],
                         start=start,
-                        # where_clause="code='002349.SZ'"
-                        ).set_index("date")
-    # print(df.dropna())
+                        where_clause="code='002349.SZ'",
+                        # where_clause="code='600350.SH'",
+                        ).set_index(["date","code"])
     print(df.shape)
-    # print(df[df.isnull().any(axis=1)])
-    df_return_rate = dp.mp_stock(df_input=df,target=get_return_rate,stock_pool=None,print_freq=1)
-    df_return_rate.to_parquet(r"datasets\return_rate0_{}".format(start))
+    # print(df.dropna())
+    # print(df.shape)
+    # # print(df[df.isnull().any(axis=1)])
+    # df_return_rate = dp.mp_stock(df_input=df,target=get_return_rate,stock_pool=None,print_freq=1)
+    # df_return_rate.to_parquet(r"datasets\return_rate0_{}".format(start))
     # print(df_return_rate.shape)
     # print(df_return_rate)
-    # t0 = time.time()
-    # r1 = get_return_rate(df)
-    # print("t1:", time.time() - t0)
-    # t0 = time.time()
-    # r2 = get_return_rate2(df)
-    # print("t2:", time.time() - t0)
-    # print((r1.dropna() == r2.dropna()).all())
-    # df = pd.concat([r1, r2], axis=1)
-    # print(df[df[0] != df[1]])
+    t0 = time.time()
+    r1 = get_return_rate(df)
+    print("t1:", time.time() - t0)
+    t0 = time.time()
+    r2 = get_return_rate2(df)
+    print("t2:", time.time() - t0)
+    print((r1.dropna() == r2.dropna()).all())
+    df = pd.concat([r1, r2], axis=1)
+    # print(df)
+    print(df[df[0] != df[1]])
     # print(r1)
     # print(r2)
 
