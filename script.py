@@ -114,7 +114,7 @@ def get_return_rate(df_single_stock_d:pd.DataFrame, loss_limit=0.1, retracement=
 
         if new_high_days_limit is not None:
             # cond = (prev_high <= df_tmp["max"]) & (i-1-df_tmp["high_idx"]>=new_high_days_limit)
-            cond = (i-1-df_tmp["high_idx"]>=new_high_days_limit)
+            cond = (i-df_tmp["high_idx"]>=new_high_days_limit)
             result.loc[df_tmp.index[cond]] = curr_open
             df_tmp = df_tmp[~cond]
 
@@ -180,7 +180,7 @@ def get_return_rate2(df_single_stock_d: pd.DataFrame, loss_limit=0.1, retracemen
 
         if new_high_days_limit is not None:
             # mask |= (prev_high <= df_tmp["max"]) & (i-1-df_tmp["high_idx"]>=new_high_days_limit)
-            mask |= (i-1-df_tmp["high_idx"]>=new_high_days_limit)
+            mask |= (i-df_tmp["high_idx"]>=new_high_days_limit)
 
 
         # # Try to sell if holding for too long.
@@ -211,6 +211,87 @@ def get_return_rate2(df_single_stock_d: pd.DataFrame, loss_limit=0.1, retracemen
         result.loc[df_tmp.index] = curr_open
 
     return result.sort_index()
+
+
+def get_return_rate3(df_single_stock_d: pd.DataFrame, loss_limit=0.1, retracement=0.1, retracement_inc_pct=0.25,
+                    holding_days=20, holding_threshold=0.1,max_days=60,new_high_days_limit=20, is_truncated=True):
+    # Cleaning input.
+    df_single_stock_d = \
+        df_single_stock_d[(df_single_stock_d["vol"] > 0)
+                          & (df_single_stock_d[["open", "high", "low", "close"]].notnull().all(axis=1))].copy()
+    df_single_stock_d = df_single_stock_d.sort_index(ascending=True)
+    index = df_single_stock_d.index
+    n = len(df_single_stock_d)
+
+    date_id = np.arange(n)
+    # Dataframe for intermediate result(info of holding shares).
+    df_tmp = pd.DataFrame(columns=["open","max"],index=df_single_stock_d.index)
+    df_tmp.iloc[:-1] = df_single_stock_d[["open","high"]].values[1:]
+    df_tmp["buy_idx"] = date_id+1 # Buy in next day, so here we increment 1.
+    df_tmp["max_idx"] = df_tmp["buy_idx"]
+    df_tmp["is_selled"] = False
+
+    cnt = 1
+    # columns = ["open","high","low","close","avg"]
+    columns = ["open", "low","high"]
+    slice1 = slice(0,n - cnt)
+    slice2 = slice(cnt,None)
+    df_curr = pd.DataFrame(columns=columns, index=index)
+    df_curr.loc[index[slice1], columns] = df_single_stock_d.loc[index[slice2], columns].values
+    df_curr.loc[index[slice1], "idx"] = date_id[slice2]
+    while df_tmp["is_selled"].all()!=True:
+
+        df_prev = df_curr
+        cnt+=1
+        # print(df_tmp.iloc[:20])
+
+        stop_profit_points = df_tmp["open"] * (1-loss_limit) + (df_tmp["max"] - df_tmp["open"]) * (1 - retracement_inc_pct)
+        # print(pd.concat([df_prev,stop_profit_points],axis=1).iloc[:10])
+        mask = df_prev["low"] <= stop_profit_points
+        # print((mask & (df_tmp["is_selled"]==False)).sum())
+        # print(df_tmp[mask & (df_tmp["is_selled"]==False)])
+        # print(df_prev[mask & (df_tmp["is_selled"]==False)])
+
+        # Sell if max_days is not none and max_days is exceeded.
+        if max_days is not None:
+            # print(df_tmp[(df_tmp["is_selled"]==False)&(df_prev["idx"] - df_tmp["buy_idx"] >= max_days)])
+            mask |= (df_prev["idx"] + 1 - df_tmp["buy_idx"] >= max_days)
+
+        if new_high_days_limit is not None:
+            mask |= (df_prev["idx"] +1 - df_tmp["max_idx"] >= new_high_days_limit)
+
+        df_curr = pd.DataFrame(columns=columns,index=index)
+        slice1 = slice(0, n - cnt)
+        slice2 = slice(cnt, None)
+        df_curr.loc[index[slice1], columns] = df_single_stock_d.loc[index[slice2], columns].values
+        df_curr.loc[index[slice1], "idx"] = date_id[slice2]
+
+        # print("--",df_tmp[mask])
+        mask &= ((df_tmp["is_selled"]==False) & df_curr["open"].notnull())
+        # print(df_tmp[mask])
+        df_tmp.loc[mask,"sell_price"] = df_curr.loc[mask,"open"].values
+        df_tmp.loc[mask,"is_selled"] = True
+        # print(df_tmp[mask])
+        # print(df_curr[mask])
+
+        cond = (df_tmp["is_selled"]==False) & (df_tmp["max"]<df_curr["high"])
+        # print(cond.iloc[:20])
+        df_tmp.loc[cond,["max","max_idx"]]= df_curr.loc[cond,["high","idx"]].values
+
+        # print(cnt,df_tmp.shape,df_tmp["is_selled"].sum())
+        # print(df_tmp[mask])
+        if df_tmp.loc[index[slice1],"is_selled"].all():
+            # print("all selled")
+            break
+
+    if is_truncated:
+        curr_open = df_single_stock_d["open"].iloc[-1]
+        # print("--",n)
+        mask0 = (df_tmp["is_selled"]==False) & (df_tmp["buy_idx"]<n)
+        df_tmp.loc[mask0,"sell_price"] = curr_open
+        df_tmp.loc[mask0,"is_selled"] = True
+
+    return df_tmp
 
 
 def update_dataset():
@@ -253,7 +334,7 @@ def test_api():
     print(df)
 
 
-def test_get_return_rate():
+def test_get_return_rate2():
     cursor = dbop.connect_db("sqlite3").cursor()
     df = dbop.create_df(cursor, STOCK_DAY[TABLE], "2013-01-01")
     print(df.shape)
@@ -271,6 +352,24 @@ def test_get_return_rate():
     print(df[df[0] != df[1]])
     print(r1)
     print(r2)
+
+
+def test_get_return_rate3():
+    df_syn = pd.DataFrame(np.array(list(range(100, 150)) + list(range(150, 110, -1))).reshape(-1, 1), columns=["open"])
+    df_syn["close"] = df_syn["open"]
+    df_syn["high"] = df_syn["open"] + 1
+    df_syn["low"] = df_syn["open"] - 1
+    df_syn["vol"] = 100
+    t0 = time.time()
+    r3 = get_return_rate3(df_syn)
+    r1 = get_return_rate(df_syn)
+
+    # print((r1.dropna() == r3.dropna()).all())
+    pd.set_option("display.max_rows", 200)
+    pd.set_option("display.max_columns", 15)
+    df = pd.concat([df_syn, r1, r3], axis=1)
+    print(df)
+    print(df[df[0] != df["sell_price"]][[0, "sell_price"]])
 
 
 if __name__ == '__main__':
@@ -442,32 +541,29 @@ if __name__ == '__main__':
     # print(r)
 
     cursor = dbop.connect_db("sqlite3").cursor()
-    start = 20170101
+    start = 20130101
     df = dbop.create_df(cursor, STOCK_DAY[TABLE],
                         start=start,
                         where_clause="code='002349.SZ'",
                         # where_clause="code='600350.SH'",
-                        ).set_index(["date","code"])
+                        )
+    df = dp.prepare_each_stock(dp.prepare_stock_d(df))
     print(df.shape)
-    # print(df.dropna())
-    # print(df.shape)
-    # # print(df[df.isnull().any(axis=1)])
-    # df_return_rate = dp.mp_stock(df_input=df,target=get_return_rate,stock_pool=None,print_freq=1)
-    # df_return_rate.to_parquet(r"datasets\return_rate0_{}".format(start))
-    # print(df_return_rate.shape)
-    # print(df_return_rate)
-    t0 = time.time()
+    t0=time.time()
+    r3 = get_return_rate3(df)
+    print(time.time()-t0)
     r1 = get_return_rate(df)
-    print("t1:", time.time() - t0)
-    t0 = time.time()
-    r2 = get_return_rate2(df)
-    print("t2:", time.time() - t0)
-    print((r1.dropna() == r2.dropna()).all())
-    df = pd.concat([r1, r2], axis=1)
+    print(time.time()-t0)
+    # print((r1.dropna() == r3.dropna()).all())
+
+    df = pd.concat([r1, r3],axis=1)
     # print(df)
-    print(df[df[0] != df[1]])
-    # print(r1)
-    # print(r2)
+    print(df[df[0]!=df["sell_price"]].dropna())
+
+    # r= r3 / df["open"] - 1
+
+
+
 
 
 

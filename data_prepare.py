@@ -252,6 +252,7 @@ def prepare_stock_d(df_stck_d):
     # if df_stck_d["date"].dtypes!=int:
     #
     #     df_stck_d["date"] = df_stck_d["date"].apply(lambda x:x.replace("-", "")).astype(int)
+    df_stck_d["date"] = pd.to_datetime(df_stck_d["date"],format="%Y%m%d")
     df_stck_d = df_stck_d.set_index(["date","code"]).sort_index()
     # df_stck_d = df_stck_d[
     #     ["code", "open", "high", "low", "close", "vol", "amt", "adj_factor"]]
@@ -259,8 +260,10 @@ def prepare_stock_d(df_stck_d):
 
 
 def prepare_index_d(df_idx_d):
-    if df_idx_d["date"].dtype=="object":
-        df_idx_d["date"]=df_idx_d["date"].apply(lambda x:x.replace("-", "")).astype(int)
+    # if df_idx_d["date"].dtype=="object":
+    #     df_idx_d["date"]=df_idx_d["date"].apply(lambda x:x.replace("-", "")).astype(int)
+    df_idx_d["date"] = pd.to_datetime(df_idx_d["date"],format="%Y%m%d")
+
 
     df_idx_d["avg"] = df_idx_d["amt"]/df_idx_d["vol"] * 10
     df_idx_d = df_idx_d.set_index("date").sort_index(ascending=False)

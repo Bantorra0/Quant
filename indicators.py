@@ -40,9 +40,12 @@ if __name__ == '__main__':
                         )
     df = dp.prepare_each_stock(dp.prepare_stock_d(df))
     r = script.get_return_rate2(df)/df["open"]-1
+    print(r)
     # print(df)
     result = simple_amt_weighted_MACD(df)
     for col in result.columns:
         df_stats = ml.assess_feature(result[col],r)
-        print(df_stats["y_mean"].max(),df_stats["y_mean"].var(),df_stats["y_median"].max(),df_stats["y_median"].var())
+        print("\n"+"-"*10+"\n",col)
+        print(df_stats.sort_values("y_mean").iloc[[0,-1]], "\n",df_stats["y_mean"].var(),
+              df_stats.sort_values("y_median").iloc[[0,-1]], "\n",df_stats["y_median"].var(),)
     # print(result)
