@@ -4,258 +4,22 @@ import time
 
 import numpy as np
 import pandas as pd
-import sklearn as sk
 import sklearn.preprocessing as preproc
 
 import constants as const
-import db_operations as dbop
 import collect
+import feature_engineering as FE
 
 IDX = pd.IndexSlice
-
-def _check_int(arg):
-    if type(arg) not in [int,np.int,np.int8,np.int16,np.int32]:
-        raise ValueError("{} is not a int".format(arg))
-
-
-def _check_iterable(arg):
-    if not hasattr(arg, "__iter__"):
-        raise ValueError("{} is not iterable".format(arg))
-
-
-def _make_iterable(arg):
-    if type(arg) == str or not hasattr(arg, "__iter__"):
-        return [arg]
-    else:
-        return arg
-
-
-def _prefix(prefix, df: pd.DataFrame, copy=False):
-    if copy:
-        df = df.copy()
-    df.columns = list(map(lambda col: str(prefix) + "_" + col, df.columns))
-    return df
-
-
-def move(days, df: pd.DataFrame, cols=None, prefix=True):
-    _check_int(days)
-    if cols is None:
-        cols = df.columns
-    cols = _make_iterable(cols)
-
-    if days==0:
-        return df[cols].copy()
-
-    df = df.sort_index(ascending=False)
-    if days > 0:
-        pre = "p{}mv".format(abs(days))
-        df_mv = df[cols].iloc[days:].copy()
-        df_mv.index = df.index[:-days]
-    else:
-        pre = "f{}mv".format(abs(days))
-        df_mv = df[cols].iloc[:days].copy()
-        df_mv.index = df.index[-days:]
-
-    if prefix:
-        return _prefix(pre, df_mv)
-    else:
-        return df_mv
-
-
-def rolling(rolling_type, days, df: pd.DataFrame, cols=None,
-            prefix=True):
-    """
-    A wrapper of df.rolling. Current date is included when using arg days, e.g.
-    days=-5 means the window is current date and previous 4 days, days=5
-    means currate date and future 4 days.
-
-    :param rolling_type:
-    :param days:
-    :param df:
-    :param cols:
-    :param prefix:
-    :return:
-    """
-    _check_int(days)
-    if cols is None:
-        cols = df.columns
-    cols = _make_iterable(cols)
-
-    df = df.sort_index(ascending=False)
-    period = abs(days)
-    if rolling_type == "max":
-        df_rolling = df[cols].rolling(window=abs(days)).max()
-    elif rolling_type == "min":
-        df_rolling = df[cols].rolling(window=abs(days)).min()
-    elif rolling_type == "mean":
-        df_rolling = df[cols].rolling(window=abs(days)).mean()
-    elif rolling_type == "sum":
-        df_rolling = df[cols].rolling(window=abs(days)).sum()
-
-    else:
-        raise ValueError(
-            "rolling_type='{}' is not supported.".format(rolling_type))
-
-    n = len(df_rolling)
-    idxes = df_rolling.index
-    if days > 0:
-        pre = "f" + str(abs(days)) + rolling_type
-        df_rolling = df_rolling.iloc[period - 1:n]
-        df_rolling.index = idxes[period - 1:n]
-    else:
-        pre = "p" + str(abs(days)) + rolling_type
-        df_rolling = df_rolling.iloc[period - 1:n]
-        if n - period + 1 >= 0:
-            df_rolling.index = idxes[:n - period + 1]
-
-    if prefix:
-        return _prefix(pre, df_rolling)
-    else:
-        return df_rolling
-
-
-def change_rate(df1: pd.DataFrame, df2: pd.DataFrame, cols1=None,
-                cols2=None, prefix=True):
-    if cols1:
-        df1 = df1[cols1].copy()
-    else:
-        df1 = df1.copy()
-
-    if cols2:
-        df2 = df2[cols2].copy()
-    else:
-        df2 = df2.copy()
-
-    if df1.shape[1] != df2.shape[1]:
-        raise ValueError(
-            "Column length not the same:{0}!={1}".format(df1.shape[1],
-                                                         df2.shape[1]))
-
-    cols1 = df1.columns
-    cols2 = df2.columns
-    # Use df rather than np.array because data calculation need to be aligned with df.index(date),
-    # especially when len(df1.index)!=len(df2.index)
-    # Reset columns to make sure columns of df1 and df2 are the same,
-    # because operations are based on index and columns.
-    df2.columns = cols1
-    df3 = df2/df1-1
-    df3 = df3*100  # Convert to percentage.
-    cols = ["({1}/{0}-1)".format(c1, c2) for c1, c2 in zip(cols1, cols2)]
-    df3.columns = cols
-    # Round to two decimals and convert to float16 to save memory.
-    return df3.round(2).fillna(float("inf")).astype('float16')
-
-
-def candle_stick(df:pd.DataFrame):
-    df_result = pd.DataFrame(index=df.index)
-    if df.shape[1]!=5:
-        raise ValueError("df.shape[1] {}!=5".format(df.shape[1]))
-
-    open,high,low,close,avg = df.columns
-
-    # avg = (df[open]+df[high]+df[low]+df[close])/4
-
-    stick_top = df.apply(lambda x:x[open] if x[open]>x[close] else x[close],
-                         axis=1)
-    stick_bottom = df.apply(lambda x: x[open] if x[open] < x[close] else x[close],
-                         axis=1)
-
-    df_result["({0}-{1})/{2}".format(high, low, avg)] = \
-        (df[high] - df[low]) / df[avg]
-    df_result["({0}-{1})/{2}".format(close, open, avg)] = \
-        (df[close] - df[open]) / df[avg]
-
-    df_result["({0}-{1})/{2}".format(high, open, avg)] = \
-        (df[high] - df[open]) / df[avg]
-    df_result["({0}-{1})/{2}".format(low, open, avg)] = \
-        (df[low] - df[open]) / df[avg]
-
-    df_result["({0}-{1})/{2}".format(high, close, avg)] = \
-        (df[high] - df[close]) / df[avg]
-    df_result["({0}-{1})/{2}".format(low, close, avg)] = \
-        (df[low] - df[close]) / df[avg]
-
-    df_result["upper_shadow/{0}".format(avg)] = \
-        (df[high] - stick_top) / df[avg]
-    df_result["lower_shadow/{0}".format(avg)] = \
-        (stick_bottom - df[low]) / df[avg]
-
-    return df_result.round(2).astype('float16')
-
-
-def k_MA(k:int, df:pd.DataFrame):
-    # if df.shape[1] != 2:
-    #     raise ValueError("df.shape[1] {}!=2".format(df.shape[1]))
-
-    if "amt" not in df.columns:
-        raise ValueError("\"amt\" not in df.columns")
-    elif "vol" not in df.columns:
-        raise ValueError("\"vol\" not in df.columns")
-    elif "close" not in df.columns:
-        raise ValueError("\"close\" not in df.columns")
-
-    df_result = pd.DataFrame(index=df.index)
-    df = df.sort_index(ascending=True)
-
-    df_result["{}MA_vol".format(k)] = df["vol"].rolling(window=k).mean()
-    df_result["{}MA_amt".format(k)] = df["amt"].rolling(window=k).mean()
-    df_result["{}MA".format(k)] = df_result["{}MA_amt".format(k)]\
-                                  /df_result["{}MA_vol".format(k)]*10
-
-    # 如果累计vol=0（计算区间内停牌），则上述计算结果为inf，取收盘价。
-    # 此处假设停牌期间已完成数据填充，按vol=0，amt=0，其他价格按前一天（停牌前最后一天）收盘价算。
-
-    # col_kma_idx = list(df_result.columns).index("{}MA".format(k))
-    # col_close_idx = list(df.columns).index("close")
-    # try:
-    #     df.iloc[df_result.index[df_result["{}MA".format(k)] == float("inf")]]
-    # except Exception as e:
-    #     print(df_result.columns,col_kma_idx,df.columns,col_close_idx)
-    #     print(df_result.shape,df.shape)
-    #     print(df_result.index[df_result["{}MA".format(k)] == float("inf")])
-    #     print(df.iloc[df_result.index[df_result["{}MA".format(k)] == float("inf")]])
-    #     print(df.iloc[df_result.index[df_result["{}MA".format(k)] == float("inf")],col_close_idx])
-    df_result.loc[df_result.index[df_result["{}MA_vol".format(k)] == 0],"{}MA".format(k)] = \
-        df.loc[df_result.index[df_result["{}MA_vol".format(k)] == 0],"close"]
-    return df_result[["{}MA".format(k)]].sort_index(ascending=False)
-
-
-def k_line(k:int, df:pd.DataFrame):
-    if df.shape[1] != 7:
-        raise ValueError("df.shape[1] {}!=7".format(df.shape[1]))
-
-    cols = ["open","high","low","close","avg","vol","amt"]
-    if not set(cols).issubset(set(df.columns)):
-        raise ValueError("[\"open\", \"high\", \"low\", \"close\",\"avg\", \"vol\", "
-                         "\"amt\"\] is not a subset of {}".format(set(df.columns)))
-
-    df_result = pd.DataFrame(index=df.index)
-    df = df.sort_index(ascending=True)
-
-    df_result["{}k_open".format(k)] = pd.Series(np.array(df["open"].iloc[:-k + 1]),index=df.index[k - 1:])
-    df_result["{}k_high".format(k)] = df["high"].rolling(k).max()
-    df_result["{}k_low".format(k)] = df["low"].rolling(k).min()
-    df_result["{}k_close".format(k)]=df["close"]
-    df_result["{}k_vol".format(k)] = df["vol"].rolling(k).mean()
-    df_result["{}k_amt".format(k)] = df["amt"].rolling(k).mean()
-    df_result["{}k_avg".format(k)] = df_result["{}k_amt".format(k)]/df_result["{}k_vol".format(k)] * 10
-
-    df_result.loc[df_result.index[df_result["{}k_vol".format(k)]==0],
-                  "{}k_avg".format(k)] = \
-        df_result.loc[df_result.index[df_result["{}k_vol".format(k)]==0],
-                      "{}k_close".format(k)]
-
-    return df_result[["{0}k_{1}".format(k,col) for col in cols]]
 
 
 def prepare_stock_d(df_stck_d):
     # if df_stck_d["date"].dtypes!=int:
-    #
     #     df_stck_d["date"] = df_stck_d["date"].apply(lambda x:x.replace("-", "")).astype(int)
     df_stck_d["date"] = pd.to_datetime(df_stck_d["date"],format="%Y%m%d")
     df_stck_d = df_stck_d.set_index(["date","code"]).sort_index()
-    # df_stck_d = df_stck_d[
-    #     ["code", "open", "high", "low", "close", "vol", "amt", "adj_factor"]]
+    df_stck_d = df_stck_d[["open", "high", "low", "close", "vol", "amt", "adj_factor"]]
+
     return df_stck_d
 
 
@@ -280,8 +44,8 @@ def prepare_each_stock(df_stock_d, qfq_type="hfq"):
     df_stock_d["avg"] = (df_stock_d["amt"] / df_stock_d["vol"] * 10)
     # 如果vol=0（停牌），则上述计算结果为inf，取收盘价。
     # 此处假设停牌期间已完成数据填充，按vol=0，amt=0，其他价格按前一天（停牌前最后一天）收盘价算。
-    df_stock_d.loc[df_stock_d.index[df_stock_d["vol"]==0],"avg"]\
-        =df_stock_d.loc[df_stock_d.index[df_stock_d["vol"]==0],"close"]
+    mask0 = df_stock_d["vol"]==0
+    df_stock_d.loc[mask0,"avg"] = df_stock_d.loc[mask0,"close"]
     # print(df_stock_d.loc[df_stock_d.index[df_stock_d["avg"].isnull()]])
 
     fq_cols = ["open", "high", "low", "close","avg","vol"]
@@ -297,7 +61,44 @@ def prepare_each_stock(df_stock_d, qfq_type="hfq"):
         fq_factor = df_stock_d["adj_factor"]
 
     # print(fq_factor.shape)
+    print(fq_factor.shape)
     fq_factor = np.array(fq_factor).reshape(-1, 1) * np.ones((1, len(fq_cols)))
+    print(fq_factor.shape)
+
+    # Deal with open,high,low,close.
+    df_stock_d.loc[:, fq_cols[:5]] = df_stock_d[fq_cols[:5]] * fq_factor[:, :5]
+    # Deal with vol.
+    df_stock_d.loc[:, fq_cols[5]] = df_stock_d[fq_cols[5]] / fq_factor[:, 0]
+
+    return df_stock_d
+
+
+def proc_stock_d(df_stock_d, qfq_type="hfq"):
+    if qfq_type and qfq_type not in ["hfq"]:
+        raise ValueError("qfq_type {} is not supported".format(qfq_type))
+
+    df_stock_d = df_stock_d.copy()
+    # Calculate stocks' avg day prices.
+    # vol's unit is "手", while amt's unit is "1000yuan", so 10 is multiplied.
+    df_stock_d["avg"] = (df_stock_d["amt"] / df_stock_d["vol"] * 10)
+    # 如果vol=0（停牌），则上述计算结果为inf，取收盘价。
+    # 此处假设停牌期间已完成数据填充，按vol=0，amt=0，其他价格按前一天（停牌前最后一天）收盘价算。
+    mask0 = df_stock_d["vol"]==0
+    df_stock_d.loc[mask0,"avg"]=df_stock_d.loc[mask0,"close"]
+    # print(df_stock_d.loc[df_stock_d["avg"].isnull()])
+
+    fq_cols = ["open", "high", "low", "close","avg","vol"]
+
+    # 保存原始数据到新的列。
+    for col in fq_cols:
+        df_stock_d[col + "0"] = df_stock_d[col].values
+
+    # 后复权
+    fq_factor = df_stock_d["adj_factor"]
+    # if qfq_type=="hfq":
+    #     fq_factor = df_stock_d["adj_factor"]
+
+    fq_factor = fq_factor.values.reshape(-1, 1).dot(np.ones((1, len(fq_cols))))
 
     # Deal with open,high,low,close.
     df_stock_d.loc[:, fq_cols[:5]] = df_stock_d[fq_cols[:5]] * fq_factor[:, :5]
@@ -331,24 +132,24 @@ def FE_single_stock_d(df:pd.DataFrame, targets,start=None,end=None):
     rolling_k_list = np.array(kma_k_list, dtype=int) * -1
 
     # Feature engineering
-    df_tomorrow = move(-1, df, ["open", "high", "low", "close"])
+    df_tomorrow = FE.move(-1, df, ["open", "high", "low", "close"])
 
     df_qfq = df[cols_fq] / df["adj_factor"].iloc[0]
     df_qfq.columns = ["qfq_" + col for col in cols_fq]
     df_qfq["qfq_vol"]=df["vol"]*df["adj_factor"].iloc[0]
-    df_tomorrow_qfq = move(-1, df_qfq)
+    df_tomorrow_qfq = FE.move(-1, df_qfq)
 
     df_targets_list = []
     for t in targets:
         pred_period = t["period"]
         if t["func"] == "min":
-            df_target = rolling(t["func"], pred_period, move(-1, df, cols=t["col"]))
+            df_target = FE.rolling(t["func"], pred_period, FE.move(-1, df, cols=t["col"]))
         elif t["func"] == "max":
             # df_target = rolling(t["func"],pred_period - 1, move(-2, df, cols=t["col"]))
-            df_target = rolling(t["func"], pred_period, move(-1, df, cols=t["col"]))
+            df_target = FE.rolling(t["func"], pred_period, FE.move(-1, df, cols=t["col"]))
         elif t["func"] == "mean":
             # df_target = rolling(t["func"], pred_period - 1, move(-2, df, cols=t["col"]))
-            df_target = rolling(t["func"], pred_period, move(-1, df, cols=t["col"]))
+            df_target = FE.rolling(t["func"], pred_period, FE.move(-1, df, cols=t["col"]))
 
             # p1 = (pred_period - 1) // 3
             # p2 = p1
@@ -358,8 +159,8 @@ def FE_single_stock_d(df:pd.DataFrame, targets,start=None,end=None):
             # df_period_mean3 = rolling(t["func"], p3, move(-2 - p1 - p2, df, t["col"]))
             # df_targets_list.extend([df_period_mean1,df_period_mean2,df_period_mean3])
         elif t["func"] == "avg":
-            tmp = rolling("sum", pred_period,
-                                move(-1, df, cols=["vol","amt"],prefix=False),
+            tmp = FE.rolling("sum", pred_period,
+                                FE.move(-1, df, cols=["vol","amt"],prefix=False),
                                 prefix=False)
             # print(df_target)
             df_target = pd.DataFrame(tmp["amt"]/tmp["vol"]*10,
@@ -374,24 +175,24 @@ def FE_single_stock_d(df:pd.DataFrame, targets,start=None,end=None):
             raise ValueError("Fun type {} is not supported!".format(t["func"]))
         df_targets_list.append(df_target)
 
-    df_basic_con_chg = change_rate(move(1,df[cols_move]),df[cols_move])
-    df_basic_mv_con_chg_list = [move(i, df_basic_con_chg) for i in mv_list]
+    df_basic_con_chg = FE.chg_rate(FE.move(1, df[cols_move]), df[cols_move])
+    df_basic_mv_con_chg_list = [FE.move(i, df_basic_con_chg) for i in mv_list]
     # df_basic_mv_list = [move(i, df, cols_move) for i in mv_list]
-    df_basic_mv_cur_chg_list = [change_rate(move(i, df[cols_move]), df[cols_move])
+    df_basic_mv_cur_chg_list = [FE.chg_rate(FE.move(i, df[cols_move]), df[cols_move])
                                 for i in mv_list[2:]]
-    df_basic_candle_stick = candle_stick(df[cols_fq])
-    df_basic_mv_candle_list = [move(i, df_basic_candle_stick)
+    df_basic_candle_stick = FE.candle_stick(df[cols_fq])
+    df_basic_mv_candle_list = [FE.move(i, df_basic_candle_stick)
                            for i in mv_list]
 
 
     # df_1ma = k_MA(1, df[["vol", "amt"]])
-    df_kma_list = [k_MA(k, df[["vol", "amt","close"]]) for k in kma_k_list]
+    df_kma_list = [FE.k_MA(k, df[["vol", "amt","close"]]) for k in kma_k_list]
     df_kma_tot = pd.concat(df_kma_list,axis=1)
-    df_kma_con_chg = change_rate(move(1,df_kma_tot),df_kma_tot)
-    df_kma_mv_con_chg_list = [move(i,df_kma_con_chg) for i in mv_list]
-    df_kma_mv_cur_chg_list = [change_rate(move(i,df_kma_tot),df_kma_tot) for i in mv_list[2:]]
+    df_kma_con_chg = FE.chg_rate(FE.move(1, df_kma_tot), df_kma_tot)
+    df_kma_mv_con_chg_list = [FE.move(i,df_kma_con_chg) for i in mv_list]
+    df_kma_mv_cur_chg_list = [FE.chg_rate(FE.move(i, df_kma_tot), df_kma_tot) for i in mv_list[2:]]
     df_kma_list = [df[["avg"]]]+df_kma_list
-    df_kma_con_k_list = [change_rate(df_kma_list[i+1],df_kma_list[i]) for i in range(len(df_kma_list)-1)]
+    df_kma_con_k_list = [FE.chg_rate(df_kma_list[i + 1], df_kma_list[i]) for i in range(len(df_kma_list) - 1)]
 
     # df_kma_cur_chg_list = [change_rate(k_MA(k, df[["vol", "amt"]]), df["avg"])
     #                        for k in kma_k_list]
@@ -399,20 +200,20 @@ def FE_single_stock_d(df:pd.DataFrame, targets,start=None,end=None):
     #                            for df_kma_change in df_kma_cur_chg_list
     #                            for mv in kma_mv_list]
 
-    df_k_line_list = [k_line(k, df[cols_k_line]) for k in k_line_k_list]
+    df_k_line_list = [FE.k_line(k, df[cols_k_line]) for k in k_line_k_list]
     # df_k_line_tot = pd.concat(df_k_line_list,axis=1)
-    df_k_line_mv_con_chg_list = [move(k*mv,change_rate(move(k*1,df_k_line),df_k_line))
+    df_k_line_mv_con_chg_list = [FE.move(k * mv, FE.chg_rate(FE.move(k * 1, df_k_line), df_k_line))
                                  for k,df_k_line in zip(k_line_k_list,df_k_line_list)
                                  for mv in mv_list]
     # df_k_line_mv_con_chg_list = [move(i,df_k_line_con_chg) for i in mv_list]
-    df_k_line_mv_cur_chg_list = [change_rate(move(k*mv,df_k_line),df_k_line)
+    df_k_line_mv_cur_chg_list = [FE.chg_rate(FE.move(k * mv, df_k_line), df_k_line)
                                  for k,df_k_line in zip(k_line_k_list,df_k_line_list)
                                  for mv in mv_list[2:]]
     # [change_rate(move(i,df_k_line_tot),df_k_line_tot) for i in mv_list[2:]]
     df_k_line_list = [df[cols_k_line]] + df_k_line_list
-    df_k_line_con_k_list = [change_rate(df_k_line_list[i+1],df_k_line_list[i]) for i in range(len(df_k_line_list)-1)]
+    df_k_line_con_k_list = [FE.chg_rate(df_k_line_list[i + 1], df_k_line_list[i]) for i in range(len(df_k_line_list) - 1)]
     # df_k_line_candle_stick = pd.concat([candle_stick(df_k_line[df_k_line.columns[:5]]) for df_k_line in df_k_line_list],axis=1)
-    df_k_line_mv_candle_stick = [move(k*mv,candle_stick(df_k_line[df_k_line.columns[:5]]))
+    df_k_line_mv_candle_stick = [FE.move(k*mv,FE.candle_stick(df_k_line[df_k_line.columns[:5]]))
                                  for k,df_k_line in zip(k_line_k_list,
                                                         df_k_line_list[1:])
                                  for mv in mv_list]
@@ -424,7 +225,7 @@ def FE_single_stock_d(df:pd.DataFrame, targets,start=None,end=None):
     #                               for mv in k_line_mv_list]
 
     df_rolling_change_list = [
-        change_rate(rolling(rolling_type, days=days, df=df, cols=cols_roll),
+        FE.chg_rate(FE.rolling(rolling_type, days=days, df=df, cols=cols_roll),
                     df[cols_roll])
         for days in rolling_k_list
         for rolling_type in ["max", "min", "mean"]]
@@ -602,25 +403,25 @@ def FE_index_d(df_idx_d: pd.DataFrame, start=None):
 
         # print("df",df.index.code)
 
-        df_basic_con_chg = change_rate(move(1, df[cols_move]), df[cols_move])
-        df_basic_mv_con_chg_list = [move(i, df_basic_con_chg) for i in mv_list]
+        df_basic_con_chg = FE.chg_rate(FE.move(1, df[cols_move]), df[cols_move])
+        df_basic_mv_con_chg_list = [FE.move(i, df_basic_con_chg) for i in mv_list]
         df_basic_mv_cur_chg_list = [
-            change_rate(move(i, df[cols_move]), df[cols_move]) for i in
+            FE.chg_rate(FE.move(i, df[cols_move]), df[cols_move]) for i in
             mv_list[2:]]
-        df_basic_candle_stick = candle_stick(df[cols_fq])
-        df_basic_mv_candle_list = [move(i, df_basic_candle_stick) for i in
+        df_basic_candle_stick = FE.candle_stick(df[cols_fq])
+        df_basic_mv_candle_list = [FE.move(i, df_basic_candle_stick) for i in
                                    mv_list]
         # df_move_list = [
         #     change_rate(move(i, df, cols_move),df[cols_move]) for i in
         #     range(1, 6)]
 
         df_rolling_list = [
-            (change_rate(rolling("max",days, df,["high", "vol"]),
-                         df[["high", "vol"]],),
-             change_rate(rolling("min",days, df,["low", "vol"]),
-                         df[["low", "vol"]],),
-             change_rate(rolling("mean",days, df,["open", "close", "vol"]),
-                         df[["open", "close", "vol"]],))
+            (FE.chg_rate(FE.rolling("max", days, df, ["high", "vol"]),
+                         df[["high", "vol"]], ),
+             FE.chg_rate(FE.rolling("min", days, df, ["low", "vol"]),
+                         df[["low", "vol"]], ),
+             FE.chg_rate(FE.rolling("mean", days, df, ["open", "close", "vol"]),
+                         df[["open", "close", "vol"]], ))
             for days in rolling_k_list
         ]
 
@@ -638,7 +439,7 @@ def FE_index_d(df_idx_d: pd.DataFrame, start=None):
         #     tmp_list,axis=1,sort=False).index.code)
         # print("tmp",tmp.index.code)
         name = index_pool[index_pool["code"]==code]["shortcut"].iloc[0]
-        df_idx_list.append(_prefix(name, tmp[tmp.index>=start]))
+        df_idx_list.append(FE._prefix((name, tmp[tmp.index>=start])))
 
     # print("df_idx_list:",df_idx_list[0].index.code)
 

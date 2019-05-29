@@ -14,7 +14,7 @@ import customized_obj as cus_obj
 import db_operations as dbop
 import io_operations as IO_op
 from constants import MODEL_DIR
-from data_prepare import prepare_data, feature_select
+from data_process import prepare_data, feature_select
 
 
 def gen_data(targets=None, start="2014-01-01", lowerbound="2011-01-01", end=None, upperbound=None,

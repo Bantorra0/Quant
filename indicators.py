@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 
-import data_prepare as dp
+import data_process as dp
 import db_operations as dbop
 import constants as const
 

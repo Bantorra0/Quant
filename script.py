@@ -10,7 +10,7 @@ import numpy as np
 import db_operations as dbop
 import customized_obj as cus_obj
 import io_operations as IO_op
-import data_prepare as dp
+import data_process as dp
 import ml_model as ml
 from constants import *
 
@@ -346,11 +346,86 @@ def get_return_rate_batch(df_stock_d: pd.DataFrame, loss_limit=0.1, retracement=
     df_curr["idx"] = index.get_level_values("idx")
     mask = pd.Series(index=index)
     while df_tmp["is_selled"].all()!=True:
+        df_curr = df_curr.groupby(level="code").shift(-1)
+
+        if df_tmp.loc[df_curr["open"].notnull(),"is_selled"].all():
+            break
+
+        mask &= ((df_tmp["is_selled"] == False) & df_curr["open"].notnull())
+        df_tmp.loc[mask, "sell_price"] = df_curr.loc[mask, "open"].values
+        df_tmp.loc[mask, "is_selled"] = True
+
+        cond = (df_tmp["is_selled"] == False) & (df_tmp["max"] < df_curr["high"])
+        df_tmp.loc[cond, ["max", "max_idx"]] = df_curr.loc[cond, ["high", "idx"]].values
+
+        stop_profit_points = df_tmp["open"] * (1-loss_limit) + (df_tmp["max"] - df_tmp["open"]) * (1 - retracement_inc_pct)
+        mask = df_curr["low"] <= stop_profit_points
+
+        # Sell if max_days is not none and max_days is exceeded.
+        if max_days is not None:
+            # print(df_tmp[(df_tmp["is_selled"]==False)&(df_prev["idx"] - df_tmp["buy_idx"] >= max_days)])
+            mask |= (df_curr["idx"] - df_tmp.index.get_level_values("idx") >= max_days)
+
+        if new_high_days_limit is not None:
+            mask |= (df_curr["idx"]+1 - df_tmp["max_idx"] >= new_high_days_limit) # Buy in next day, so here we increment 1.
+
+    if is_truncated:
+        mask0 = (df_tmp["is_selled"]==False) & (~np.isnan(a_trunc_open))
+        df_tmp.loc[mask0, "sell_price"] = a_trunc_open[mask0]
+        df_tmp.loc[mask0, "is_selled"] = True
+
+    df_tmp.index = origin_index
+    return df_tmp
+
+
+
+def get_return_rate_batch2(df_stock_d: pd.DataFrame, loss_limit=0.1, retracement=0.1, retracement_inc_pct=0.25,
+                           holding_days=20, holding_threshold=0.1, max_days=60, new_high_days_limit=20, is_truncated=True):
+    # Cleaning input.
+    df_stock_d = \
+        df_stock_d[(df_stock_d["vol"] > 0)
+                   & (df_stock_d[["open", "high", "low", "close"]].notnull().all(axis=1))].copy()
+
+    df_single_stock_d_list = []
+    a_trunc_list = []
+    for code,df_single_stock_d in df_stock_d.groupby("code"):
+        k = len(df_single_stock_d)
+        df_single_stock_d=df_single_stock_d.sort_index(ascending=True)
+        df_single_stock_d["idx"] = np.arange(k)
+        df_single_stock_d_list.append(df_single_stock_d)
+
+        trunc_open = np.ones(k)*df_single_stock_d["open"].iloc[-1]
+        trunc_open[-1] = np.nan
+        a_trunc_list.append(trunc_open)
+
+    df_stock_d = pd.concat(df_single_stock_d_list,axis=0)
+    origin_index = df_stock_d.index
+    df_stock_d.reset_index(level="code", inplace=True)
+    df_stock_d.set_index(["code", "idx"], inplace=True)
+    index = df_stock_d.index
+    a_trunc_open = np.concatenate(a_trunc_list,axis=0)
+
+    # Dataframe for intermediate result(info of holding shares).
+    df_tmp = df_stock_d[["open","high"]].rename(columns={"high":"max"})
+    df_tmp["idx"] = df_tmp.index.get_level_values("idx")-1
+    df_tmp["max_idx"] = df_tmp["idx"] + 1 # Buy in next day, so here we increment 1.
+    df_tmp["is_selled"] = False
+    df_tmp.reset_index(level="code", inplace=True)
+    df_tmp.set_index(["code", "idx"], inplace=True)
+    df_tmp = df_tmp.reindex(index=index)
+
+    columns = ["open", "low","high"]
+    df_curr = df_stock_d[columns].copy()
+    df_curr["idx"] = index.get_level_values("idx")
+    mask = pd.Series(index=index)
+    while df_tmp["is_selled"].all()!=True:
         df_curr["idx0"] = df_curr.index.get_level_values("idx") - 1
         df_curr.reset_index(level="code", inplace=True)
         df_curr.set_index(["code", "idx0"],inplace=True)
         df_curr.index.rename(["code","idx"],inplace=True)
         df_curr = df_curr.reindex(index=index)
+        # df_curr = df_curr.groupby(level="code").shift(-1)
+
 
         if df_tmp.loc[df_curr["open"].notnull(),"is_selled"].all():
             # print("all selled")
@@ -659,26 +734,33 @@ if __name__ == '__main__':
     # print(r)
 
     cursor = dbop.connect_db("sqlite3").cursor()
-    start = 20130101
+    start = 20180101
     df = dbop.create_df(cursor, STOCK_DAY[TABLE],
                         start=start,
-                        where_clause="code in ('002349.SZ','600352.SH','600350.SH','600001.SH')",
+                        # where_clause="code in ('002349.SZ','600352.SH','600350.SH','600001.SH')",
                         # where_clause="code='600350.SH'",
                         )
-    df = dp.prepare_each_stock(dp.prepare_stock_d(df))
+    df = dp.proc_stock_d(dp.prepare_stock_d(df))
+
+    # print(df.columns)
+    # print((df[["open","close"]].groupby(level="code").rolling(5).mean().reset_index(level=0,drop=True)))
     print(df.shape)
     t0=time.time()
     r_batch = get_return_rate_batch(df)
     print(time.time()-t0)
-    r_list = []
-    for code, group in df.groupby(level="code"):
-        print(time.time() - t0)
-        r_list.append(get_return_rate3(group))
+    t0 = time.time()
+    r_batch2 = get_return_rate_batch2(df)
     print(time.time()-t0)
-    r3 = pd.concat(r_list,axis=0)
-    # result = pd.concat([r_batch,r3],axis=1)
-    print(r_batch[r_batch["sell_price"]!=r3["sell_price"]])
-    print(r3[r_batch["sell_price"]!= r3["sell_price"]])
+    print(r_batch[r_batch["sell_price"]!=r_batch2["sell_price"]])
+    # r_list = []
+    # for code, group in df.groupby(level="code"):
+    #     print(time.time() - t0)
+    #     r_list.append(get_return_rate3(group))
+    # print(time.time()-t0)
+    # r3 = pd.concat(r_list,axis=0)
+    # # result = pd.concat([r_batch,r3],axis=1)
+    # print(r_batch[r_batch["sell_price"]!=r3["sell_price"]])
+    # print(r3[r_batch["sell_price"]!= r3["sell_price"]])
 
     # r3 = get_return_rate3(df)
     # print(time.time()-t0)
@@ -690,7 +772,7 @@ if __name__ == '__main__':
     # # print(df)
     # print(df[df[0]!=df["sell_price"]].dropna())
 
-    test_get_return_rate_batch()
+    # test_get_return_rate_batch()
     # test_get_return_rate3()
 
 
