@@ -167,15 +167,12 @@ def rolling_batch(ops, days, df: pd.DataFrame,
         pre = "f{}".format(abs(days))
     else:
         raise ValueError("days==0 is illegal!")
+    window = abs(days)
 
     results = {op:[] for op in ops}
-    window = abs(days)
-    # results=[]
     for _, group in df.groupby(level="code"):
-        # results.append(group.rolling(window=window)).agg(ops)
         for op in ops:
             results[op].append(group.rolling(window=window).agg(op))
-    # result = pd.concat(results,axis=0)
 
     if prefix:
         result = pd.concat(
@@ -184,7 +181,63 @@ def rolling_batch(ops, days, df: pd.DataFrame,
     else:
         result = pd.concat(
             [pd.concat(results[op], axis=0) for op in ops],axis=1)
-        # result.columns = result.columns.get_level_values(0)
+    return result
+
+
+def rolling_batch2(ops, days, df: pd.DataFrame,
+                  prefix=True, sort=False):
+    """
+    A wrapper of df.rolling. Current date is included when using arg days, e.g.
+    days=-5 means the window is current date and previous 4 days, days=5
+    means currate date and future 4 days.
+
+    :param ops:
+    :param days:
+    :param df:
+    :param cols:
+    :param prefix:
+    :return:
+    """
+    _check_int(days)
+    ops = _make_iterable(ops)
+
+    if sort:
+        df = df.sort_index(ascending=True)
+
+    if days>0:
+        pre = "p{}".format(abs(days))
+    elif days<0:
+        df = df.sort_index(ascending=False)
+        pre = "f{}".format(abs(days))
+    else:
+        raise ValueError("days==0 is illegal!")
+    window = abs(days)
+
+    # results = {op:[] for op in ops}
+    # for _, group in df.groupby(level="code"):
+    #     for op in ops:
+    #         results[op].append(group.rolling(window=window).agg(op))
+    #
+    # if prefix:
+    #     result = pd.concat(
+    #         [pd.concat(results[op],axis=0).rename(columns={col:pre+op+"_"+col for col in df.columns}) for op in ops],
+    #         axis=1)
+    # else:
+    #     result = pd.concat(
+    #         [pd.concat(results[op], axis=0) for op in ops],axis=1)
+
+    results=[group.rolling(window=window).agg(ops)
+             for _, group in df.groupby(level="code")]
+    columns = results[0].columns
+    result = pd.concat(results,axis=0)
+    cols1,cols2 = columns.get_level_values(0),\
+                  columns.get_level_values(1)
+
+    if prefix:
+        result.columns = [pre+s2+"_"+s1 for s1,s2 in zip(cols1,cols2)]
+    else:
+        result.columns = [s1 for s1,_ in zip(cols1,cols2)]
+    # print(result.columns)
     return result
 
 
@@ -350,7 +403,8 @@ def k_MA_batch(k:int, df:pd.DataFrame, sort=True):
     if sort:
         df = df.sort_index()
 
-    df_result = pd.concat([group.rolling(k).sum() for _,group in df[["vol","amt"]].groupby(level="code")])
+    df_result = pd.concat([group.rolling(k).sum() for _,group in df[["vol",
+                                                                     "amt"]].groupby(level="code")])
     df_result.rename(columns={col:"{}MA_".format(k)+col for col in df_result.columns},inplace=True)
 
     df_result["{}MA".format(k)] = df_result["{}MA_amt".format(k)]/df_result["{}MA_vol".format(k)]*10
@@ -632,7 +686,7 @@ def stock_d_FE_batch(df:pd.DataFrame, targets,start=None,end=None):
 
     # df_1ma = k_MA(1, df[["vol", "amt"]])
     df_kma_list = [k_MA_batch(k, df[["vol", "amt","close"]]) for k in kma_k_list]
-    df_kma_tot = pd.concat(df_kma_list,axis=1)
+    df_kma_tot = pd.concat(df_kma_list,axis=1,sort=False)
     df_kma_con_chg = chg_rate_batch(move_batch(1, df_kma_tot), df_kma_tot)
     df_kma_mv_con_chg_list = [move_batch(i,df_kma_con_chg) for i in mv_list]
     df_kma_mv_cur_chg_list = [chg_rate_batch(move_batch(i, df_kma_tot), df_kma_tot) for i in mv_list[2:]]
@@ -658,14 +712,22 @@ def stock_d_FE_batch(df:pd.DataFrame, targets,start=None,end=None):
                                  for mv in mv_list]
 
     ops = ["max", "min", "mean"]
+
+    # df_rolling_change_list = [
+    #     chg_rate_batch(rolling_batch(ops, days=days, df=df[cols_roll]),
+    #              pd.concat([df[cols_roll]]*len(ops),axis=1))
+    #     for days in rolling_k_list]
+
+    rolling_batch_cols = []
+    [rolling_batch_cols.extend([col]*len(ops)) for col in cols_roll]
+    # print(rolling_batch_cols)
     df_rolling_change_list = [
-        chg_rate_batch(rolling_batch(ops, days=days, df=df[cols_roll]),
-                 pd.concat([df[cols_roll]]*len(ops),axis=1))
+        chg_rate_batch(rolling_batch2(ops, days=days, df=df[cols_roll]),
+                       df[rolling_batch_cols])
         for days in rolling_k_list]
 
     df_not_in_X = pd.concat(
         [df_qfq, df_tomorrow, df_tomorrow_qfq] + df_targets_list, axis=1, sort=False)
-
 
     df_stck = pd.concat([df]
                         + df_basic_mv_cur_chg_list
@@ -692,13 +754,17 @@ if __name__ == '__main__':
     from constants import *
     import data_process as dp
     cursor = dbop.connect_db("sqlite3").cursor()
-    start = 20180101
+    start = 20130101
     df = dbop.create_df(cursor, STOCK_DAY[TABLE],
                         start=start,
                         # where_clause="code in ('002349.SZ','600352.SH','600350.SH','600001.SH')",
                         # where_clause="code='600350.SH'",
                         )
     df = dp.proc_stock_d(dp.prepare_stock_d(df))
+    print(df.shape)
+    import collect
+    pool = sorted(collect.get_stock_pool())[:5]
+    df = df.loc[IDX[:,pool],:]
     print(df.shape)
 
     n = 5
@@ -709,12 +775,12 @@ if __name__ == '__main__':
     import time
     # df_mv = move_batch(5,df,sort=False)
     t0 = time.time()
-    df_candle_stick_batch = candle_stick_batch(df[cols])
+    [group for _,group in df.groupby("code")]
     print(time.time() - t0)
-    t0=time.time()
-    df_candle_stick = candle_stick(df[cols])
-    print(time.time()-t0)
-    print((df_candle_stick==df_candle_stick_batch).all().all())
+    # t0=time.time()
+    # df_candle_stick = candle_stick(df[cols])
+    # print(time.time()-t0)
+    # print((df_candle_stick==df_candle_stick_batch).all().all())
 
     # print(time.time()-t0)
     # print((actual == expected).all().all())

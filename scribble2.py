@@ -16,9 +16,9 @@ if __name__ == '__main__':
                         # where_clause="code='600352.SH'",
                         )
     df = dp.proc_stock_d(dp.prepare_stock_d(df))
-    print(df.shape)
-    import collect
-    # pool = list(collect.get_stock_pool())[:10]
+    # print(df.shape)
+    # import collect
+    # pool = sorted(collect.get_stock_pool())[:5]
     # print(len(pool))
     # print(pool)
     # df = df.loc[FE.IDX[:,pool],:]
@@ -29,7 +29,7 @@ if __name__ == '__main__':
     # expected = pd.concat([move(n, group) for _, group in df[cols].groupby(level="code")])\
     #     .dropna().sort_index()
 
-    delta = 1e-8
+    delta = 1e-5
     # cols = ["close","vol","amt"]
     # cols = ["open", "high", "low", "close","vol","amt"]
     k = 5
@@ -46,12 +46,12 @@ if __name__ == '__main__':
     t0 = time.time()
     # actual = FE.k_line_batch(k,df[cols],sort=False).dropna().sort_index()
     actual,_ = FE.stock_d_FE_batch(df,targets=targets)
-    actual = actual.sort_index().fillna(0)
     print(time.time()-t0)
+    actual = actual.sort_index().replace({float("inf"):9999, np.nan:0})
     t0=time.time()
-    expected = pd.concat([FE.stock_d_FE(group,targets=targets)[0] for _,group in df.groupby(level="code")])\
-        .sort_index().fillna(0)
+    expected = pd.concat([FE.stock_d_FE(group,targets=targets)[0] for _,group in df.groupby(level="code")])
     print(time.time()-t0)
+    expected = expected.sort_index().replace({float("inf"):9999, np.nan:0})
     print(expected.shape,actual.shape)
     print(sorted(actual.columns))
     print("\n")
@@ -61,9 +61,9 @@ if __name__ == '__main__':
     # print((expected == actual).all().all())
     print(((expected - actual).abs() < delta).all().all())
     # print((expected - actual).abs())
-    # print(((expected - actual).abs() >=delta).sum().sum())
-    # row_mask = ~((expected - actual).abs() < delta).all(axis=1)
-    # column_mask = ~((expected - actual).abs() < delta).all(axis=0)
-    # print(row_mask.sum(),column_mask.sum())
-    # print(actual.loc[row_mask,column_mask])
-    # print(expected.loc[row_mask,column_mask])
+    print(((expected - actual).abs() >=delta).sum().sum())
+    column_mask = ~((expected - actual).abs() < delta).all(axis=0)
+    row_mask = ~((expected - actual).abs() < delta).all(axis=1)
+    print(row_mask.sum(),column_mask.sum())
+    print(actual.loc[row_mask,column_mask])
+    print(expected.loc[row_mask,column_mask])
