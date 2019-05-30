@@ -99,7 +99,8 @@ class FETestCase(unittest.TestCase):
             self.assertTrue(((expected - actual).abs() < delta).all().all())
 
     def test_stock_d_FE_batch(self):
-        delta = 1e-8
+        epsilon = 1e-4
+        delta = 1e-4
 
         targets = [{"period": 20, "func": "max", "col": "high"},
                    {"period": 20, "func": "min", "col": "low"},
@@ -114,8 +115,10 @@ class FETestCase(unittest.TestCase):
 
         expected = pd.concat([FE.stock_d_FE(group, targets=targets)[0] for _, group in self.df.groupby(level="code")]) \
             .sort_index().fillna(0)
+        error = (expected - actual).abs() / (expected + epsilon)
+        test_cond = error<delta
 
-        self.assertTrue(((expected - actual).abs() < delta).all().all())
+        self.assertTrue(test_cond.all().all())
 
 
 if __name__ == '__main__':

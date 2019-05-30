@@ -325,6 +325,7 @@ def get_return_rate_batch(df_stock_d: pd.DataFrame, loss_limit=0.1, retracement=
         trunc_open[-1] = np.nan
         a_trunc_list.append(trunc_open)
 
+    print(len(df_single_stock_d_list))
     df_stock_d = pd.concat(df_single_stock_d_list,axis=0)
     origin_index = df_stock_d.index
     df_stock_d.reset_index(level="code", inplace=True)
@@ -376,7 +377,6 @@ def get_return_rate_batch(df_stock_d: pd.DataFrame, loss_limit=0.1, retracement=
 
     df_tmp.index = origin_index
     return df_tmp
-
 
 
 def get_return_rate_batch2(df_stock_d: pd.DataFrame, loss_limit=0.1, retracement=0.1, retracement_inc_pct=0.25,
@@ -565,174 +565,7 @@ def test_get_return_rate_batch():
     print(df[df[0] != df["sell_price"]][[0, "sell_price"]])
 
 
-if __name__ == '__main__':
-    # update_dataset()
-    #
-    # pd.set_option("display.max_columns", 10)
-    # pd.set_option("display.max_rows", 256)
-    # base_dir = "predict_results"
-    #
-    # cols_category = ["area", "market", "exchange", "is_hs"]
-    # ycol1, ycol2, ycol3, ycol4 = "y_l_r", "y_l", "y_l_avg", "y_l_rise"
-    #
-    # reg_params = [
-    #     {"n_estimators": 10, "learning_rate": 2, "num_leaves": 15,
-    #      "max_depth": 8,
-    #      "objective": cus_obj.custom_revenue_obj,
-    #      "min_child_samples": 30, "random_state": 0, },
-    #     {"n_estimators": 10, "learning_rate": 2, "num_leaves": 15,
-    #      "max_depth": 8,
-    #      "objective": cus_obj.custom_revenue2_obj,
-    #      "min_child_samples": 30, "random_state": 0, },
-    #     {"n_estimators": 25, "learning_rate": 0.2, "num_leaves": 31,
-    #      "max_depth": 12,
-    #      "min_child_samples": 30, "random_state": 0, },
-    #     {"n_estimators": 50, "learning_rate": 0.1, "num_leaves": 31,
-    #      "max_depth": 12,
-    #      "min_child_samples": 30, "random_state": 0, },
-    # ]
-    # objs = [("custom_revenue",
-    #          {"f_revenue": cus_obj.custom_revenue,
-    #           "y_transform": cus_obj.custom_revenu_transform}),
-    #         ("custom_revenue2",
-    #          {"f_revenue": cus_obj.custom_revenue2,
-    #           "y_transform": cus_obj.custom_revenu2_transform}),
-    #         ("l2", {"f_revenue": cus_obj.l2_revenue}),
-    #         ("l2", {"f_revenue": cus_obj.l2_revenue})
-    #         ]
-    # targets = ["y_l_rise", "y_s_rise",
-    #            "y_l_decline", "y_s_decline",
-    #            "y_l_avg", "y_s_avg",
-    #            "y_l", "y_l_r"]
-    # #
-    # layer0 = {}
-    # for target in targets[:6]:
-    #     layer0.update(
-    #         {obj_type + "_" + target: (lgbm.LGBMRegressor(**kwargs), {**obj_dict, "target": target})
-    #          for (obj_type, obj_dict), kwargs in
-    #          zip(objs[:2], reg_params[:2])})
-    # # del layer0["l2_y_l"]
-    #
-    # layer1 = {}
-    # for target in targets[:6]:
-    #     layer1.update(
-    #         {obj_type + "_" + target: (lgbm.LGBMRegressor(**kwargs), {**obj_dict, "target": target})
-    #          for (obj_type, obj_dict), kwargs in zip(objs[2:3], reg_params[2:3])})
-    #
-    # layer2 = {}
-    # for target in targets[-1:]:
-    #     layer2.update(
-    #         {obj_type + "_" + target: (lgbm.LGBMRegressor(**kwargs), {**obj_dict, "target": target})
-    #          for (obj_type, obj_dict), kwargs in zip(objs[-1:], reg_params[-1:])})
-    # layers = [layer0,layer1, layer2]
-    #
-    # lgbm_reg_net = ml.RegressorNetwork()
-    # lgbm_reg_net.insert_multiple_layers(layers)
-    #
-    # paras = {"fit": {"categorical_feature": cols_category}}
-    # for i in range(lgbm_reg_net.get_num_layers()):
-    #     X, Y, _ = IO_op.read_hdf5(start="2013-01-01", end="2019-02-10",
-    #                               subsample="10-{0}".format(i))
-    #     print(X.info(memory_usage="deep"))
-    #     del X["industry"]
-    #
-    #     Y["y_l_r"] = Y.apply(
-    #         lambda r: r["y_l_rise"] if r["y_l_avg"] > 0 else r["y_l_decline"],
-    #         axis=1) * 0.75 + 0.25 * Y["y_l_avg"].values
-    #     print(Y[Y["y_l_avg"].isnull()].shape)
-    #     print(Y[Y["y_l_avg"].isnull()].iloc[:20])
-    #
-    #     cond = Y.notnull().all(axis=1)
-    #     X = X[cond]
-    #     Y = Y[cond]
-    #
-    #     trading_dates = Y.index.unique().sort_values(ascending=True)
-    #     train_dates = trading_dates[:-21]
-    #     X = X.loc[train_dates]
-    #     Y = Y.loc[train_dates]
-    #     print("Train dates:{0}-{1}".format(min(train_dates),max(train_dates)))
-    #     print(X.shape)
-    #
-    #     if i>0:
-    #         for j in range(i):
-    #             features, _ = lgbm_reg_net.predict_layer(j, X)
-    #             X = pd.concat([X, features], axis=1)
-    #
-    #     lgbm_reg_net.fit_layer(i,X,Y[ycol1],**paras)
-    #     del X,Y
-    #
-    # model_dir = "models"
-    # model_f_name = "lgbm_reg_net"
-    # model_path = os.path.join(model_dir, model_f_name + "_{0}".format(
-    #     datetime.datetime.now().strftime("%Y%m%d")))
-    # with open(model_path, mode="wb") as f:
-    #     pickle.dump(lgbm_reg_net, f)
-    #
-    # X, _, df_other = IO_op.read_hdf5(start="2019-01-01", end="2020-01-01",
-    #                           # subsample="1-0"
-    #                                  )
-    # print(X.info(memory_usage="deep"))
-    # del X["industry"]
-    # predict_dates = sorted(X.index.unique())[-20:]
-    # df_all = pd.concat([X,df_other[["code"]]],axis=1).loc[predict_dates]
-    # X = df_all[df_all.columns.difference(["code"])]
-    # df_codes = df_all[["code"]]
-    #
-    # for i in range(lgbm_reg_net.get_num_layers()):
-    #     result = lgbm_reg_net.predict(X,i+1)
-    #     df = pd.concat([df_codes,result],axis=1)
-    #     f_name = "result_{0}_layer{1}.csv".format(max(predict_dates),i)
-    #     df.to_csv(os.path.join(base_dir,f_name))
-    #     cols = [col for col in df.columns if col[-4:] != "leaf"]
-    #     df[cols].to_csv(os.path.join(base_dir, "pred_" + f_name))
-
-
-    # df = pd.DataFrame(np.random.normal(10,2,size=(1000,4)),columns=["open","high","low","close"])
-    # df["vol"]=100
-    # t0 = time.time()
-    # r1 = get_return_rate(df)
-    # print("Get return rate time:",time.time()-t0)
-    # t0 = time.time()
-    # r2 = get_return_rate2(df)
-    # print("Get return rate time2:",time.time()-t0)
-    # print((r1.sort_index()==r2.sort_index()).all())
-    # # print(r2)
-
-
-    # X, _, df_other = IO_op.read_hdf5(start="2019-01-01", end="2020-01-01",
-    #                                  # subsample="1-0"
-    #                                  )
-    # print(X.info(memory_usage="deep"))
-    # del X["industry"]
-    # # predict_dates = sorted(X.index.unique())[-20:]
-    # fq_cols = ["open", "high", "low", "close", "avg", "vol"]
-    # # print(list(X.columns))
-    # cols = ["code"] + [col + "0" for col in fq_cols] + ["amt"] +fq_cols+["f1mv_open"]
-    # df_all = pd.concat([X, df_other], axis=1)[cols]
-    #
-    # df_all = df_all.reset_index().set_index(["code", "date"]).sort_index()
-    # idx = pd.IndexSlice
-    # codes = ['603713.SH',
-    #          '000806.SZ',
-    #          '600919.SH',
-    #          '603228.SH',
-    #          '002879.SZ',
-    #          '300134.SZ',
-    #          '300045.SZ']
-    # df = df_all.loc[idx[codes, :]]
-    # for code, group in df.groupby(level="code"):
-    #     # print(group)
-    #     print(group.reset_index("code").loc[-20:])
-    #
-    # df = df.loc[idx[codes[0], :], fq_cols].reset_index("code")
-    # t0 = time.time()
-    # r = get_return_rate(df)
-    # print("t1:", time.time() - t0)
-    # t0 = time.time()
-    # get_return_rate2(df)
-    # print("t2:", time.time() - t0)
-    # print(r)
-
+def test_get_return():
     cursor = dbop.connect_db("sqlite3").cursor()
     start = 20180101
     df = dbop.create_df(cursor, STOCK_DAY[TABLE],
@@ -742,16 +575,14 @@ if __name__ == '__main__':
                         )
     df = dp.proc_stock_d(dp.prepare_stock_d(df))
 
-    # print(df.columns)
-    # print((df[["open","close"]].groupby(level="code").rolling(5).mean().reset_index(level=0,drop=True)))
     print(df.shape)
-    t0=time.time()
+    t0 = time.time()
     r_batch = get_return_rate_batch(df)
-    print(time.time()-t0)
+    print(time.time() - t0)
     t0 = time.time()
     r_batch2 = get_return_rate_batch2(df)
-    print(time.time()-t0)
-    print(r_batch[r_batch["sell_price"]!=r_batch2["sell_price"]])
+    print(time.time() - t0)
+    print(r_batch[r_batch["sell_price"] != r_batch2["sell_price"]])
     # r_list = []
     # for code, group in df.groupby(level="code"):
     #     print(time.time() - t0)
@@ -774,6 +605,14 @@ if __name__ == '__main__':
 
     # test_get_return_rate_batch()
     # test_get_return_rate3()
+
+
+if __name__ == '__main__':
+    # test_get_return()
+    df_r = pd.read_parquet(r"database\return")
+    print(df_r.info(memory_usage="deep"))
+    print(df_r.head(5))
+
 
 
 

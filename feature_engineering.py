@@ -1,6 +1,10 @@
 import numpy as np
 import pandas as pd
+import multiprocessing as mp
+import queue
+import time
 
+import collect
 
 IDX = pd.IndexSlice
 
@@ -270,7 +274,7 @@ def chg_rate(df1: pd.DataFrame, df2: pd.DataFrame, cols1=None,
     cols = ["({1}/{0}-1)".format(c1, c2) for c1, c2 in zip(cols1, cols2)]
     df3.columns = cols
     # Round to two decimals and convert to float16 to save memory.
-    return df3.round(4).astype('float16')
+    return df3.astype('float16')
 
 
 def chg_rate_batch(df1: pd.DataFrame, df2: pd.DataFrame, sort=True):
@@ -289,8 +293,8 @@ def chg_rate_batch(df1: pd.DataFrame, df2: pd.DataFrame, sort=True):
     result = pd.DataFrame(index=df1.index,columns=cols)
     result.iloc[:] = (df2.values/df1.values-1)*100
     # Round to two decimals and convert to float16 to save memory.
-    return result.round(4).astype('float16')
-
+    return result.astype('float16')
+    # return result
 
 def candle_stick(df:pd.DataFrame):
     df_result = pd.DataFrame(index=df.index)
@@ -329,7 +333,7 @@ def candle_stick(df:pd.DataFrame):
         (stick_bottom - df[low]) / df[avg]
 
     df_result = df_result*100
-    return df_result.round(4).astype('float16')
+    return df_result.astype('float16')
 
 
 def candle_stick_batch(df:pd.DataFrame):
@@ -363,7 +367,8 @@ def candle_stick_batch(df:pd.DataFrame):
         (stick_bottom - df[low])
 
     df_result = df_result*100 / (df[avg].values.reshape(-1,1).dot(np.ones((1,df_result.shape[1]))))
-    return df_result.round(4).astype('float16')
+    return df_result.astype('float16')
+    # return df_result
 
 
 def k_MA(k:int, df:pd.DataFrame):
@@ -745,8 +750,61 @@ def stock_d_FE_batch(df:pd.DataFrame, targets,start=None,end=None):
                         , axis=1, sort=False)
 
     cols_not_in_X = list(df_not_in_X.columns)
+
+    # cols_to_round = [col for col in df_stck.columns if "/" in col]
+    # print(len(cols_to_round))
+    # df_stck[cols_to_round] = df_stck[cols_to_round].astype("float16")
+
     df_stck = df_stck.loc[IDX[start:end, :], :]
     return df_stck, cols_not_in_X
+
+
+def mp_batch(df, target: callable, batch_size=10, print_freq=1, num_reserved_cpu=1,**kwargs):
+    num_p = mp.cpu_count()-num_reserved_cpu
+    p_pool = mp.Pool(processes=mp.cpu_count())
+    q_res = queue.Queue()
+    count_in,count_out = 0,0
+
+    pool = sorted(df.index.levels[1])
+    n,k = len(pool),batch_size
+    groups = [df.loc[IDX[:,pool[i*k:(i+1)*k]],:] for i in range(int(n/k)+1)]
+    df_result_list = []
+    other_result = None
+
+    start_time = time.time()
+    for gp in groups:
+        print(gp.shape)
+        q_res.put(p_pool.apply_async(func=target, args=(gp,), kwds=kwargs))
+        count_in+=1
+
+        if count_in>=num_p:
+            res = q_res.get()
+            result = res.get()
+            if type(result)!=tuple:
+                result = (result,)
+            df_result_list.append(result[0])
+            if other_result is None and len(result)>1:
+                other_result = result[1:]
+            q_res.task_done()
+            count_out += 1
+
+        if count_out % print_freq==0 and count_out>0:
+            print("{0}: Finish processing {1} group(s) in {2:.2f}s.".format(target.__name__,count_out, time.time() - start_time))
+
+    while not q_res.empty():
+        res = q_res.get()
+        df_result_list.append(res.get())
+        q_res.task_done()
+        count_out += 1
+    del q_res
+
+    df_result = pd.concat(df_result_list, sort=False,axis=0)
+    print("{0}: Total processing time for {1} groups:{2:.2f}s".format(target.__name__,count_out, time.time() - start_time))
+    print("in",count_in,"out",count_out)
+    print("Shape of resulting dataframe:",df_result.shape)
+    # df_result.index.name = "date"
+
+    return df_result,other_result
 
 
 if __name__ == '__main__':
@@ -754,29 +812,33 @@ if __name__ == '__main__':
     from constants import *
     import data_process as dp
     cursor = dbop.connect_db("sqlite3").cursor()
-    start = 20130101
+    start = 20190101
     df = dbop.create_df(cursor, STOCK_DAY[TABLE],
                         start=start,
                         # where_clause="code in ('002349.SZ','600352.SH','600350.SH','600001.SH')",
                         # where_clause="code='600350.SH'",
                         )
     df = dp.proc_stock_d(dp.prepare_stock_d(df))
+    # print(df.shape)
+    # import collect
+    # pool = sorted(collect.get_stock_pool())[:5]
+    # df = df.loc[IDX[:,pool],:]
     print(df.shape)
-    import collect
-    pool = sorted(collect.get_stock_pool())[:5]
-    df = df.loc[IDX[:,pool],:]
-    print(df.shape)
+    import script
+    df_r,_ = mp_batch(df,target=script.get_return_rate_batch,batch_size=50,num_reserved_cpu=2)
 
-    n = 5
-    cols = ["open", "high", "low", "close","avg"]
-    # # expected = pd.concat([move(n, group) for _, group in df[cols].groupby(level="code")])\
-    # #     .dropna().sort_index()
-    # df,_ = add_int_idx(df)
-    import time
-    # df_mv = move_batch(5,df,sort=False)
-    t0 = time.time()
-    [group for _,group in df.groupby("code")]
-    print(time.time() - t0)
+
+
+    # n = 5
+    # cols = ["open", "high", "low", "close","avg"]
+    # # # expected = pd.concat([move(n, group) for _, group in df[cols].groupby(level="code")])\
+    # # #     .dropna().sort_index()
+    # # df,_ = add_int_idx(df)
+    # import time
+    # # df_mv = move_batch(5,df,sort=False)
+    # t0 = time.time()
+    # [group for _,group in df.groupby("code")]
+    # print(time.time() - t0)
     # t0=time.time()
     # df_candle_stick = candle_stick(df[cols])
     # print(time.time()-t0)

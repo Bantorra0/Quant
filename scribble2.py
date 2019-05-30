@@ -12,7 +12,7 @@ if __name__ == '__main__':
     start = 20130101
     df = dbop.create_df(cursor, STOCK_DAY[TABLE],
                         start=start,
-                        where_clause="code in ('002349.SZ','600352.SH','600350.SH','600001.SH')",
+                        # where_clause="code in ('002349.SZ','600352.SH','600350.SH','600001.SH')",
                         # where_clause="code='600352.SH'",
                         )
     df = dp.proc_stock_d(dp.prepare_stock_d(df))
@@ -29,7 +29,8 @@ if __name__ == '__main__':
     # expected = pd.concat([move(n, group) for _, group in df[cols].groupby(level="code")])\
     #     .dropna().sort_index()
 
-    delta = 1e-5
+    delta = 5e-4
+    epsilon = 1e-4
     # cols = ["close","vol","amt"]
     # cols = ["open", "high", "low", "close","vol","amt"]
     k = 5
@@ -45,8 +46,11 @@ if __name__ == '__main__':
     import time
     t0 = time.time()
     # actual = FE.k_line_batch(k,df[cols],sort=False).dropna().sort_index()
-    actual,_ = FE.stock_d_FE_batch(df,targets=targets)
+    # actual,_ = FE.stock_d_FE_batch(df,targets=targets)
+    k = 5
+    actual,_ = FE.mp_batch(df=df,target=FE.stock_d_FE_batch,batch_size=k,targets=targets)
     print(time.time()-t0)
+    print(actual.info(memory_usage="deep"))
     actual = actual.sort_index().replace({float("inf"):9999, np.nan:0})
     t0=time.time()
     expected = pd.concat([FE.stock_d_FE(group,targets=targets)[0] for _,group in df.groupby(level="code")])
@@ -58,12 +62,16 @@ if __name__ == '__main__':
     print(sorted(expected.columns))
     print(sorted(actual.columns)==sorted(expected.columns))
 
+    error = (expected - actual).abs()/(expected+epsilon)
+    test_cond = error<delta
+
     # print((expected == actual).all().all())
-    print(((expected - actual).abs() < delta).all().all())
+    print(test_cond.all().all())
     # print((expected - actual).abs())
-    print(((expected - actual).abs() >=delta).sum().sum())
-    column_mask = ~((expected - actual).abs() < delta).all(axis=0)
-    row_mask = ~((expected - actual).abs() < delta).all(axis=1)
+    print((~test_cond).sum().sum())
+    column_mask = ~test_cond.all(axis=0)
+    row_mask = ~test_cond.all(axis=1)
     print(row_mask.sum(),column_mask.sum())
     print(actual.loc[row_mask,column_mask])
     print(expected.loc[row_mask,column_mask])
+    print(error.loc[row_mask,column_mask])

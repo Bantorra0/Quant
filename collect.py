@@ -531,9 +531,10 @@ def update_stock_list(stock_pool=None, db_type="sqlite3",cursor=None):
 
 
 def get_stock_pool():
-    with open(r"database\stock_d_stock_list","rb") as f:
-        stock_pool = pickle.load(f)
-    return stock_pool
+    # with open(r"database\stock_d_stock_list","rb") as f:
+    #     stock_pool = pickle.load(f)
+    df = pd.read_csv(r"database\\stock_list.csv")
+    return df
 
 
 def get_index_pool():
@@ -564,9 +565,5 @@ if __name__ == '__main__':
 
     # init_table(const.STOCK_DAILY_BASIC[const.TABLE],db_type=db_type)
     update_stock_daily_basic(stock_pool=stock_pool,db_type=db_type,update=True)
-
-    # dc.fillna_stock_day(db_type=db_type,start="2000-01-01")
-
-
 
 
