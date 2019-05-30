@@ -4,8 +4,7 @@ import multiprocessing as mp
 import queue
 import time
 
-import collect
-
+np.seterr(divide='ignore', invalid='ignore')
 IDX = pd.IndexSlice
 
 
@@ -825,7 +824,9 @@ if __name__ == '__main__':
     # df = df.loc[IDX[:,pool],:]
     print(df.shape)
     import script
-    df_r,_ = mp_batch(df,target=script.get_return_rate_batch,batch_size=50,num_reserved_cpu=2)
+    df_r, _ = mp_batch(df,target=script.get_return_rate_batch,batch_size=50,
+                       num_reserved_cpu=0)
+    df_r.to_parquet(r"database\return_info",engine="pyarrow")
 
 
 
