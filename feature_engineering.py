@@ -623,7 +623,7 @@ def stock_d_FE(df:pd.DataFrame, targets,start=None,end=None):
     return df_stck, cols_not_in_X
 
 
-def stock_d_FE_batch(df:pd.DataFrame, targets,start=None,end=None):
+def stock_d_FE_batch(df:pd.DataFrame, targets,start=None,end=None,fe_list=None):
     df.sort_index(inplace=True)
 
     # Parameter setting
@@ -646,109 +646,128 @@ def stock_d_FE_batch(df:pd.DataFrame, targets,start=None,end=None):
 
     rolling_k_list = np.array(kma_k_list, dtype=int)
 
-    # ture engineering
-    df_tomorrow = move_batch(-1, df[["open", "high", "low", "close"]])
+    df_fe_list = []
 
-    adj_factor = df["adj_factor"].groupby(level="code").transform(lambda x:np.ones(len(x))*x.iloc[-1])
-    # print(adj_factor.head(5))
-    df_qfq = df[cols_fq] / (adj_factor.values.reshape(-1,1) * np.ones((1,len(cols_fq))))
+    cols_not_in_X=None
+    if fe_list is None or fe_list["not_in_X"]:
+        df_tomorrow = move_batch(-1, df[["open", "high", "low", "close"]])
 
-    df_qfq.columns = ["qfq_" + col for col in cols_fq]
-    df_qfq["qfq_vol"]=df["vol"]*adj_factor.values
-    df_tomorrow_qfq = move_batch(-1, df_qfq)
+        adj_factor = df["adj_factor"].groupby(level="code").transform(lambda x:np.ones(len(x))*x.iloc[-1])
+        df_qfq = df[cols_fq] / (adj_factor.values.reshape(-1,1) * np.ones((1,len(cols_fq))))
 
-    df_targets_list = []
-    for t in targets:
-        pred_period = t["period"]
-        cols = [t["col"]]
-        if t["func"] == "min":
-            df_target = rolling_batch(t["func"], -pred_period, move_batch(-1, df[cols]))
-        elif t["func"] == "max":
-            df_target = rolling_batch(t["func"], -pred_period, move_batch(-1, df[cols]))
-        elif t["func"] == "mean":
-            df_target = rolling_batch(t["func"], -pred_period, move_batch(-1, df[cols]))
+        df_qfq.columns = ["qfq_" + col for col in cols_fq]
+        df_qfq["qfq_vol"]=df["vol"]*adj_factor.values
+        df_tomorrow_qfq = move_batch(-1, df_qfq)
 
-        elif t["func"] == "avg":
-            tmp = rolling_batch("sum", -pred_period,
-                                move_batch(-1, df[["vol","amt"]],prefix=False),
-                                prefix=False)
-            df_target = pd.DataFrame(tmp["amt"]/tmp["vol"]*10,
-                                     columns=["f{}avg_f1mv".format(
-                                         pred_period)])
-        else:
-            raise ValueError("Fun type {} is not supported!".format(t["func"]))
-        df_targets_list.append(df_target)
+        df_targets_list = []
+        for t in targets:
+            pred_period = t["period"]
+            cols = [t["col"]]
+            if t["func"] == "min":
+                df_target = rolling_batch(t["func"], -pred_period, move_batch(-1, df[cols]))
+            elif t["func"] == "max":
+                df_target = rolling_batch(t["func"], -pred_period, move_batch(-1, df[cols]))
+            elif t["func"] == "mean":
+                df_target = rolling_batch(t["func"], -pred_period, move_batch(-1, df[cols]))
 
-    df_basic_con_chg = chg_rate_batch(move_batch(1, df[cols_move]), df[cols_move])
-    df_basic_mv_con_chg_list = [move_batch(i, df_basic_con_chg) for i in mv_list]
-    # df_basic_mv_list = [move(i, df, cols_move) for i in mv_list]
-    df_basic_mv_cur_chg_list = [chg_rate_batch(move_batch(i, df[cols_move]), df[cols_move])
-                                for i in mv_list[2:]]
-    df_basic_candle_stick = candle_stick_batch(df[cols_fq])
-    df_basic_mv_candle_list = [move_batch(i, df_basic_candle_stick)
-                           for i in mv_list]
+            elif t["func"] == "avg":
+                tmp = rolling_batch("sum", -pred_period,
+                                    move_batch(-1, df[["vol","amt"]],prefix=False),
+                                    prefix=False)
+                df_target = pd.DataFrame(tmp["amt"]/tmp["vol"]*10,
+                                         columns=["f{}avg_f1mv".format(
+                                             pred_period)])
+            else:
+                raise ValueError("Fun type {} is not supported!".format(t["func"]))
+            df_targets_list.append(df_target)
 
-    # df_1ma = k_MA(1, df[["vol", "amt"]])
-    df_kma_list = [k_MA_batch(k, df[["vol", "amt","close"]]) for k in kma_k_list]
-    df_kma_tot = pd.concat(df_kma_list,axis=1,sort=False)
-    df_kma_con_chg = chg_rate_batch(move_batch(1, df_kma_tot), df_kma_tot)
-    df_kma_mv_con_chg_list = [move_batch(i,df_kma_con_chg) for i in mv_list]
-    df_kma_mv_cur_chg_list = [chg_rate_batch(move_batch(i, df_kma_tot), df_kma_tot) for i in mv_list[2:]]
-    df_kma_list = [df[["avg"]]]+df_kma_list
-    df_kma_con_k_list = [chg_rate_batch(df_kma_list[i + 1], df_kma_list[i]) for i in range(len(df_kma_list) - 1)]
+        df_not_in_X = pd.concat(
+            [df_qfq, df_tomorrow, df_tomorrow_qfq] + df_targets_list, axis=1, sort=False)
+        df_fe_list.append(df_not_in_X)
+        cols_not_in_X = list(df_not_in_X.columns)
 
 
-    df_k_line_list = [k_line_batch(k, df[cols_k_line]) for k in k_line_k_list]
-    # df_k_line_tot = pd.concat(df_k_line_list,axis=1)
-    df_k_line_mv_con_chg_list = [move_batch(k * mv, chg_rate_batch(move_batch(k * 1, df_k_line), df_k_line))
-                                 for k,df_k_line in zip(k_line_k_list,df_k_line_list)
-                                 for mv in mv_list]
-    # df_k_line_mv_con_chg_list = [move(i,df_k_line_con_chg) for i in mv_list]
-    df_k_line_mv_cur_chg_list = [chg_rate_batch(move_batch(k * mv, df_k_line), df_k_line)
-                                 for k,df_k_line in zip(k_line_k_list,df_k_line_list)
-                                 for mv in mv_list[2:]]
-    # [change_rate(move(i,df_k_line_tot),df_k_line_tot) for i in mv_list[2:]]
-    df_k_line_list = [df[cols_k_line]] + df_k_line_list
-    df_k_line_con_k_list = [chg_rate_batch(df_k_line_list[i + 1], df_k_line_list[i])
-                            for i in range(len(df_k_line_list) - 1)]
-    df_k_line_mv_candle_stick = [move_batch(k*mv,candle_stick_batch(df_k_line))
-                                 for k,df_k_line in zip(k_line_k_list,df_k_line_list[1:])
-                                 for mv in mv_list]
+    if fe_list is None or fe_list["basic"]:
+        df_basic_con_chg = chg_rate_batch(move_batch(1, df[cols_move]), df[cols_move])
+        df_basic_mv_con_chg_list = [move_batch(i, df_basic_con_chg) for i in mv_list]
+        # df_basic_mv_list = [move(i, df, cols_move) for i in mv_list]
+        df_basic_mv_cur_chg_list = [chg_rate_batch(move_batch(i, df[cols_move]), df[cols_move])
+                                    for i in mv_list[2:]]
+        df_basic_candle_stick = candle_stick_batch(df[cols_fq])
+        df_basic_mv_candle_list = [move_batch(i, df_basic_candle_stick)
+                               for i in mv_list]
+        df_fe_list.extend([df]
+                          + df_basic_mv_cur_chg_list
+                          + df_basic_mv_con_chg_list
+                          + df_basic_mv_candle_list)
 
-    ops = ["max", "min", "mean"]
 
-    # df_rolling_change_list = [
-    #     chg_rate_batch(rolling_batch(ops, days=days, df=df[cols_roll]),
-    #              pd.concat([df[cols_roll]]*len(ops),axis=1))
-    #     for days in rolling_k_list]
+    if fe_list is None or fe_list["kma"]:
+        # df_1ma = k_MA(1, df[["vol", "amt"]])
+        df_kma_list = [k_MA_batch(k, df[["vol", "amt","close"]]) for k in kma_k_list]
+        df_kma_tot = pd.concat(df_kma_list,axis=1,sort=False)
+        df_kma_con_chg = chg_rate_batch(move_batch(1, df_kma_tot), df_kma_tot)
+        df_kma_mv_con_chg_list = [move_batch(i,df_kma_con_chg) for i in mv_list]
+        df_kma_mv_cur_chg_list = [chg_rate_batch(move_batch(i, df_kma_tot), df_kma_tot) for i in mv_list[2:]]
+        df_kma_list = [df[["avg"]]]+df_kma_list
+        df_kma_con_k_list = [chg_rate_batch(df_kma_list[i + 1], df_kma_list[i]) for i in range(len(df_kma_list) - 1)]
+        df_fe_list.extend(df_kma_mv_con_chg_list
+                          + df_kma_mv_cur_chg_list
+                          + df_kma_con_k_list)
 
-    rolling_batch_cols = []
-    [rolling_batch_cols.extend([col]*len(ops)) for col in cols_roll]
-    # print(rolling_batch_cols)
-    df_rolling_change_list = [
-        chg_rate_batch(rolling_batch2(ops, days=days, df=df[cols_roll]),
-                       df[rolling_batch_cols])
-        for days in rolling_k_list]
 
-    df_not_in_X = pd.concat(
-        [df_qfq, df_tomorrow, df_tomorrow_qfq] + df_targets_list, axis=1, sort=False)
+    if fe_list is None or fe_list["k_line"]:
+        df_k_line_list = [k_line_batch(k, df[cols_k_line]) for k in k_line_k_list]
+        # df_k_line_tot = pd.concat(df_k_line_list,axis=1)
+        df_k_line_mv_con_chg_list = [move_batch(k * mv, chg_rate_batch(move_batch(k * 1, df_k_line), df_k_line))
+                                     for k,df_k_line in zip(k_line_k_list,df_k_line_list)
+                                     for mv in mv_list]
+        # df_k_line_mv_con_chg_list = [move(i,df_k_line_con_chg) for i in mv_list]
+        df_k_line_mv_cur_chg_list = [chg_rate_batch(move_batch(k * mv, df_k_line), df_k_line)
+                                     for k,df_k_line in zip(k_line_k_list,df_k_line_list)
+                                     for mv in mv_list[2:]]
+        # [change_rate(move(i,df_k_line_tot),df_k_line_tot) for i in mv_list[2:]]
+        df_k_line_list = [df[cols_k_line]] + df_k_line_list
+        df_k_line_con_k_list = [chg_rate_batch(df_k_line_list[i + 1], df_k_line_list[i])
+                                for i in range(len(df_k_line_list) - 1)]
+        df_k_line_mv_candle_stick = [move_batch(k*mv,candle_stick_batch(df_k_line))
+                                     for k,df_k_line in zip(k_line_k_list,df_k_line_list[1:])
+                                     for mv in mv_list]
+        df_fe_list.extend(df_k_line_mv_con_chg_list
+                          + df_k_line_mv_cur_chg_list
+                          + df_k_line_con_k_list
+                          + df_k_line_mv_candle_stick)
 
-    df_stck = pd.concat([df]
-                        + df_basic_mv_cur_chg_list
-                        + df_basic_mv_con_chg_list
-                        + df_basic_mv_candle_list
-                        + df_kma_mv_con_chg_list
-                        + df_kma_mv_cur_chg_list
-                        + df_kma_con_k_list
-                        + df_k_line_mv_con_chg_list
-                        + df_k_line_mv_cur_chg_list
-                        + df_k_line_con_k_list
-                        + df_k_line_mv_candle_stick
-                        + df_rolling_change_list
-                        + [df_not_in_X]
+    if fe_list is None or fe_list["rolling"]:
+        ops = ["max", "min", "mean"]
+        rolling_batch_cols = []
+        [rolling_batch_cols.extend([col]*len(ops)) for col in cols_roll]
+        # print(rolling_batch_cols)
+        df_rolling_change_list = [
+            chg_rate_batch(rolling_batch2(ops, days=days, df=df[cols_roll]),
+                           df[rolling_batch_cols])
+            for days in rolling_k_list]
+
+        df_fe_list.extend(df_rolling_change_list)
+
+    # df_not_in_X = pd.concat(
+    #     [df_qfq, df_tomorrow, df_tomorrow_qfq] + df_targets_list, axis=1, sort=False)
+
+    df_stck = pd.concat(df_fe_list
+                        # +[df]
+                        # + df_basic_mv_cur_chg_list
+                        # + df_basic_mv_con_chg_list
+                        # + df_basic_mv_candle_list
+                        # + df_kma_mv_con_chg_list
+                        # + df_kma_mv_cur_chg_list
+                        # + df_kma_con_k_list
+                        # + df_k_line_mv_con_chg_list
+                        # + df_k_line_mv_cur_chg_list
+                        # + df_k_line_con_k_list
+                        # + df_k_line_mv_candle_stick
+                        # + df_rolling_change_list
+                        # + [df_not_in_X]
                         , axis=1, sort=False)
-
-    cols_not_in_X = list(df_not_in_X.columns)
 
     # cols_to_round = [col for col in df_stck.columns if "/" in col]
     # print(len(cols_to_round))
@@ -806,12 +825,28 @@ def mp_batch(df, target: callable, batch_size=10, print_freq=1, num_reserved_cpu
     return df_result,other_result
 
 
+def return_script():
+    import script
+    kwargs = {"loss_limit":0.05,"retracement":0.1,"retracement_inc_pct":0.25,
+              "holding_days":20,"holding_threshold":0.1,"max_days":60,"new_high_days_limit":20,
+              "is_truncated":True}
+    df_r, _ = mp_batch(df, target=script.get_return_rate_batch, batch_size=50,
+                       num_reserved_cpu=1,**kwargs)
+    print(df_r.info(memory_usage="deep"))
+    df_r.to_parquet(r"database\return_{0:.0%}_{1:.0%}_{2}_{3}"
+                    .format(kwargs["loss_limit"],
+                            kwargs["retracement_inc_pct"],
+                            kwargs["holding_days"],
+                            kwargs["new_high_days_limit"]),
+                    engine="pyarrow")
+
+
 if __name__ == '__main__':
     import db_operations as dbop
     from constants import *
     import data_process as dp
     cursor = dbop.connect_db("sqlite3").cursor()
-    start = 20190101
+    start = 20100101
     df = dbop.create_df(cursor, STOCK_DAY[TABLE],
                         start=start,
                         # where_clause="code in ('002349.SZ','600352.SH','600350.SH','600001.SH')",
@@ -823,10 +858,7 @@ if __name__ == '__main__':
     # pool = sorted(collect.get_stock_pool())[:5]
     # df = df.loc[IDX[:,pool],:]
     print(df.shape)
-    import script
-    df_r, _ = mp_batch(df,target=script.get_return_rate_batch,batch_size=50,
-                       num_reserved_cpu=0)
-    df_r.to_parquet(r"database\return_info",engine="pyarrow")
+    return_script()
 
 
 

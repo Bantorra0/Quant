@@ -307,7 +307,7 @@ def get_return_rate3(df_single_stock_d: pd.DataFrame, loss_limit=0.1, retracemen
 
 
 def get_return_rate_batch(df_stock_d: pd.DataFrame, loss_limit=0.1, retracement=0.1, retracement_inc_pct=0.25,
-                          holding_days=20, holding_threshold=0.1, max_days=60, new_high_days_limit=20, is_truncated=True):
+                          max_days=60, new_high_days_limit=20, is_truncated=True):
     # Cleaning input.
     df_stock_d = \
         df_stock_d[(df_stock_d["vol"] > 0)

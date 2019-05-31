@@ -47,7 +47,7 @@ if __name__ == '__main__':
     t0 = time.time()
     # actual = FE.k_line_batch(k,df[cols],sort=False).dropna().sort_index()
     # actual,_ = FE.stock_d_FE_batch(df,targets=targets)
-    k = 5
+    k = 1
     actual,_ = FE.mp_batch(df=df,target=FE.stock_d_FE_batch,batch_size=k,targets=targets)
     print(time.time()-t0)
     print(actual.info(memory_usage="deep"))
