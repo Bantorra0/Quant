@@ -701,7 +701,6 @@ def stock_d_FE_batch(df:pd.DataFrame, targets,start=None,end=None,fe_list=None):
                           + df_basic_mv_con_chg_list
                           + df_basic_mv_candle_list)
 
-
     if fe_list is None or fe_list["kma"]:
         # df_1ma = k_MA(1, df[["vol", "amt"]])
         df_kma_list = [k_MA_batch(k, df[["vol", "amt","close"]]) for k in kma_k_list]
@@ -714,7 +713,6 @@ def stock_d_FE_batch(df:pd.DataFrame, targets,start=None,end=None,fe_list=None):
         df_fe_list.extend(df_kma_mv_con_chg_list
                           + df_kma_mv_cur_chg_list
                           + df_kma_con_k_list)
-
 
     if fe_list is None or fe_list["k_line"]:
         df_k_line_list = [k_line_batch(k, df[cols_k_line]) for k in k_line_k_list]
@@ -827,16 +825,16 @@ def mp_batch(df, target: callable, batch_size=10, print_freq=1, num_reserved_cpu
 
 def return_script():
     import script
-    kwargs = {"loss_limit":0.05,"retracement":0.1,"retracement_inc_pct":0.25,
-              "holding_days":20,"holding_threshold":0.1,"max_days":60,"new_high_days_limit":20,
+    kwargs = {"loss_limit":0.1,"retracement":0.1,"retracement_inc_pct":0.25,
+              "max_days":60,"new_high_days_limit":20,
               "is_truncated":True}
     df_r, _ = mp_batch(df, target=script.get_return_rate_batch, batch_size=50,
-                       num_reserved_cpu=1,**kwargs)
+                       num_reserved_cpu=0,**kwargs)
     print(df_r.info(memory_usage="deep"))
     df_r.to_parquet(r"database\return_{0:.0%}_{1:.0%}_{2}_{3}"
                     .format(kwargs["loss_limit"],
                             kwargs["retracement_inc_pct"],
-                            kwargs["holding_days"],
+                            kwargs["max_days"],
                             kwargs["new_high_days_limit"]),
                     engine="pyarrow")
 
