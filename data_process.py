@@ -17,7 +17,7 @@ def prepare_stock_d(df_stck_d):
     # if df_stck_d["date"].dtypes!=int:
     #     df_stck_d["date"] = df_stck_d["date"].apply(lambda x:x.replace("-", "")).astype(int)
     df_stck_d["date"] = pd.to_datetime(df_stck_d["date"],format="%Y%m%d")
-    df_stck_d = df_stck_d.set_index(["date","code"]).sort_index()
+    df_stck_d = df_stck_d.set_index(["code","date"]).sort_index()
     df_stck_d = df_stck_d[["open", "high", "low", "close", "vol", "amt", "adj_factor"]]
 
     return df_stck_d

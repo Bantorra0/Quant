@@ -216,23 +216,12 @@ def rolling_batch2(ops, days, df: pd.DataFrame,
         raise ValueError("days==0 is illegal!")
     window = abs(days)
 
-    # results = {op:[] for op in ops}
-    # for _, group in df.groupby(level="code"):
-    #     for op in ops:
-    #         results[op].append(group.rolling(window=window).agg(op))
-    #
-    # if prefix:
-    #     result = pd.concat(
-    #         [pd.concat(results[op],axis=0).rename(columns={col:pre+op+"_"+col for col in df.columns}) for op in ops],
-    #         axis=1)
-    # else:
-    #     result = pd.concat(
-    #         [pd.concat(results[op], axis=0) for op in ops],axis=1)
-
-    results=[group.rolling(window=window).agg(ops)
-             for _, group in df.groupby(level="code")]
-    columns = results[0].columns
-    result = pd.concat(results,axis=0)
+    # results=[group.rolling(window=window).agg(ops)
+    #          for _, group in df.groupby(level="code")]
+    # columns = results[0].columns
+    # result = pd.concat(results,axis=0)
+    result = groupby_rolling(df,level="code",window=window,ops=ops,check_col="open")
+    columns = result.columns
     cols1,cols2 = columns.get_level_values(0),\
                   columns.get_level_values(1)
 
@@ -241,6 +230,15 @@ def rolling_batch2(ops, days, df: pd.DataFrame,
     else:
         result.columns = [s1 for s1,_ in zip(cols1,cols2)]
     # print(result.columns)
+    return result
+
+
+def groupby_rolling(df:pd.DataFrame,by=None,level=None,window=None,ops=None,check_col="open",sort=False):
+    if sort:
+        df=df.sort_index()
+
+    result = df.rolling(window).agg(ops)
+    result.loc[df[check_col].groupby(by=by,level=level).shift(window-1).isnull()]=np.nan
     return result
 
 
@@ -407,17 +405,19 @@ def k_MA_batch(k:int, df:pd.DataFrame, sort=True):
     if sort:
         df = df.sort_index()
 
-    df_result = pd.concat([group.rolling(k).sum() for _,group in df[["vol",
-                                                                     "amt"]].groupby(level="code")])
-    df_result.rename(columns={col:"{}MA_".format(k)+col for col in df_result.columns},inplace=True)
+    ops = {"vol":"sum","amt":"sum"}
+    result = groupby_rolling(df,level="code",window=k,ops=ops,check_col="open")
+    # result = pd.concat([group.rolling(k).sum() for _,group in df[["vol",
+    #                                                                  "amt"]].groupby(level="code")])
+    result.rename(columns={col:"{}MA_".format(k)+col for col in result.columns},inplace=True)
 
-    df_result["{}MA".format(k)] = df_result["{}MA_amt".format(k)]/df_result["{}MA_vol".format(k)]*10
+    result["{}MA".format(k)] = result["{}MA_amt".format(k)]/result["{}MA_vol".format(k)]*10
 
     # 如果累计vol=0（计算区间内停牌），则上述计算结果为inf，取收盘价。
     # 此处假设停牌期间已完成数据填充，按vol=0，amt=0，其他价格按前一天（停牌前最后一天）收盘价算。
-    df_result.loc[df_result["{}MA_vol".format(k)] == 0,"{}MA".format(k)] = \
-        df.loc[df_result["{}MA_vol".format(k)] == 0,"close"]
-    return df_result[["{}MA".format(k)]]
+    result.loc[result["{}MA_vol".format(k)] == 0,"{}MA".format(k)] = \
+        df.loc[result["{}MA_vol".format(k)] == 0,"close"]
+    return result[["{}MA".format(k)]]
 
 
 def k_line(k:int, df:pd.DataFrame):
@@ -457,25 +457,32 @@ def k_line_batch(k:int, df:pd.DataFrame,sort=True):
     if sort:
         df = df.sort_index()
 
-    results = {col:[] for col in cols if col!="close"}
+    # results = {col:[] for col in cols if col!="close"}
+    results = []
     for _, group in df[cols].groupby(level="code"):
-        results["open"].append(group["open"].shift(k-1))
-        results["high"].append(group["high"].rolling(k).max())
-        results["low"].append(group["low"].rolling(k).min())
-        results["vol"].append(group["vol"].rolling(k).mean())
-        results["amt"].append(group["amt"].rolling(k).mean())
+        # results["open"].append(group["open"].shift(k-1))
+        # results["high"].append(group["high"].rolling(k).max())
+        # results["low"].append(group["low"].rolling(k).min())
+        # results["vol"].append(group["vol"].rolling(k).mean())
+        # results["amt"].append(group["amt"].rolling(k).mean())
+        results.append(group.rolling(k).agg({"high":"max","low":"min","vol":"mean","amt":"mean"}))
 
-    df_result = pd.concat([pd.concat(results[col],axis=0) for col in cols if col!="close"],axis=1)
-    df_result["close"] = df["close"]
-    df_result["avg"] = df_result["amt"]/df_result["vol"]*10
-    df_result.loc[df_result["vol"]==0,"avg"] = df_result.loc[df_result["vol"]==0,"close"]
+    ops = {"high": "max", "low": "min", "vol": "mean", "amt": "mean"}
+    result = groupby_rolling(df,level="code",window=k,ops=ops,check_col="open")
+
+    # result = pd.concat(results,axis=0)
+    result["open"] =df["open"].groupby(level="code").shift(k-1)
+
+    result["close"] = df["close"]
+    result["avg"] = result["amt"]/result["vol"]*10
+    result.loc[result["vol"]==0,"avg"] = result.loc[result["vol"]==0,"close"]
 
     output_cols = ["open","high","low","close","avg","vol","amt"]
     # output_cols = ["open","high","low","close","vol","amt","avg"]
 
     column_mapper = {col:"{}k_".format(k)+col for col in output_cols}
-    df_result.rename(columns=column_mapper,inplace=True)
-    return df_result[[column_mapper[col] for col in output_cols]]
+    result.rename(columns=column_mapper,inplace=True)
+    return result[[column_mapper[col] for col in output_cols]]
 
 
 def stock_d_FE(df:pd.DataFrame, targets,start=None,end=None):
@@ -703,7 +710,7 @@ def stock_d_FE_batch(df:pd.DataFrame, targets,start=None,end=None,fe_list=None):
 
     if fe_list is None or fe_list["kma"]:
         # df_1ma = k_MA(1, df[["vol", "amt"]])
-        df_kma_list = [k_MA_batch(k, df[["vol", "amt","close"]]) for k in kma_k_list]
+        df_kma_list = [k_MA_batch(k, df) for k in kma_k_list]
         df_kma_tot = pd.concat(df_kma_list,axis=1,sort=False)
         df_kma_con_chg = chg_rate_batch(move_batch(1, df_kma_tot), df_kma_tot)
         df_kma_mv_con_chg_list = [move_batch(i,df_kma_con_chg) for i in mv_list]
@@ -783,7 +790,8 @@ def mp_batch(df, target: callable, batch_size=10, print_freq=1, num_reserved_cpu
 
     pool = sorted(df.index.levels[1])
     n,k = len(pool),batch_size
-    groups = [df.loc[IDX[:,pool[i*k:(i+1)*k]],:] for i in range(int(n/k)+1)]
+    groups = [df.loc[IDX[pool[i*k:(i+1)*k],:],:] for i in range(int(n/k)+1)]
+    groups = [df for df in groups if len(df)>0]
     df_result_list = []
     other_result = None
 
@@ -809,11 +817,15 @@ def mp_batch(df, target: callable, batch_size=10, print_freq=1, num_reserved_cpu
 
     while not q_res.empty():
         res = q_res.get()
-        df_result_list.append(res.get())
+        result = res.get()
+        if type(result) != tuple:
+            result = (result,)
+        df_result_list.append(result[0])
         q_res.task_done()
         count_out += 1
     del q_res
 
+    print(type(df_result_list))
     df_result = pd.concat(df_result_list, sort=False,axis=0)
     print("{0}: Total processing time for {1} groups:{2:.2f}s".format(target.__name__,count_out, time.time() - start_time))
     print("in",count_in,"out",count_out)
