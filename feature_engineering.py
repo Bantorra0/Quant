@@ -221,23 +221,52 @@ def rolling_batch2(ops, days, df: pd.DataFrame,
     # columns = results[0].columns
     # result = pd.concat(results,axis=0)
     result = groupby_rolling(df,level="code",window=window,ops=ops,check_col="open")
-    columns = result.columns
-    cols1,cols2 = columns.get_level_values(0),\
-                  columns.get_level_values(1)
+    columns = df.columns
+    # cols1,cols2 = columns.get_level_values(0),\
+    #               columns.get_level_values(1)
 
     if prefix:
-        result.columns = [pre+s2+"_"+s1 for s1,s2 in zip(cols1,cols2)]
+        # result.columns = [pre+s2+"_"+s1 for s1,s2 in zip(cols1,cols2)]
+        if type(ops) == list and type(ops[0]) != tuple:
+            result.columns = [pre+op+"_"+col for op in ops for col in columns]
+        elif type(ops) == list and type(ops[0]) == tuple:
+            result.columns = [pre+op+"_"+col for op,col in zip(ops,columns)]
     else:
-        result.columns = [s1 for s1,_ in zip(cols1,cols2)]
+        # result.columns = [s1 for s1,_ in zip(cols1,cols2)]
+        if type(ops) == list and type(ops[0]) != tuple:
+            result.columns = [col for op in ops for col in columns ]
+        elif type(ops) == list and type(ops[0]) == tuple:
+            result.columns = [col for op,col in zip(ops,columns)]
+
     # print(result.columns)
     return result
 
 
-def groupby_rolling(df:pd.DataFrame,by=None,level=None,window=None,ops=None,check_col="open",sort=False):
+def groupby_rolling2(df:pd.DataFrame,by=None,level=None,window=None,
+                     ops=None,check_col="open",sort=False):
     if sort:
         df=df.sort_index()
 
     result = df.rolling(window).agg(ops)
+    result.loc[df[check_col].groupby(by=by,level=level).shift(window-1).isnull()]=np.nan
+    return result
+
+
+def groupby_rolling(df:pd.DataFrame,by=None,level=None,window=None,
+                     ops=None,check_col="open",sort=False):
+    if sort:
+        df=df.sort_index()
+
+    if type(ops)==list and type(ops[0])!=tuple:
+        result = pd.concat([df.rolling(window).agg(op) for op in ops],
+                           axis=1,sort=False)
+    elif type(ops)==list and type(ops[0])==tuple:
+        result = pd.concat(
+            [df[col].rolling(window).agg(op) for col,op in ops],
+            axis=1,sort=False)
+    else:
+        result = df.rolling(window).agg(ops)
+
     result.loc[df[check_col].groupby(by=by,level=level).shift(window-1).isnull()]=np.nan
     return result
 
@@ -405,7 +434,8 @@ def k_MA_batch(k:int, df:pd.DataFrame, sort=True):
     if sort:
         df = df.sort_index()
 
-    ops = {"vol":"sum","amt":"sum"}
+    ops = [("vol","sum"),("amt","sum")]
+    ops = dict(ops)
     result = groupby_rolling(df,level="code",window=k,ops=ops,check_col="open")
     # result = pd.concat([group.rolling(k).sum() for _,group in df[["vol",
     #                                                                  "amt"]].groupby(level="code")])
@@ -467,7 +497,8 @@ def k_line_batch(k:int, df:pd.DataFrame,sort=True):
         # results["amt"].append(group["amt"].rolling(k).mean())
         results.append(group.rolling(k).agg({"high":"max","low":"min","vol":"mean","amt":"mean"}))
 
-    ops = {"high": "max", "low": "min", "vol": "mean", "amt": "mean"}
+    ops = [("high", "max"), ("low", "min"), ("vol", "mean"), ("amt", "mean")]
+    ops = dict(ops)
     result = groupby_rolling(df,level="code",window=k,ops=ops,check_col="open")
 
     # result = pd.concat(results,axis=0)
@@ -748,10 +779,13 @@ def stock_d_FE_batch(df:pd.DataFrame, targets,start=None,end=None,fe_list=None):
         rolling_batch_cols = []
         [rolling_batch_cols.extend([col]*len(ops)) for col in cols_roll]
         # print(rolling_batch_cols)
+        # df_rolling_change_list = [
+        #     chg_rate_batch(rolling_batch2(ops, days=days, df=df[cols_roll]),
+        #                    df[rolling_batch_cols])
+        #     for days in rolling_k_list]
         df_rolling_change_list = [
             chg_rate_batch(rolling_batch2(ops, days=days, df=df[cols_roll]),
-                           df[rolling_batch_cols])
-            for days in rolling_k_list]
+                           df[cols_roll*len(ops)]) for days in rolling_k_list]
 
         df_fe_list.extend(df_rolling_change_list)
 
@@ -788,7 +822,7 @@ def mp_batch(df, target: callable, batch_size=10, print_freq=1, num_reserved_cpu
     q_res = queue.Queue()
     count_in,count_out = 0,0
 
-    pool = sorted(df.index.levels[1])
+    pool = sorted(df.index.levels[0])
     n,k = len(pool),batch_size
     groups = [df.loc[IDX[pool[i*k:(i+1)*k],:],:] for i in range(int(n/k)+1)]
     groups = [df for df in groups if len(df)>0]

@@ -107,13 +107,14 @@ if __name__ == '__main__':
     import time
     t0 = time.time()
     fe_list={
-        "not_in_X":False,
-        "basic":False,
-        "kma":False,
+        "not_in_X":True,
+        "basic":True,
+        "kma":True,
         "k_line":True,
-        "rolling":False,
+        "rolling":True,
     }
-    k = 20
-    actual,_ = FE.mp_batch(df=df,target=FE.stock_d_FE_batch,batch_size=k,targets=targets,fe_list=fe_list)
+    k = 91
+    actual,_ = FE.mp_batch(df=df,target=FE.stock_d_FE_batch,batch_size=k,
+                           num_reserved_cpu=0,targets=targets,fe_list=fe_list)
     print(time.time()-t0)
     print(actual.info(memory_usage="deep"))

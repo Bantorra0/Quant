@@ -18,9 +18,8 @@ def prepare_stock_d(df_stck_d):
     #     df_stck_d["date"] = df_stck_d["date"].apply(lambda x:x.replace("-", "")).astype(int)
     df_stck_d["date"] = pd.to_datetime(df_stck_d["date"],format="%Y%m%d")
     df_stck_d = df_stck_d.set_index(["code","date"]).sort_index()
-    df_stck_d = df_stck_d[["open", "high", "low", "close", "vol", "amt", "adj_factor"]]
 
-    return df_stck_d
+    return df_stck_d[["open", "high", "low", "close", "vol", "amt", "adj_factor"]]
 
 
 def prepare_index_d(df_idx_d):
@@ -28,10 +27,9 @@ def prepare_index_d(df_idx_d):
     #     df_idx_d["date"]=df_idx_d["date"].apply(lambda x:x.replace("-", "")).astype(int)
     df_idx_d["date"] = pd.to_datetime(df_idx_d["date"],format="%Y%m%d")
 
-
     df_idx_d["avg"] = df_idx_d["amt"]/df_idx_d["vol"] * 10
-    df_idx_d = df_idx_d.set_index("date").sort_index(ascending=False)
-    return df_idx_d
+    df_idx_d = df_idx_d.set_index(["code","date"]).sort_index()
+    return df_idx_d[["open", "high", "low", "close", "vol", "amt"]]
 
 
 def prepare_each_stock(df_stock_d, qfq_type="hfq"):
@@ -604,12 +602,20 @@ def mp_stock(df_input:pd.DataFrame, target: callable, stock_pool=None, print_fre
 if __name__ == '__main__':
     import db_operations as dbop
     cursor = dbop.connect_db("sqlite3").cursor()
-    targets = [{"period": 20, "func": "max", "col": "high"},
-                          {"period": 20, "func": "min", "col": "low"},
-                          {"period": 20, "func": "avg", "col": ""},
-                          {"period": 5, "func": "max", "col": "high"},
-                          {"period": 5, "func": "min", "col": "low"},
-                          {"period": 5, "func": "avg", "col": ""},
-                          ]
-    df1,df2,_,_ = prepare_data(cursor=cursor,targets=targets,start=20180901,lowerbound=20180101,stock_pool=["600352.SH","000581.SZ","002440.SZ"])
-    print(df1)
+    # targets = [{"period": 20, "func": "max", "col": "high"},
+    #                       {"period": 20, "func": "min", "col": "low"},
+    #                       {"period": 20, "func": "avg", "col": ""},
+    #                       {"period": 5, "func": "max", "col": "high"},
+    #                       {"period": 5, "func": "min", "col": "low"},
+    #                       {"period": 5, "func": "avg", "col": ""},
+    #                       ]
+    # df1,df2,_,_ = prepare_data(cursor=cursor,targets=targets,start=20180901,lowerbound=20180101,stock_pool=["600352.SH","000581.SZ","002440.SZ"])
+    # print(df1)
+    from constants import *
+    start = 20000101
+    df = dbop.create_df(cursor, INDEX_DAY[TABLE], start=start,
+                        # where_clause="code in ('002349.SZ','600352.SH','600350.SH','600001.SH')",
+                        # where_clause="code='600352.SH'",
+                        )
+    df = prepare_index_d(df)
+    print(df.head())
