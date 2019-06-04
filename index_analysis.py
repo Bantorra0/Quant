@@ -1,9 +1,77 @@
 import pandas as pd
+import numpy as np
 
 import collect
 import data_process as dp
 import db_operations as dbop
 from constants import *
+
+
+
+def period_agg(df:pd.DataFrame, op=np.mean, start=2000):
+    df_result = pd.DataFrame(columns=index_pool["name"])
+    df = df.loc[df.index.get_level_values("date").year >= 2000,:]
+
+    for mth in range(1, 13):
+        mask0 = (df.index.get_level_values("date").month == mth)
+        for code in index_pool.index:
+            mask1 = (df.index.get_level_values("code") == code)
+            for start, end in [(1, 10), (11, 20), (21, 30)]:
+                mask2 = (df.index.get_level_values("date").day >= start)\
+                        & (df.index.get_level_values("date").day <= end)
+                mask = mask0 & mask1 & mask2
+                index_label = str(mth) + "月{0}-{1}日".format(start, end)
+                col_label = index_pool.loc[code, "name"]
+                df_result.loc[index_label,col_label] = op(df.loc[mask,"chg_pct"])
+
+    return df_result
+
+
+def df_statistics(df:pd.DataFrame,row_ops,col_ops,ops):
+    if ops is not None:
+        row_ops = ops
+        col_ops = ops
+
+    result = df.copy()
+    index = df.index
+    columns = df.columns
+
+    new_cols = pd.DataFrame()
+    for col,op in col_ops:
+        new_cols[col] = op(df,axis=1)
+
+    new_rows = pd.DataFrame()
+    for row_index,op in row_ops:
+        new_rows.loc[row_index] = op(df,axis=0)
+
+    # row_mean = df_result.mean(axis=1)
+    # row_max = df_result.max(axis=1)
+    # row_argmax = df_result.columns[df_result.values.argmax(axis=1)]
+    # row_min = df_result.min(axis=1)
+    # row_argmin = df_result.columns[df_result.values.argmin(axis=1)]
+    #
+    # col_mean = df_result.mean(axis=0)
+    # col_max = df_result.max(axis=0)
+    # col_argmax = df_result.index[df_result.values.argmax(axis=0)]
+    # col_min = df_result.min(axis=0)
+    # col_argmin = df_result.index[df_result.values.argmin(axis=0)]
+    #
+    # df_result["平均值"] = row_mean
+    # df_result["最大值"] = row_max
+    # df_result["最大值对应指数"] = row_argmax
+    # df_result["最小值"] = row_min
+    # df_result["最小值对应指数"] = row_argmin
+    #
+    # df_result.loc["平均值",columns] = col_mean
+    # df_result.loc["最大值",columns] = col_max
+    # df_result.loc["最大值对应时间",columns] = col_argmax
+    # df_result.loc["最小值",columns] = col_min
+    # df_result.loc["最小值对应时间",columns] = col_argmin
+
+    print(result.to_string())
+
+
+
 
 if __name__ == '__main__':
     idx = pd.IndexSlice
@@ -13,24 +81,13 @@ if __name__ == '__main__':
                         # where_clause="code in ('002349.SZ','600352.SH','600350.SH','600001.SH')",
                         # where_clause="code='600352.SH'",
                         )
-    index_pool = collect.get_index_pool()
-    df1 = dp.prepare_index_d(df)
-    result1_10 = pd.DataFrame(index=index_pool["name"],
-                              columns=[str(i) + "月" + period + "日" for i in
-                                       range(1, 13) for period in
-                                       ("1-10", "11-20", "20-30")])
+    index_pool = collect.get_index_pool().set_index("code")
+    df = dp.prepare_index_d(df)
+    df.sort_index(inplace=True)
+    df["chg_pct"] = (df["close"]/df["close"].groupby(level="code").shift(1)-1)*100
+    result1_10 = pd.DataFrame(columns=index_pool["name"])
+    # columns = [str(i) + "月" + period + "日" for i in
+    #            range(1, 13) for period in
+    #            ("1-10", "11-20", "20-30")]
 
-    for mth in range(1, 13):
-        for code in index_pool.index:
-            for start, end in [(1, 10), (11, 20), (21, 30)]:
-                result1_10.loc[
-                    str(mth) + "月{0}-{1}日".format(start, end),
-                    index_pool.loc[code, "name"]] = df1.loc[(df1.index.get_level_values(
-                    "date").year >= 2010) & (df1.index.get_level_values(
-                    "date").month == mth) & (df1.index.get_level_values(
-                    "date").day >= start) & (df1.index.get_level_values(
-                    "date").day <= end), :].loc[idx[code, :], "chg_pct"].mean()
 
-    result1_10["平均值"] = result1_10.mean(axis=1)
-    result1_10.loc["最大值"] = result1_10.max(axis=0)
-    result1_10.loc["最小值"] = result1_10.min(axis=0)
