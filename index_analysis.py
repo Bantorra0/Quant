@@ -7,10 +7,31 @@ import db_operations as dbop
 from constants import *
 
 
+def argmax(df:pd.DataFrame,axis=0):
+    if axis==0:
+        labels = df.index
+    elif axis==1:
+        labels = df.columns
+    else:
+        raise ValueError("axis={} is illegal!".format(axis))
+
+    return labels[np.argmax(df.values,axis=axis)]
+
+
+def argmin(df: pd.DataFrame, axis=0):
+    if axis == 0:
+        labels = df.index
+    elif axis == 1:
+        labels = df.columns
+    else:
+        raise ValueError("axis={} is illegal!".format(axis))
+
+    return labels[np.argmin(df.values, axis=axis)]
+
 
 def period_agg(df:pd.DataFrame, op=np.mean, start=2000):
     df_result = pd.DataFrame(columns=index_pool["name"])
-    df = df.loc[df.index.get_level_values("date").year >= 2000,:]
+    df = df.loc[df.index.get_level_values("date").year >= start,:]
 
     for mth in range(1, 13):
         mask0 = (df.index.get_level_values("date").month == mth)
@@ -27,7 +48,42 @@ def period_agg(df:pd.DataFrame, op=np.mean, start=2000):
     return df_result
 
 
-def df_statistics(df:pd.DataFrame,row_ops,col_ops,ops):
+def week_agg(df:pd.DataFrame, op=np.mean, start=2000):
+    df_result = pd.DataFrame(columns=index_pool["name"])
+    df = df.loc[df.index.get_level_values("date").year >= start,:]
+
+    range_ = range(1, 54)
+    for week in range_:
+        mask0 = (df.index.get_level_values("date").week == week)
+        for code in index_pool.index:
+            mask1 = (df.index.get_level_values("code") == code)
+            mask = mask0 & mask1
+            index_label = "第{}周".format(week)
+            col_label = index_pool.loc[code, "name"]
+            df_result.loc[index_label,col_label] = op(df.loc[mask,"chg_pct"])
+
+    return df_result
+
+
+def dayofweek_agg(df:pd.DataFrame, op=np.mean, start=2000):
+    df_result = pd.DataFrame(columns=index_pool["name"])
+    df = df.loc[df.index.get_level_values("date").year >= start,:]
+    range_ = range(5)
+
+    for dayofweek in range_:
+        mask0 = (df.index.get_level_values("date").dayofweek == dayofweek)
+        dayofweek_names = {i:"周"+char for i,char in zip(range_,list("一二三四五"))}
+        for code in index_pool.index:
+            mask1 = (df.index.get_level_values("code") == code)
+            mask = mask0 & mask1
+            index_label = dayofweek_names[dayofweek]
+            col_label = index_pool.loc[code, "name"]
+            df_result.loc[index_label,col_label] = op(df.loc[mask,"chg_pct"])
+
+    return df_result
+
+
+def df_statistics(df:pd.DataFrame,row_ops=None,col_ops=None,ops=None):
     if ops is not None:
         row_ops = ops
         col_ops = ops
@@ -36,13 +92,16 @@ def df_statistics(df:pd.DataFrame,row_ops,col_ops,ops):
     index = df.index
     columns = df.columns
 
-    new_cols = pd.DataFrame()
-    for col,op in col_ops:
-        new_cols[col] = op(df,axis=1)
+    new_cols = pd.DataFrame(index=index)
+    for col,op,kwargs in col_ops:
+        new_cols[col] = op(df,axis=1,**kwargs)
 
-    new_rows = pd.DataFrame()
-    for row_index,op in row_ops:
-        new_rows.loc[row_index] = op(df,axis=0)
+    new_rows = pd.DataFrame(columns=columns)
+    for row_index,op,kwargs in row_ops:
+        new_rows.loc[row_index] = op(df,axis=0,**kwargs)
+
+    result = pd.concat([result,new_cols],axis=1,sort=False)
+    result = pd.concat([result,new_rows],axis=0,sort=False)
 
     # row_mean = df_result.mean(axis=1)
     # row_max = df_result.max(axis=1)
@@ -68,9 +127,8 @@ def df_statistics(df:pd.DataFrame,row_ops,col_ops,ops):
     # df_result.loc["最小值",columns] = col_min
     # df_result.loc["最小值对应时间",columns] = col_argmin
 
-    print(result.to_string())
-
-
+    print(result.to_string().replace("NaN","").replace("nan",""))
+    return result
 
 
 if __name__ == '__main__':
@@ -85,9 +143,17 @@ if __name__ == '__main__':
     df = dp.prepare_index_d(df)
     df.sort_index(inplace=True)
     df["chg_pct"] = (df["close"]/df["close"].groupby(level="code").shift(1)-1)*100
-    result1_10 = pd.DataFrame(columns=index_pool["name"])
+    # result1_10 = pd.DataFrame(columns=index_pool["name"])
     # columns = [str(i) + "月" + period + "日" for i in
     #            range(1, 13) for period in
     #            ("1-10", "11-20", "20-30")]
+
+    ops = [("mean",np.mean,{}),("median",np.median,{}),
+           ("max",np.max,{}),("argmax",argmax,{}),
+           ("min",np.min,{}),("argmin",argmin,{}),
+           ("std",np.std,{})
+           ]
+    result = df_statistics(dayofweek_agg(df, op=np.nanmedian), ops=ops)
+    result = df_statistics(dayofweek_agg(df, op=np.std), ops=ops)
 
 
