@@ -153,7 +153,9 @@ if __name__ == '__main__':
            ("min",np.min,{}),("argmin",argmin,{}),
            ("std",np.std,{})
            ]
-    result = df_statistics(dayofweek_agg(df, op=np.nanmedian), ops=ops)
-    result = df_statistics(dayofweek_agg(df, op=np.std), ops=ops)
+
+    result = df_statistics(dayofweek_agg(df, op=np.mean,start=2010), ops=ops)
+    result = df_statistics(dayofweek_agg(df, op=np.nanmedian,start=2010), ops=ops)
+    result = df_statistics(dayofweek_agg(df, op=np.std,start=2010), ops=ops)
 
 
