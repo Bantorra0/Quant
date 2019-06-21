@@ -71,6 +71,10 @@ def prepare_each_stock(df_stock_d, qfq_type="hfq"):
     return df_stock_d
 
 
+def proc_stock_d_basic(df_stock_d_basic:pd.DataFrame):
+    df_stock_d_basic["date"] = pd.to_datetime(df_stock_d_basic["date"],format="%Y%m%d")
+
+
 def proc_stock_d(df_stock_d, qfq_type="hfq"):
     if qfq_type and qfq_type not in ["hfq"]:
         raise ValueError("qfq_type {} is not supported".format(qfq_type))

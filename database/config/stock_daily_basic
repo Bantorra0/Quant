@@ -16,5 +16,6 @@ total_share	decimal(20,4),
 float_share	decimal(20,4),
 free_share	decimal(20,4),
 total_mv	decimal(20,4),
-circ_mv	decimal(20,4)
+circ_mv	decimal(20,4),
+primary key(code,date)
 );

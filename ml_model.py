@@ -444,9 +444,15 @@ def assess_feature(feature:pd.Series,y:pd.Series,bin_min_pct=0.001,bin_num=100):
     return df_bins
 
 
-
-
-
+def assess_feature2(feature:pd.Series,y:pd.Series,q_bin):
+    df = pd.concat([feature,y],axis=1).dropna()
+    df.columns = ["feature","y"]
+    df["bin"] = pd.qcut(df["feature"],q=q_bin)
+    middle_result = df.set_index("bin")[["y"]].groupby(level="bin").agg(["mean","median"])
+    result = pd.concat(
+        [middle_result.std(axis=1),middle_result.quantile(0.9,axis=1),middle_result.quantile(0.1,axis=1)],
+        axis=1)
+    return result
 
 
 class RegressorNetwork:
