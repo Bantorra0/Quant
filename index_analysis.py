@@ -159,3 +159,8 @@ if __name__ == '__main__':
     result = df_statistics(dayofweek_agg(df, op=np.std,start=2010), ops=ops)
 
 
+# for i in range(2,20):
+#     left,right = i*0.1,(i+1)*0.1
+#     tmp = df1[(df1["jump"] > left) & (df1["jump"] < right)]["day_chg"]
+#     print("({0:.1f},{1:.1f}):\t{2:.3f}\t{3:.3f}".format(left,right,tmp.mean(),
+#           tmp.median()),tmp.count())
