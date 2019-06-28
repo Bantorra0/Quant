@@ -607,11 +607,38 @@ def test_get_return():
     # test_get_return_rate3()
 
 
-if __name__ == '__main__':
-    # test_get_return()
-    df_r = pd.read_parquet(r"database\return")
+def assess_feature_test():
+    # from script import *
+    import pandas as pd
+    import numpy as np
+    cursor = dbop.connect_db("sqlite3").cursor()
+    start = 20180101
+    df = dbop.create_df(cursor, STOCK_DAILY_BASIC[TABLE],
+                        start=start,
+                        # where_clause="code in ('002349.SZ','600352.SH','600350.SH','600001.SH')",
+                        # where_clause="code='600350.SH'",
+                        )
+    df = dp.prepare_stock_d_basic(df).drop_duplicates()
+
+    df_r = pd.read_parquet(r"database\return_10%_25%_60_20").swaplevel(0, 1)
     print(df_r.info(memory_usage="deep"))
     print(df_r.head(5))
+    df_r["r"] = (df_r["sell_price"] / df_r["open"] - 1) * 100
+
+    import ml_model as ml
+
+    result = ml.assess_feature3(df[df.columns.difference(["close"])], df_r["r"], 50)
+    pd.set_option("display.max_columns",10)
+    print(result)
+
+
+if __name__ == '__main__':
+    # test_get_return()
+    assess_feature_test()
+
+
+
+
 
 
 

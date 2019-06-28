@@ -71,8 +71,10 @@ def prepare_each_stock(df_stock_d, qfq_type="hfq"):
     return df_stock_d
 
 
-def proc_stock_d_basic(df_stock_d_basic:pd.DataFrame):
+def prepare_stock_d_basic(df_stock_d_basic:pd.DataFrame):
     df_stock_d_basic["date"] = pd.to_datetime(df_stock_d_basic["date"],format="%Y%m%d")
+    df_stock_d_basic.set_index(["code","date"],inplace=True)
+    return df_stock_d_basic
 
 
 def proc_stock_d(df_stock_d, qfq_type="hfq"):

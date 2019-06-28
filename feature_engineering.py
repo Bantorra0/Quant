@@ -869,7 +869,7 @@ def mp_batch(df, target: callable, batch_size=10, print_freq=1, num_reserved_cpu
     return df_result,other_result
 
 
-def return_script():
+def return_script(df):
     import script
     kwargs = {"loss_limit":0.1,"retracement":0.1,"retracement_inc_pct":0.25,
               "max_days":60,"new_high_days_limit":20,
@@ -902,7 +902,7 @@ if __name__ == '__main__':
     # pool = sorted(collect.get_stock_pool())[:5]
     # df = df.loc[IDX[:,pool],:]
     print(df.shape)
-    return_script()
+    return_script(df)
 
 
 

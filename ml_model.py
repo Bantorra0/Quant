@@ -455,6 +455,32 @@ def assess_feature2(feature:pd.Series,y:pd.Series,q_bin):
     return result
 
 
+def assess_feature3(features:pd.DataFrame,y:pd.Series,q_bin):
+    df = pd.concat([features,y],axis=1,join="inner")
+    # df = features.join(y,how="inner")
+    # df.columns = ["feature","y"]
+    ycol=y.name
+    # result = pd.DataFrame(columns=)
+    ops1 = ["mean","median"]
+    # ops2 = [("std",np.std, {"axis": 0}),
+    #         ("90%",np.nanpercentile, {"q": 90, "axis": 0}),
+    #         ("10%",np.nanpercentile, {"q": 10, "axis": 0})]
+    ops2 = [("std", np.std, {}),
+            ("q90%", np.nanpercentile, {"q": 90}),
+            ("q10%", np.nanpercentile, {"q": 10})]
+    [kwargs.update({"axis":0}) for _,_,kwargs in ops2]
+    columns = [col+"_"+name for name,_,_ in ops2 for col in ops1]
+    result = pd.DataFrame(columns=columns)
+    for fcol in df.columns.difference([ycol]):
+        df["bin"] = pd.qcut(df[fcol],q=q_bin,labels=list(range(q_bin)))
+        middle_result = df.groupby("bin")[ycol].agg(ops1)
+        fcol_result = np.concatenate(
+            [func(middle_result,**kwargs) for _,func,kwargs in ops2],
+            axis=0)
+        result.loc[fcol]=(pd.Series(fcol_result,index=columns))
+    return result
+
+
 class RegressorNetwork:
     def __init__(self):
         self.layers = []
