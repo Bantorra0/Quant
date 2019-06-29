@@ -342,16 +342,19 @@ def get_return_rate_batch(df_stock_d: pd.DataFrame, loss_limit=0.1, retracement=
     df_tmp.set_index(["code", "idx"], inplace=True)
     df_tmp = df_tmp.reindex(index=index)
 
-    columns = ["open", "low","high"]
+    columns = ["open", "low","high","close"]
     df_curr = df_stock_d[columns].copy()
     df_curr["idx"] = index.get_level_values("idx")
-    mask = pd.Series(index=index)
+    mask = pd.Series(False, index=index)
     while df_tmp["is_selled"].all()!=True:
+        df_prev = df_curr
         df_curr = df_curr.groupby(level="code").shift(-1)
 
         if df_tmp.loc[df_curr["open"].notnull(),"is_selled"].all():
             break
 
+        # Sell shares given mask.
+        mask &= ~((df_curr["low"]==df_curr["high"])&(df_curr["open"]<df_prev["close"])) # 排除跌停板卖不出的情况
         mask &= ((df_tmp["is_selled"] == False) & df_curr["open"].notnull())
         df_tmp.loc[mask, "sell_price"] = df_curr.loc[mask, "open"].values
         df_tmp.loc[mask, "is_selled"] = True
@@ -414,10 +417,10 @@ def get_return_rate_batch2(df_stock_d: pd.DataFrame, loss_limit=0.1, retracement
     df_tmp.set_index(["code", "idx"], inplace=True)
     df_tmp = df_tmp.reindex(index=index)
 
-    columns = ["open", "low","high"]
+    columns = ["open", "low", "high", "close"]
     df_curr = df_stock_d[columns].copy()
     df_curr["idx"] = index.get_level_values("idx")
-    mask = pd.Series(index=index)
+    mask = pd.Series(False,index=index)
     while df_tmp["is_selled"].all()!=True:
         df_curr["idx0"] = df_curr.index.get_level_values("idx") - 1
         df_curr.reset_index(level="code", inplace=True)
@@ -620,16 +623,18 @@ def assess_feature_test():
                         )
     df = dp.prepare_stock_d_basic(df).drop_duplicates()
 
-    df_r = pd.read_parquet(r"database\return_10%_25%_60_20").swaplevel(0, 1)
+    df_r = pd.read_parquet(r"database\return_10%_25%_60_20")
     print(df_r.info(memory_usage="deep"))
     print(df_r.head(5))
     df_r["r"] = (df_r["sell_price"] / df_r["open"] - 1) * 100
 
     import ml_model as ml
 
-    result = ml.assess_feature3(df[df.columns.difference(["close"])], df_r["r"], 50)
+    result = ml.assess_feature3(df[df.columns.difference(["close"])], df_r["r"], 50,plot=True)
     pd.set_option("display.max_columns",10)
     print(result)
+    import matplotlib.pyplot as plt
+    plt.show()
 
 
 if __name__ == '__main__':

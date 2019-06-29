@@ -455,7 +455,7 @@ def assess_feature2(feature:pd.Series,y:pd.Series,q_bin):
     return result
 
 
-def assess_feature3(features:pd.DataFrame,y:pd.Series,q_bin):
+def assess_feature3(features:pd.DataFrame,y:pd.Series,q_bin,plot=False):
     df = pd.concat([features,y],axis=1,join="inner")
     # df = features.join(y,how="inner")
     # df.columns = ["feature","y"]
@@ -466,14 +466,20 @@ def assess_feature3(features:pd.DataFrame,y:pd.Series,q_bin):
     #         ("90%",np.nanpercentile, {"q": 90, "axis": 0}),
     #         ("10%",np.nanpercentile, {"q": 10, "axis": 0})]
     ops2 = [("std", np.std, {}),
-            ("q90%", np.nanpercentile, {"q": 90}),
-            ("q10%", np.nanpercentile, {"q": 10})]
+            ("q96%", np.nanpercentile, {"q": 96}),
+            ("q4%", np.nanpercentile, {"q": 4})]
     [kwargs.update({"axis":0}) for _,_,kwargs in ops2]
     columns = [col+"_"+name for name,_,_ in ops2 for col in ops1]
     result = pd.DataFrame(columns=columns)
     for fcol in df.columns.difference([ycol]):
         df["bin"] = pd.qcut(df[fcol],q=q_bin,labels=list(range(q_bin)))
         middle_result = df.groupby("bin")[ycol].agg(ops1)
+        print(fcol, "\n", middle_result, "\n")
+        if plot:
+            plt.figure()
+            plt.plot(list(middle_result.index),list(middle_result[ops1[0]]),color='red')
+            plt.plot(list(middle_result.index), list(middle_result[ops1[1]]), color='green')
+            plt.title("{} bins - return_rates".format(fcol))
         fcol_result = np.concatenate(
             [func(middle_result,**kwargs) for _,func,kwargs in ops2],
             axis=0)
