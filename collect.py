@@ -471,7 +471,8 @@ def update_stock_daily_basic(stock_pool, db_type="sqlite3",update=True,
     # d = manager.dict()
 
     start_time = time.time()
-    for i, stock in enumerate(stock_pool):
+    for i, row in stock_pool.iterrows():
+        stock = row["code"]
         if i % print_freq == 0:
             print('Seq:', str(i + 1), 'of', str(len(stock_pool)), '  Code:', str(stock))
         kwargs = {"code": stock, "db_type": db_type,
@@ -555,15 +556,15 @@ if __name__ == '__main__':
     # update_stock_basic()
 
     # index_pool = dbop.get_all_indexes()
-    index_pool = get_index_pool()
+    # index_pool = get_index_pool()
     # print(index_pool)
     # init_table(const.INDEX_DAY[const.TABLE],db_type=db_type)
-    update_indexes(index_pool,db_type,update=True)
+    # update_indexes(index_pool,db_type,update=True)
 
     stock_pool = get_stock_pool()
-    update_stocks(stock_pool, db_type=db_type,update=True)
+    # update_stocks(stock_pool, db_type=db_type,update=True)
 
-    # init_table(const.STOCK_DAILY_BASIC[const.TABLE],db_type=db_type)
-    update_stock_daily_basic(stock_pool=stock_pool,db_type=db_type,update=True)
+    init_table(const.STOCK_DAILY_BASIC[const.TABLE],db_type=db_type)
+    update_stock_daily_basic(stock_pool=stock_pool,db_type=db_type,update=False)
 
 
