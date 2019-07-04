@@ -615,7 +615,7 @@ def assess_feature_test():
     import pandas as pd
     import numpy as np
     cursor = dbop.connect_db("sqlite3").cursor()
-    start = 20180101
+    start = 20140101
     df = dbop.create_df(cursor, STOCK_DAILY_BASIC[TABLE],
                         start=start,
                         # where_clause="code in ('002349.SZ','600352.SH','600350.SH','600001.SH')",

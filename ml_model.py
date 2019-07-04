@@ -456,7 +456,9 @@ def assess_feature2(feature:pd.Series,y:pd.Series,q_bin):
 
 
 def assess_feature3(features:pd.DataFrame,y:pd.Series,q_bin,plot=False):
-    df = pd.concat([features,y],axis=1,join="inner")
+    idx = pd.IndexSlice
+    start_dt = max(y.index.get_level_values("date").min(), features.index.get_level_values("date").min())
+    df = pd.concat([features.loc[idx[:,start_dt:],:],y.loc[idx[:,start_dt:]]],axis=1,join="inner")
     # df = features.join(y,how="inner")
     # df.columns = ["feature","y"]
     ycol=y.name
@@ -472,7 +474,11 @@ def assess_feature3(features:pd.DataFrame,y:pd.Series,q_bin,plot=False):
     columns = [col+"_"+name for name,_,_ in ops2 for col in ops1]
     result = pd.DataFrame(columns=columns)
     for fcol in df.columns.difference([ycol]):
-        df["bin"] = pd.qcut(df[fcol],q=q_bin,labels=list(range(q_bin)))
+        df["bin"],bins = pd.qcut(df[fcol],q=q_bin,
+                                 retbins=True,
+                                 duplicates="drop",
+                                 # labels=list(range(q_bin))
+                                 )
         middle_result = df.groupby("bin")[ycol].agg(ops1)
         print(fcol, "\n", middle_result, "\n")
         if plot:
