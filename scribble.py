@@ -594,3 +594,7 @@ if __name__ == '__main__':
 #           .iloc[:60])
 #     print(time.time()-t0)
 
+
+df1["peg"] = df1["pe_ttm"]/np.where((df1["pe"]/df1["pe_ttm"]-1)*100>=10,(df1["pe"]/df1["pe_ttm"]-1)*100,1)
+
+df1["peg"] = df1["pe_ttm"]/np.where(((df1["pe"]/df1["pe_ttm"]-1)*100/(df1.index.get_level_values("date").quarter-1)*4>=10)&(df1.index.get_level_values("date").quarter>1),(df1["pe"]/df1["pe_ttm"]-1)*100/(df1.index.get_level_values("date").quarter-1)*4,1)

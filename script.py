@@ -624,6 +624,7 @@ def assess_feature_test():
     df = dp.prepare_stock_d_basic(df).drop_duplicates()
 
     df_r = pd.read_parquet(r"database\return_10%_25%_60_20")
+    df_r.sort_index(inplace=True)
     print(df_r.info(memory_usage="deep"))
     print(df_r.head(5))
     df_r["r"] = (df_r["sell_price"] / df_r["open"] - 1) * 100

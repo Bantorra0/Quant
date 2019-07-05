@@ -457,6 +457,8 @@ def assess_feature2(feature:pd.Series,y:pd.Series,q_bin):
 
 def assess_feature3(features:pd.DataFrame,y:pd.Series,q_bin,plot=False):
     idx = pd.IndexSlice
+    features.sort_index(inplace=True)
+    y.sort_index(inplace=True)
     start_dt = max(y.index.get_level_values("date").min(), features.index.get_level_values("date").min())
     df = pd.concat([features.loc[idx[:,start_dt:],:],y.loc[idx[:,start_dt:]]],axis=1,join="inner")
     # df = features.join(y,how="inner")
@@ -478,13 +480,13 @@ def assess_feature3(features:pd.DataFrame,y:pd.Series,q_bin,plot=False):
                                  retbins=True,
                                  duplicates="drop",
                                  # labels=list(range(q_bin))
-                                 )
+                                 ) # Raise error if a bin is [inf,inf].
         middle_result = df.groupby("bin")[ycol].agg(ops1)
         print(fcol, "\n", middle_result, "\n")
         if plot:
             plt.figure()
-            plt.plot(list(middle_result.index),list(middle_result[ops1[0]]),color='red')
-            plt.plot(list(middle_result.index), list(middle_result[ops1[1]]), color='green')
+            plt.plot(range(len(middle_result)),list(middle_result[ops1[0]]),color='red')
+            plt.plot(range(len(middle_result)), list(middle_result[ops1[1]]), color='green')
             plt.title("{} bins - return_rates".format(fcol))
         fcol_result = np.concatenate(
             [func(middle_result,**kwargs) for _,func,kwargs in ops2],
