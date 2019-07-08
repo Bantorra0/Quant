@@ -1,7 +1,7 @@
 import datetime
-import time
 import multiprocessing as mp
 import pickle
+import time
 
 import numpy as np
 import pandas as pd
@@ -102,7 +102,10 @@ def download_single_index_day(code, db_type: str, update=False,
         if update:
             latest_date = dbop.get_latest_date(const.INDEX_DAY[const.TABLE], code, db_type)
             if latest_date:
-                start = latest_date
+                start = datetime.datetime.strptime(str(latest_date),"%Y%m%d") \
+                        - datetime.timedelta(days=5)
+                start = start.strftime('%Y%m%d')
+                # start = latest_date
         if verbose > -1:
             print("start:", start)
 
@@ -138,9 +141,10 @@ def download_single_stock_day(code, db_type: str, update=False,
         if update:
             latest_date = dbop.get_latest_date(const.STOCK_DAY[const.TABLE], code, db_type)
             if latest_date:
-                # start = datetime.datetime.strptime(latest_date, "%Y-%m-%d") - datetime.timedelta(days=5)
-                # start = start.strftime('%Y-%m-%d')
-                start = latest_date
+                start = datetime.datetime.strptime(str(latest_date), "%Y%m%d") - \
+                        datetime.timedelta(days=5)
+                start = start.strftime('%Y%m%d')
+                # start = latest_date
 
         if verbose > -1:
             print("start:", start)
@@ -349,7 +353,8 @@ def update_stocks(stock_pool, db_type="sqlite3", update=True, verbose=0,
     # d = manager.dict()
 
     start_time = time.time()
-    for i, stock in enumerate(stock_pool):
+    for i, row in stock_pool.iterrows():
+        stock = row["code"]
         if i % print_freq == 0:
             print('Seq:', str(i + 1), 'of', str(len(stock_pool)), '  Code:', str(stock))
         download_failure = 1
@@ -395,9 +400,10 @@ def download_single_stock_daily_basic(code, db_type: str, update,
         if update:
             latest_date = dbop.get_latest_date(const.STOCK_DAILY_BASIC[const.TABLE], code, db_type)
             if latest_date:
-                # start = datetime.datetime.strptime(latest_date, "%Y-%m-%d") - datetime.timedelta(days=5)
-                # start = start.strftime('%Y-%m-%d')
-                start = latest_date
+                start = datetime.datetime.strptime(str(latest_date),"%Y%m%d") \
+                        - datetime.timedelta(days=5)
+                start = start.strftime('%Y%m%d')
+                # start = latest_date
 
         if verbose > -1:
             print("start:", start)
@@ -556,15 +562,15 @@ if __name__ == '__main__':
     # update_stock_basic()
 
     # index_pool = dbop.get_all_indexes()
-    # index_pool = get_index_pool()
+    index_pool = get_index_pool()
     # print(index_pool)
     # init_table(const.INDEX_DAY[const.TABLE],db_type=db_type)
-    # update_indexes(index_pool,db_type,update=True)
+    update_indexes(index_pool,db_type,update=True)
 
     stock_pool = get_stock_pool()
-    # update_stocks(stock_pool, db_type=db_type,update=True)
+    update_stocks(stock_pool, db_type=db_type,update=True)
 
-    init_table(const.STOCK_DAILY_BASIC[const.TABLE],db_type=db_type)
-    update_stock_daily_basic(stock_pool=stock_pool,db_type=db_type,update=False)
+    # init_table(const.STOCK_DAILY_BASIC[const.TABLE],db_type=db_type)
+    update_stock_daily_basic(stock_pool=stock_pool,db_type=db_type,update=True)
 
 
