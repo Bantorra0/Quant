@@ -638,6 +638,43 @@ def assess_feature_test():
     plt.show()
 
 
+def feature_explore():
+    # from script import *
+    import pandas as pd
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    import ml_model as ml
+
+
+    df_r = pd.read_parquet(r"database\return_10%_25%_60_20")
+    df_r.sort_index(inplace=True)
+    print(df_r.info(memory_usage="deep"))
+    print(df_r.head(5))
+    df_r["r"] = (df_r["sell_price"] / df_r["open"] - 1) * 100
+
+    cursor = dbop.connect_db("sqlite3").cursor()
+    start = 20140101
+    df_d_basic = dbop.create_df(cursor, STOCK_DAILY_BASIC[TABLE],
+                                start=start,
+                                # where_clause="code in ('002349.SZ','600352.SH','600350.SH','600001.SH')",
+                                # where_clause="code='600350.SH'",
+                                )
+    df_d_basic = dp.prepare_stock_d_basic(df_d_basic).drop_duplicates()
+
+    df_d = dbop.create_df(cursor, STOCK_DAY[TABLE],
+                                start=start,
+                                # where_clause="code in ('002349.SZ','600352.SH','600350.SH','600001.SH')",
+                                # where_clause="code='600350.SH'",
+                                )
+    df_d = dp.proc_stock_d(dp.prepare_stock_d(df_d))
+
+    result = ml.assess_feature3(df[df.columns.difference(["close"])], df_r["r"], 50,plot=True)
+    pd.set_option("display.max_columns",10)
+    print(result)
+    plt.show()
+
+
 if __name__ == '__main__':
     # test_get_return()
     assess_feature_test()
