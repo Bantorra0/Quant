@@ -37,7 +37,8 @@ def period_agg(df:pd.DataFrame, op=np.mean, start=2000):
         mask0 = (df.index.get_level_values("date").month == mth)
         for code in index_pool.index:
             mask1 = (df.index.get_level_values("code") == code)
-            for start, end in [(1, 10), (11, 20), (21, 30)]:
+            # for start, end in [(1, 10), (11, 20), (21, 30)]:
+            for start, end in [(11, 15), (16,20)]:
                 mask2 = (df.index.get_level_values("date").day >= start)\
                         & (df.index.get_level_values("date").day <= end)
                 mask = mask0 & mask1 & mask2
@@ -134,7 +135,7 @@ def df_statistics(df:pd.DataFrame,row_ops=None,col_ops=None,ops=None):
 if __name__ == '__main__':
     idx = pd.IndexSlice
     cursor = dbop.connect_db("sqlite3").cursor()
-    start = 20000101
+    start = 20100101
     df = dbop.create_df(cursor, INDEX_DAY[TABLE], start=start,
                         # where_clause="code in ('002349.SZ','600352.SH','600350.SH','600001.SH')",
                         # where_clause="code='600352.SH'",
@@ -154,9 +155,14 @@ if __name__ == '__main__':
            ("std",np.std,{})
            ]
 
-    result = df_statistics(dayofweek_agg(df, op=np.mean,start=2010), ops=ops)
-    result = df_statistics(dayofweek_agg(df, op=np.nanmedian,start=2010), ops=ops)
-    result = df_statistics(dayofweek_agg(df, op=np.std,start=2010), ops=ops)
+    # result = df_statistics(period_agg(df, op=np.mean,start=2010), ops=ops)
+    # result = df_statistics(period_agg(df, op=np.nanmedian,start=2010), ops=ops)
+    # result = df_statistics(period_agg(df, op=np.std,start=2010), ops=ops)
+
+    pd.set_option("display.max_columns",10)
+    print(df_statistics(period_agg(df, op=np.mean, start=2010), ops=ops))
+    print(df_statistics(period_agg(df, op=np.nanmedian, start=2010), ops=ops))
+    print(df_statistics(period_agg(df, op=np.std, start=2010), ops=ops))
 
 
 # for i in range(2,20):
