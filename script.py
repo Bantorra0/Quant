@@ -654,7 +654,7 @@ def feature_explore():
     df_r["r"] = (df_r["sell_price"] / df_r["open"] - 1) * 100
 
     cursor = dbop.connect_db("sqlite3").cursor()
-    start = 20140101
+    start = 20120101
     df_d_basic = dbop.create_df(cursor, STOCK_DAILY_BASIC[TABLE],
                                 start=start,
                                 # where_clause="code in ('002349.SZ','600352.SH','600350.SH','600001.SH')",
