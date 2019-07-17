@@ -603,13 +603,16 @@ from feature_engineering import *
 df_d = pd.DataFrame()
 
 features = pd.DataFrame()
-for days in [20]:
+for days in [20,40,60,120,250]:
     tmp = groupby_rolling(df_d, level="code", window=days, ops={"low": "min"})
     features["close/p{}min_low-1".format(days)] = df_d["close"] / tmp["low"] - 1
 
 pd.set_option("display.max_rows",200)
-df_tmp = df_r.loc[features[index].index,["r"]]
-df_tmp.reset_index("code")[["r"]].resample(rule="SM").agg(["mean","median","size"])
 cond40 = (features["close/p40min_low-1"]<=0.15) & (features["close/p40min_low-1"]>=0.06)
 cond120 = (features["close/p120min_low-1"]<=0.25) & (features["close/p120min_low-1"]>=0.15)
 cond60 = (features["close/p60min_low-1"]<=0.15) & (features["close/p60min_low-1"]>=0.075)
+
+index = features.index[(cond40 & cond60 & cond120)]
+df_tmp = df_r.loc[index,["r"]]
+df_tmp.reset_index("code")[["r"]].resample(rule="SM").agg(["mean","median","size"])
+

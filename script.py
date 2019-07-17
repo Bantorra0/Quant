@@ -638,6 +638,7 @@ def assess_feature_test():
     plt.show()
 
 
+from constants import *
 def feature_explore():
     # from script import *
     import pandas as pd
@@ -645,6 +646,9 @@ def feature_explore():
     import matplotlib.pyplot as plt
 
     import ml_model as ml
+    import db_operations as dbop
+    import data_process as dp
+
 
 
     df_r = pd.read_parquet(r"database\return_10%_25%_60_20")
