@@ -96,7 +96,7 @@ def insert_to_db(row, db_type: str, table_name, columns):
 
 
 def download_single_index_day(code, db_type: str, update=False,
-                              start=20000101, end=None, verbose=0):
+                              start=const.START_DT, end=None, verbose=0):
     try:
         # Set start to the newest date in table if update is true.
         if update:
@@ -134,7 +134,7 @@ def download_single_index_day(code, db_type: str, update=False,
 
 
 def download_single_stock_day(code, db_type: str, update=False,
-                              start=20000101, end=None, verbose=0):
+                              start=const.START_DT, end=None, verbose=0):
     pro = _init_api(const.TOKEN)
     try:
         # Set start to the newest date in table if update is true.
@@ -226,7 +226,7 @@ def download_stock_basic():
 
 
 def collect_single_stock_day(code, db_type: str, update=False,
-                             start="2000-01-01", verbose=0, conn=None, close_db=False):
+                             start=const.START_DT, verbose=0, conn=None, close_db=False):
     if conn is None:
         conn = dbop.connect_db(db_type)
     download_failure, write_failure = 0, 0
@@ -250,7 +250,7 @@ def collect_single_stock_day(code, db_type: str, update=False,
 
 
 def collect_single_index_day(code:str, db_type: str, update=False,
-                             start="2000-01-01", verbose=0,conn=None):
+                             start=const.START_DT, verbose=0,conn=None):
     if conn is None:
         conn = dbop.connect_db(db_type)
     download_failure, write_failure = 0, 0
@@ -317,7 +317,9 @@ def update(db_type="sqlite3"):
     dc.fillna_stock_day(db_type=db_type)
 
 
-def update_indexes(index_pool:pd.DataFrame, db_type="sqlite3", update=True,verbose=0,
+def update_indexes(index_pool:pd.DataFrame, db_type="sqlite3", update=True,
+                   start=const.START_DT,
+                   verbose=0,
                    print_freq=1):
     print("Indexes:", len(index_pool))
     t0 = time.time()
@@ -329,7 +331,8 @@ def update_indexes(index_pool:pd.DataFrame, db_type="sqlite3", update=True,verbo
         write_failure = 0
         while download_failure > 0 or write_failure > 0:
             download_failure, write_failure, conn = collect_single_index_day(
-                code=index["code"], db_type=db_type, update=update, verbose=verbose, conn=conn)
+                code=index["code"], db_type=db_type, update=update,
+                start=start,verbose=verbose, conn=conn)
 
             # Sleep to make sure each iteration take 0.3s,
             # because the server has a limit of 200 api connections per min.
@@ -340,7 +343,9 @@ def update_indexes(index_pool:pd.DataFrame, db_type="sqlite3", update=True,verbo
     dbop.close_db(conn)
 
 
-def update_stocks(stock_pool, db_type="sqlite3", update=True, verbose=0,
+def update_stocks(stock_pool, db_type="sqlite3", update=True,
+                  start=const.START_DT,
+                  verbose=0,
                   print_freq=1):
     print("Stocks:", len(stock_pool))
     conn=dbop.connect_db(db_type)
@@ -361,7 +366,7 @@ def update_stocks(stock_pool, db_type="sqlite3", update=True, verbose=0,
         write_failure = 0
         while download_failure > 0 or write_failure > 0:
             kwargs = {"code": stock, "db_type": db_type,
-                      "update": update, "verbose": verbose,
+                      "update": update,"start":start, "verbose": verbose,
                       "conn":None, "close_db":True,
                       }
 
@@ -393,7 +398,7 @@ def update_stocks(stock_pool, db_type="sqlite3", update=True, verbose=0,
 
 
 def download_single_stock_daily_basic(code, db_type: str, update,
-                              start=20000101, end=None, verbose=0):
+                              start=const.START_DT, end=None, verbose=0):
     pro = _init_api(const.TOKEN)
     try:
         # Set start to the newest date in table if update is true.
@@ -440,7 +445,7 @@ def download_single_stock_daily_basic(code, db_type: str, update,
 
 
 def collect_single_stock_daily_basic(code, db_type: str, update,
-                             start="2000-01-01", verbose=0, conn=None, close_db=False):
+                             start=const.START_DT, verbose=0, conn=None, close_db=False):
     if conn is None:
         conn = dbop.connect_db(db_type)
     download_failure, write_failure = 0, 0
@@ -464,7 +469,8 @@ def collect_single_stock_daily_basic(code, db_type: str, update,
 
 
 def update_stock_daily_basic(stock_pool, db_type="sqlite3",update=True,
-    verbose=0, print_freq=1):
+                             start=const.START_DT,
+                             verbose=0, print_freq=1):
     print("\n"*4+"-"*20)
     print("Update stock daily basic: {0} stocks in total".format(len(stock_pool)))
     conn=dbop.connect_db(db_type)
@@ -482,7 +488,7 @@ def update_stock_daily_basic(stock_pool, db_type="sqlite3",update=True,
         if i % print_freq == 0:
             print('Seq:', str(i + 1), 'of', str(len(stock_pool)), '  Code:', str(stock))
         kwargs = {"code": stock, "db_type": db_type,
-                  "update": update, "verbose": verbose,
+                  "update": update, "start":start,"verbose": verbose,
                   "conn": None, "close_db": True,
                   }
 
@@ -565,12 +571,12 @@ if __name__ == '__main__':
     index_pool = get_index_pool()
     # print(index_pool)
     # init_table(const.INDEX_DAY[const.TABLE],db_type=db_type)
-    update_indexes(index_pool,db_type,update=True)
+    update_indexes(index_pool,db_type,update=False,start=20190701)
 
     stock_pool = get_stock_pool()
-    update_stocks(stock_pool, db_type=db_type,update=True)
+    update_stocks(stock_pool, db_type=db_type,update=False,start=20190701)
 
     # init_table(const.STOCK_DAILY_BASIC[const.TABLE],db_type=db_type)
-    update_stock_daily_basic(stock_pool=stock_pool,db_type=db_type,update=True)
+    update_stock_daily_basic(stock_pool=stock_pool,db_type=db_type,update=False,start=20190701)
 
 

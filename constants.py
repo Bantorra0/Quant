@@ -48,3 +48,5 @@ SELL_FLAG = -1
 # Configs for trading pattern.
 BUY_IN_PCT = 0.05
 HOLDING_PCT_LIMIT = 0.5
+
+START_DT = 20000101
