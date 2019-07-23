@@ -6,6 +6,7 @@ import time
 import lightgbm.sklearn as lgbm
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 
 import db_operations as dbop
 import customized_obj as cus_obj
@@ -611,9 +612,6 @@ def test_get_return():
 
 
 def assess_feature_test():
-    # from script import *
-    import pandas as pd
-    import numpy as np
     cursor = dbop.connect_db("sqlite3").cursor()
     start = 20140101
     df = dbop.create_df(cursor, STOCK_DAILY_BASIC[TABLE],
@@ -629,8 +627,6 @@ def assess_feature_test():
     print(df_r.head(5))
     df_r["r"] = (df_r["sell_price"] / df_r["open"] - 1) * 100
 
-    import ml_model as ml
-
     result = ml.assess_feature3(df[df.columns.difference(["close"])], df_r["r"], 50,plot=True)
     pd.set_option("display.max_columns",10)
     print(result)
@@ -638,18 +634,12 @@ def assess_feature_test():
     plt.show()
 
 
-from constants import *
+
+
+
 def feature_explore():
-    # from script import *
-    import pandas as pd
-    import numpy as np
-    import matplotlib.pyplot as plt
-
-    import ml_model as ml
-    import db_operations as dbop
-    import data_process as dp
-
-
+    pd.set_option("display.max_rows", 100)
+    pd.set_option("display.max_columns", 20)
 
     df_r = pd.read_parquet(r"database\return_10%_25%_60_20")
     df_r.sort_index(inplace=True)
@@ -673,8 +663,7 @@ def feature_explore():
                                 )
     df_d = dp.proc_stock_d(dp.prepare_stock_d(df_d))
 
-    result = ml.assess_feature3(df[df.columns.difference(["close"])], df_r["r"], 50,plot=True)
-    pd.set_option("display.max_columns",10)
+    result = ml.assess_feature3(df_d_basic[df_d_basic.columns.difference(["close"])], df_r["r"], 50,plot=True)
     print(result)
     plt.show()
 

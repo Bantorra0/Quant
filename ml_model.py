@@ -457,8 +457,8 @@ def assess_feature2(feature:pd.Series,y:pd.Series,q_bin):
 
 def assess_feature3(features:pd.DataFrame,y:pd.Series,q_bin,plot=False):
     idx = pd.IndexSlice
-    features.sort_index(inplace=True)
-    y.sort_index(inplace=True)
+    features= features.sort_index()
+    y=y.sort_index()
     start_dt = max(y.index.get_level_values("date").min(), features.index.get_level_values("date").min())
     df = pd.concat([features.loc[idx[:,start_dt:],:],y.loc[idx[:,start_dt:]]],axis=1,join="inner")
     # df = features.join(y,how="inner")

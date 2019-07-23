@@ -603,9 +603,26 @@ from feature_engineering import *
 df_d = pd.DataFrame()
 
 features = pd.DataFrame()
-for days in [20,40,60,120,250]:
+intervals = [5,10,20,30,40,60,120,250]
+for days in intervals:
     tmp = groupby_rolling(df_d, level="code", window=days, ops={"low": "min"})
     features["close/p{}min_low-1".format(days)] = df_d["close"] / tmp["low"] - 1
+
+kma = pd.DataFrame()
+for days in intervals:
+    tmp = k_MA_batch(days,df_d)
+    col = tmp.columns[0]
+    kma[col]=tmp[col]
+
+for col in kma.columns:
+    features["close/{}-1".format(col)] = df_d["close"]/kma[col]-1
+
+for col in kma.columns[1:]:
+    features["{0}/{1}-1".format(kma.columns[0],col)] = kma[kma.columns[0]] / kma[col] - 1
+
+
+
+
 
 pd.set_option("display.max_rows",200)
 cond40 = (features["close/p40min_low-1"]<=0.15) & (features["close/p40min_low-1"]>=0.06)
