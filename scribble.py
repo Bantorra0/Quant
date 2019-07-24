@@ -600,9 +600,33 @@ if __name__ == '__main__':
 # df1["peg"] = df1["pe_ttm"]/np.where(((df1["pe"]/df1["pe_ttm"]-1)*100/(df1.index.get_level_values("date").quarter-1)*4>=10)&(df1.index.get_level_values("date").quarter>1),(df1["pe"]/df1["pe_ttm"]-1)*100/(df1.index.get_level_values("date").quarter-1)*4,1)
 
 from feature_engineering import *
-df_d = pd.DataFrame()
+from script import *
+
+df_r = pd.read_parquet(r"database\return_10%_25%_60_20")
+df_r.sort_index(inplace=True)
+print(df_r.info(memory_usage="deep"))
+print(df_r.head(5))
+df_r["r"] = (df_r["sell_price"] / df_r["open"] - 1) * 100
+
+cursor = dbop.connect_db("sqlite3").cursor()
+start = 20120101
+df_d_basic = dbop.create_df(cursor, STOCK_DAILY_BASIC[TABLE],
+                            start=start,
+                            # where_clause="code in ('002349.SZ','600352.SH','600350.SH','600001.SH')",
+                            # where_clause="code='600350.SH'",
+                            )
+df_d_basic = dp.prepare_stock_d_basic(df_d_basic).drop_duplicates()
+
+df_d = dbop.create_df(cursor, STOCK_DAY[TABLE],
+                      start=start,
+                      # where_clause="code in ('002349.SZ','600352.SH','600350.SH','600001.SH')",
+                      # where_clause="code='600350.SH'",
+                      )
+df_d = dp.proc_stock_d(dp.prepare_stock_d(df_d))
 
 features = pd.DataFrame()
+
+
 intervals = [5,10,20,30,40,60,120,250]
 for days in intervals:
     tmp = groupby_rolling(df_d, level="code", window=days, ops={"low": "min"})
@@ -621,9 +645,51 @@ for col in kma.columns[1:]:
     features["{0}/{1}-1".format(kma.columns[0],col)] = kma[kma.columns[0]] / kma[col] - 1
 
 
+result = ml.assess_feature3(features,df_r["r"],20)
+df_d_basic["pb*pe_ttm"] = df_d_basic["pb"]*df_d_basic["pe_ttm"]
+features_selected = pd.concat([features[result.index[result["median_std"]>0.5]],df_d_basic[["pe","pe_ttm","pb","pb*pe_ttm"]]],axis=1)
+features_selected["r"] = df_r["r"].reindex(features_selected.index)
+for col in features_selected.columns.difference(["r"]):
+    features_selected[col] = pd.qcut(features_selected[col], 20)
+# result_features_selected = features_selected.dropna()\
+#     .groupby(["pb*pe_ttm","close/p120min_low-1","5MA/p120min_low-1","pb","pe_ttm"])["r"]\
+#     .agg(["median","size"])\
+#     .sort_values("median",ascending=False)
+result_features_selected = features_selected.dropna()\
+    .groupby(["pb*pe_ttm","close/p120min_low-1","close/120MA-1"])["r"]\
+    .agg(["median","size"])\
+    .sort_values("median",ascending=False)
+cols = result_features_selected.index.names
+idx1 = result_features_selected[(result_features_selected["size"]>100)&(result_features_selected["median"]>0)].sort_values("median",ascending=False).index[0]
+cond1=True
+for col, bin in zip(cols, idx1):
+    cond1 &= (features_selected[col] == bin)
+idx2 = result_features_selected[(result_features_selected["size"]>200)&(result_features_selected["median"]>0)].sort_values("median",ascending=False).index[1]
+cond2=True
+for col, bin in zip(cols, idx2):
+    cond2 &= (features_selected[col] == bin)
+features_selected[cond2 | cond1].dropna().reset_index("code").resample("MS").size()
+# features_selected[cond2 | cond1].dropna().reset_index("code")["r"]
 
+features_selected[cond1].dropna().reset_index("code")["2016":]["r"].hist(bins=20)
 
+intervals = [5, 10, 20, 30, 40, 60, 120, 250]
+for days in intervals:
+    min_vol = groupby_rolling(df_d, level="code", window=days, ops={"vol": "min"})
+    mean_vol = groupby_rolling(df_d, level="code", window=days, ops={"vol": "mean"})
+    features["vol/p{}min_vol-1".format(days)] = df_d["vol"] / min_vol - 1
+    features["vol/p{}mean_vol-1".format(days)] = df_d["vol"] / mean_vol - 1
 
+intervals = [5, 10, 20, 30, 40, 60, 120, 250]
+for days in intervals:
+    min_amt = groupby_rolling(df_d, level="code", window=days, ops={"amt": "min"})
+    mean_amt = groupby_rolling(df_d, level="code", window=days, ops={"amt": "mean"})
+    features["amt/p{}min_amt-1".format(days)] = df_d["amt"] / min_amt["amt"] - 1
+    features["amt/p{}mean_amt-1".format(days)] = df_d["amt"] / mean_amt["amt"] - 1
+
+result_vol_amt = ml.assess_feature3(features,df_r["r"],20)
+
+#
 pd.set_option("display.max_rows",200)
 cond40 = (features["close/p40min_low-1"]<=0.15) & (features["close/p40min_low-1"]>=0.06)
 cond120 = (features["close/p120min_low-1"]<=0.25) & (features["close/p120min_low-1"]>=0.15)
