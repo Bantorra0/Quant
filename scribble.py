@@ -626,7 +626,6 @@ df_d = dp.proc_stock_d(dp.prepare_stock_d(df_d))
 
 features = pd.DataFrame()
 
-
 intervals = [5,10,20,30,40,60,120,250]
 for days in intervals:
     tmp = groupby_rolling(df_d, level="code", window=days, ops={"low": "min"})
@@ -674,6 +673,20 @@ features_selected[cond2 | cond1].dropna().reset_index("code").resample("MS").siz
 features_selected[cond1].dropna().reset_index("code")["2016":]["r"].hist(bins=20)
 
 intervals = [5, 10, 20, 30, 40, 60, 120, 250]
+vol_rolling = pd.DataFrame(index=df_d.index)
+amt_rolling = pd.DataFrame(index=df_d.index)
+for days in intervals:
+    tmp_vol = rolling_batch2(df=df_d, days=days, ops=[("vol","min"),("vol","mean")])
+    tmp_amt = rolling_batch2(df=df_d, days=days, ops=[("amt","min"),("amt","mean")])
+    vol_rolling.loc[:,tmp_vol.columns] = tmp_vol
+    amt_rolling.loc[:,tmp_amt.columns] = tmp_amt
+
+for col in vol_rolling:
+    features["vol/{0}-1".format(col)] = df_d["vol"] / vol_rolling[col]-1
+
+for col in amt_rolling:
+    features["amt/{0}-1".format(col)] = df_d["amt"] / amt_rolling[col]-1
+
 for days in intervals:
     min_vol = groupby_rolling(df_d, level="code", window=days, ops={"vol": "min"})
     mean_vol = groupby_rolling(df_d, level="code", window=days, ops={"vol": "mean"})
