@@ -644,6 +644,24 @@ for col in kma.columns[1:]:
     features["{0}/{1}-1".format(kma.columns[0],col)] = kma[kma.columns[0]] / kma[col] - 1
 
 
+#
+df_d_basic["pb*pe_ttm"] = df_d_basic["pb"]*df_d_basic["pe_ttm"]
+df_d_basic["pb*pe"] = df_d_basic["pb"]*df_d_basic["pe"]
+df_d_basic["peg"] = df_d_basic["pe_ttm"] / np.where(((df_d_basic["pe"] / df_d_basic["pe_ttm"] - 1) * 100 / (df_d_basic.index.get_level_values("date").quarter - 1) * 4 >= 10) & (df_d_basic.index.get_level_values("date").quarter > 1), (df_d_basic["pe"] / df_d_basic["pe_ttm"] - 1) * 100 / (df_d_basic.index.get_level_values("date").quarter - 1) * 4, 1)
+
+features = pd.concat([features,df_d_basic],axis=1)
+del df_d_basic,kma
+df_d = df_d[[col for col in df_d.columns if "0" not in col]]
+y = df_r["r"].reindex(features.index)
+X = features[y.notnull()]
+y = y.dropna()
+features = features.astype("float32")
+y = y.astype("float32")
+store = pd.HDFStore("dataset")
+store["X"] = X
+store["y"] = y
+store.close()
+
 result = ml.assess_feature3(features,df_r["r"],20)
 df_d_basic["pb*pe_ttm"] = df_d_basic["pb"]*df_d_basic["pe_ttm"]
 features_selected = pd.concat([features[result.index[result["median_std"]>0.5]],df_d_basic[["pe","pe_ttm","pb","pb*pe_ttm"]]],axis=1)
