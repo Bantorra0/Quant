@@ -307,7 +307,7 @@ def get_return_rate3(df_single_stock_d: pd.DataFrame, loss_limit=0.1, retracemen
     return df_tmp
 
 
-def get_return_rate_batch(df_stock_d: pd.DataFrame, loss_limit=0.1, retracement=0.1, retracement_inc_pct=0.25,
+def get_return_rate_batch2(df_stock_d: pd.DataFrame, loss_limit=0.1, retracement=0.1, retracement_inc_pct=0.25,
                           max_days=60, new_high_days_limit=20, is_truncated=True):
     # Cleaning input.
     df_stock_d = \
@@ -346,7 +346,6 @@ def get_return_rate_batch(df_stock_d: pd.DataFrame, loss_limit=0.1, retracement=
     columns = ["open", "low","high","close"]
     df_curr = df_stock_d[columns].copy()
     df_curr["idx"] = index.get_level_values("idx")
-    df_curr = df_curr.groupby(level="code").shift(-1)
     mask = pd.Series(False, index=index)
     while df_tmp["is_selled"].all()!=True:
         df_prev = df_curr
@@ -384,9 +383,9 @@ def get_return_rate_batch(df_stock_d: pd.DataFrame, loss_limit=0.1, retracement=
     return df_tmp
 
 
-def get_return_rate_batch2(df_stock_d: pd.DataFrame, loss_limit=0.1, retracement=0.1, retracement_inc_pct=0.25,
-                           holding_days=20, holding_threshold=0.1, max_days=60, new_high_days_limit=20, is_truncated=True):
-    # Cleaning input.
+def get_return_rate_batch(df_stock_d: pd.DataFrame, loss_limit=0.1, retracement=0.1, retracement_inc_pct=0.25,
+                          max_days=60, new_high_days_limit=20, is_truncated=True):
+    # Cleaning input, filter days when vol=0 or any field is null.
     df_stock_d = \
         df_stock_d[(df_stock_d["vol"] > 0)
                    & (df_stock_d[["open", "high", "low", "close"]].notnull().all(axis=1))].copy()
@@ -400,68 +399,65 @@ def get_return_rate_batch2(df_stock_d: pd.DataFrame, loss_limit=0.1, retracement
         df_single_stock_d_list.append(df_single_stock_d)
 
         trunc_open = np.ones(k)*df_single_stock_d["open"].iloc[-1]
-        trunc_open[-1] = np.nan
+        trunc_open[-2:] = np.nan
         a_trunc_list.append(trunc_open)
 
+    print(len(df_single_stock_d_list))
     df_stock_d = pd.concat(df_single_stock_d_list,axis=0)
-    origin_index = df_stock_d.index
-    df_stock_d.reset_index(level="code", inplace=True)
-    df_stock_d.set_index(["code", "idx"], inplace=True)
-    index = df_stock_d.index
     a_trunc_open = np.concatenate(a_trunc_list,axis=0)
 
     # Dataframe for intermediate result(info of holding shares).
-    df_tmp = df_stock_d[["open","high"]].rename(columns={"high":"max"})
-    df_tmp["idx"] = df_tmp.index.get_level_values("idx")-1
-    df_tmp["max_idx"] = df_tmp["idx"] + 1 # Buy in next day, so here we increment 1.
+    ss_pct = df_stock_d["open"]/df_stock_d.groupby(level="code")["close"].shift(1)-1
+    df_tmp = df_stock_d[["open","high","idx"]].rename(columns={"high":"max","open":"buy_at","idx":"max_idx"})
+    buy_mask = ((df_stock_d["high"]==df_stock_d["low"]) & (ss_pct>0))
+    df_tmp.loc[buy_mask,"buy_at"] = None
+    df_tmp = df_tmp.groupby(level="code").shift(-1) # Shift -1 because we buy in with open price next day.
+    df_tmp["idx"] = df_stock_d["idx"]
     df_tmp["is_selled"] = False
-    df_tmp.reset_index(level="code", inplace=True)
-    df_tmp.set_index(["code", "idx"], inplace=True)
-    df_tmp = df_tmp.reindex(index=index)
 
-    columns = ["open", "low", "high", "close"]
+    columns = ["open", "low","high","close","idx"]
     df_curr = df_stock_d[columns].copy()
-    df_curr["idx"] = index.get_level_values("idx")
-    mask = pd.Series(False,index=index)
+    df_curr = df_curr.groupby(level="code").shift(-1)
+    mask = pd.Series(False, index=df_stock_d.index)
     while df_tmp["is_selled"].all()!=True:
-        df_curr["idx0"] = df_curr.index.get_level_values("idx") - 1
-        df_curr.reset_index(level="code", inplace=True)
-        df_curr.set_index(["code", "idx0"],inplace=True)
-        df_curr.index.rename(["code","idx"],inplace=True)
-        df_curr = df_curr.reindex(index=index)
-        # df_curr = df_curr.groupby(level="code").shift(-1)
-
+        df_prev = df_curr
+        df_curr = df_curr.groupby(level="code").shift(-1)
 
         if df_tmp.loc[df_curr["open"].notnull(),"is_selled"].all():
-            # print("all selled")
             break
 
-        # print("--",df_tmp[mask])
+        # Sell shares given mask.
+        mask &= ~((df_curr["low"]==df_curr["high"])&(df_curr["open"]<df_prev["close"])) # 排除跌停板卖不出的情况
         mask &= ((df_tmp["is_selled"] == False) & df_curr["open"].notnull())
-        df_tmp.loc[mask, "sell_price"] = df_curr.loc[mask, "open"].values
+        df_tmp.loc[mask, "sell_at"] = df_curr.loc[mask, "open"].values
         df_tmp.loc[mask, "is_selled"] = True
 
+        # Update max price and the corresponding date index if necessary.
         cond = (df_tmp["is_selled"] == False) & (df_tmp["max"] < df_curr["high"])
         df_tmp.loc[cond, ["max", "max_idx"]] = df_curr.loc[cond, ["high", "idx"]].values
 
-        stop_profit_points = df_tmp["open"] * (1-loss_limit) + (df_tmp["max"] - df_tmp["open"]) * (1 - retracement_inc_pct)
+        # Sell condition of stopping profit or loss
+        stop_profit_points = df_tmp["buy_at"] * (1-loss_limit) + (df_tmp["max"] - df_tmp["buy_at"]) * (1 - retracement_inc_pct)
         mask = df_curr["low"] <= stop_profit_points
 
-        # Sell if max_days is not none and max_days is exceeded.
+        # Sell if arg max_days is not none and is exceeded.
         if max_days is not None:
             # print(df_tmp[(df_tmp["is_selled"]==False)&(df_prev["idx"] - df_tmp["buy_idx"] >= max_days)])
-            mask |= (df_curr["idx"] - df_tmp.index.get_level_values("idx") >= max_days)
+            mask |= (df_curr["idx"] - df_tmp["idx"] >= max_days)
 
+        # Sell if arg new_high_days_limit is not none is exceeded.
         if new_high_days_limit is not None:
-            mask |= (df_curr["idx"]+1 - df_tmp["max_idx"] >= new_high_days_limit) # Buy in next day, so here we increment 1.
+            mask |= (df_curr["idx"] - df_tmp["max_idx"] >= new_high_days_limit)
 
     if is_truncated:
         mask0 = (df_tmp["is_selled"]==False) & (~np.isnan(a_trunc_open))
-        df_tmp.loc[mask0, "sell_price"] = a_trunc_open[mask0]
+        df_tmp.loc[mask0, "sell_at"] = a_trunc_open[mask0]
         df_tmp.loc[mask0, "is_selled"] = True
 
-    df_tmp.index = origin_index
+    df_tmp["r"] = (df_tmp["sell_at"]/df_tmp["buy_at"]-1)*100
+    df_tmp.loc[~df_tmp["is_selled"],"r"]=None
     return df_tmp
+
 
 
 def update_dataset():
@@ -568,6 +564,37 @@ def test_get_return_rate_batch():
     df = pd.concat([df_syn, r1, r3], axis=1)
     print(df)
     print(df[df[0] != df["sell_price"]][[0, "sell_price"]])
+
+
+def get_return_rate_batch2_test():
+    pd.set_option("display.max_rows", 200)
+    pd.set_option("display.max_columns", 15)
+
+    df_syn = pd.DataFrame(np.array(list(range(100, 150)) + list(range(150, 110, -1))).reshape(-1, 1), columns=["open"])
+    df_syn["close"] = df_syn["open"]
+    df_syn["high"] = df_syn["open"] + 1
+    df_syn["low"] = df_syn["open"] - 1
+    df_syn.loc[len(df_syn)] = [122.1]*4
+    df_syn.loc[len(df_syn)] = [134.31] * 4
+    df_syn.loc[len(df_syn)] = [147.74] * 4
+    df_syn["vol"] = 100
+    df_syn["date"] = np.arange(len(df_syn))
+    df_syn["code"] = "600352.SH"
+    df_syn.set_index(["code","date"],inplace=True)
+
+    print(df_syn)
+    t0 = time.time()
+    r3 = get_return_rate_batch(df_syn)
+    print(time.time()-t0)
+    print(r3)
+    # r1 = get_return_rate(df_syn)
+    # print(time.time()-t0)
+
+    # print((r1.dropna() == r3.dropna()).all())
+
+    # df = pd.concat([df_syn, r1, r3], axis=1)
+    # print(df)
+    # print(df[df[0] != df["sell_price"]][[0, "sell_price"]])
 
 
 def test_get_return():
@@ -713,80 +740,82 @@ if __name__ == '__main__':
     # test_get_return()
     # assess_feature_test()
 
-    from feature_engineering import *
-
-    df_r = pd.read_parquet(r"database\return_10%_25%_60_20")
-    df_r.sort_index(inplace=True)
-    print(df_r.info(memory_usage="deep"))
-    print(df_r.head(5))
-    df_r["r"] = (df_r["sell_price"] / df_r["open"] - 1) * 100
-
-    cursor = dbop.connect_db("sqlite3").cursor()
-    start = 20120101
-    df_d_basic = dbop.create_df(cursor, STOCK_DAILY_BASIC[TABLE], start=start,
-                                # where_clause="code in ('002349.SZ','600352.SH','600350.SH','600001.SH')",
-                                # where_clause="code='600350.SH'",
-                                )
-    df_d_basic = dp.prepare_stock_d_basic(df_d_basic).drop_duplicates()
-
-    df_d = dbop.create_df(cursor, STOCK_DAY[TABLE], start=start,
-                          # where_clause="code in ('002349.SZ','600352.SH','600350.SH','600001.SH')",
-                          # where_clause="code='600350.SH'",
-                          )
-    df_d = dp.proc_stock_d(dp.prepare_stock_d(df_d))
-
-    features = pd.DataFrame()
-
-    intervals = [5, 10, 20, 30, 40, 60, 120, 250]
-    for days in intervals:
-        tmp = groupby_rolling(df_d, level="code", window=days,
-                              ops={"low": "min"})
-        features["close/p{}min_low-1".format(days)] = df_d["close"] / tmp[
-            "low"] - 1
-
-    kma = pd.DataFrame()
-    for days in intervals:
-        tmp = k_MA_batch(days, df_d)
-        col = tmp.columns[0]
-        kma[col] = tmp[col]
-
-    for col in kma.columns:
-        features["close/{}-1".format(col)] = df_d["close"] / kma[col] - 1
-
-    for col in kma.columns[1:]:
-        features["{0}/{1}-1".format(kma.columns[0], col)] = kma[kma.columns[
-            0]] / kma[col] - 1
-
+    # from feature_engineering import *
     #
-    df_d_basic["pb*pe_ttm"] = df_d_basic["pb"] * df_d_basic["pe_ttm"]
-    df_d_basic["pb*pe"] = df_d_basic["pb"] * df_d_basic["pe"]
-    df_d_basic["peg"] = df_d_basic["pe_ttm"] / np.where(((df_d_basic["pe"] /
-                                                          df_d_basic[
-                                                              "pe_ttm"] - 1) * 100 / (
-                                                                     df_d_basic.index.get_level_values(
-                                                                         "date").quarter - 1) * 4 >= 10) & (
-                                                                    df_d_basic.index.get_level_values(
-                                                                        "date").quarter > 1),
-                                                        (df_d_basic["pe"] /
-                                                         df_d_basic[
-                                                             "pe_ttm"] - 1) * 100 / (
-                                                                    df_d_basic.index.get_level_values(
-                                                                        "date").quarter - 1) * 4,
-                                                        1)
+    # df_r = pd.read_parquet(r"database\return_10%_25%_60_20")
+    # df_r.sort_index(inplace=True)
+    # print(df_r.info(memory_usage="deep"))
+    # print(df_r.head(5))
+    # df_r["r"] = (df_r["sell_price"] / df_r["open"] - 1) * 100
+    #
+    # cursor = dbop.connect_db("sqlite3").cursor()
+    # start = 20120101
+    # df_d_basic = dbop.create_df(cursor, STOCK_DAILY_BASIC[TABLE], start=start,
+    #                             # where_clause="code in ('002349.SZ','600352.SH','600350.SH','600001.SH')",
+    #                             # where_clause="code='600350.SH'",
+    #                             )
+    # df_d_basic = dp.prepare_stock_d_basic(df_d_basic).drop_duplicates()
+    #
+    # df_d = dbop.create_df(cursor, STOCK_DAY[TABLE], start=start,
+    #                       # where_clause="code in ('002349.SZ','600352.SH','600350.SH','600001.SH')",
+    #                       # where_clause="code='600350.SH'",
+    #                       )
+    # df_d = dp.proc_stock_d(dp.prepare_stock_d(df_d))
+    #
+    # features = pd.DataFrame()
+    #
+    # intervals = [5, 10, 20, 30, 40, 60, 120, 250]
+    # for days in intervals:
+    #     tmp = groupby_rolling(df_d, level="code", window=days,
+    #                           ops={"low": "min"})
+    #     features["close/p{}min_low-1".format(days)] = df_d["close"] / tmp[
+    #         "low"] - 1
 
-    features = pd.concat([features, df_d_basic], axis=1)
-    print("Features generated!")
-    del df_d_basic, kma
-    df_d = df_d[[col for col in df_d.columns if "0" not in col]]
-    y = df_r["r"].reindex(features.index)
-    X = features[y.notnull()]
-    y = y.dropna()
-    features = features.astype("float32")
-    y = y.astype("float32")
-    store = pd.HDFStore("dataset")
-    store["X"] = X
-    store["y"] = y
-    store.close()
+    # kma = pd.DataFrame()
+    # for days in intervals:
+    #     tmp = k_MA_batch(days, df_d)
+    #     col = tmp.columns[0]
+    #     kma[col] = tmp[col]
+    #
+    # for col in kma.columns:
+    #     features["close/{}-1".format(col)] = df_d["close"] / kma[col] - 1
+    #
+    # for col in kma.columns[1:]:
+    #     features["{0}/{1}-1".format(kma.columns[0], col)] = kma[kma.columns[
+    #         0]] / kma[col] - 1
+    #
+    # #
+    # df_d_basic["pb*pe_ttm"] = df_d_basic["pb"] * df_d_basic["pe_ttm"]
+    # df_d_basic["pb*pe"] = df_d_basic["pb"] * df_d_basic["pe"]
+    # df_d_basic["peg"] = df_d_basic["pe_ttm"] / np.where(((df_d_basic["pe"] /
+    #                                                       df_d_basic[
+    #                                                           "pe_ttm"] - 1) * 100 / (
+    #                                                                  df_d_basic.index.get_level_values(
+    #                                                                      "date").quarter - 1) * 4 >= 10) & (
+    #                                                                 df_d_basic.index.get_level_values(
+    #                                                                     "date").quarter > 1),
+    #                                                     (df_d_basic["pe"] /
+    #                                                      df_d_basic[
+    #                                                          "pe_ttm"] - 1) * 100 / (
+    #                                                                 df_d_basic.index.get_level_values(
+    #                                                                     "date").quarter - 1) * 4,
+    #                                                     1)
+    #
+    # features = pd.concat([features, df_d_basic], axis=1)
+    # print("Features generated!")
+    # del df_d_basic, kma
+    # df_d = df_d[[col for col in df_d.columns if "0" not in col]]
+    # y = df_r["r"].reindex(features.index)
+    # X = features[y.notnull()]
+    # y = y.dropna()
+    # features = features.astype("float32")
+    # y = y.astype("float32")
+    # store = pd.HDFStore("dataset")
+    # store["X"] = X
+    # store["y"] = y
+    # store.close()
+
+    get_return_rate_batch2_test()
 
 
 
