@@ -454,7 +454,7 @@ def get_return_rate_batch(df_stock_d: pd.DataFrame, loss_limit=0.1, retracement=
         df_tmp.loc[mask0, "sell_at"] = a_trunc_open[mask0]
         df_tmp.loc[mask0, "is_selled"] = True
 
-    df_tmp["r"] = (df_tmp["sell_at"]/df_tmp["buy_at"]-1)*100
+    df_tmp["r"] = (df_tmp["sell_at"]/df_tmp["buy_at"]-1)
     df_tmp.loc[~df_tmp["is_selled"],"r"]=None
     return df_tmp
 
@@ -714,7 +714,7 @@ def explore_simple_features():
     print(X_train.shape, X_test.shape)
 
     reg = lgbm.LGBMRegressor(num_leaves=31,max_depth=12, learning_rate=0.4,
-                             n_estimators=5,
+                             n_estimators=3,
                              min_child_samples=100)
 
     reg.fit(X_train,y_train)
@@ -734,59 +734,36 @@ def explore_simple_features():
     Y.groupby("bin").agg({"bin":"size","y_pred":["mean","median"],"y":["mean",
                                                                "median"]})
 
+    tmp.groupby(["tree1", "tree2"]).agg({"y": ["size", "median", "mean"], "y_pred": ["median", "mean"]}).sort_values(
+        ("y", "median"), ascending=False)
+
 
 
 if __name__ == '__main__':
-    # test_get_return()
-    # assess_feature_test()
+    from feature_engineering import *
 
-    # from feature_engineering import *
-    #
-    # df_r = pd.read_parquet(r"database\return_10%_25%_60_20")
-    # df_r.sort_index(inplace=True)
-    # print(df_r.info(memory_usage="deep"))
-    # print(df_r.head(5))
-    # df_r["r"] = (df_r["sell_price"] / df_r["open"] - 1) * 100
-    #
-    # cursor = dbop.connect_db("sqlite3").cursor()
-    # start = 20120101
-    # df_d_basic = dbop.create_df(cursor, STOCK_DAILY_BASIC[TABLE], start=start,
-    #                             # where_clause="code in ('002349.SZ','600352.SH','600350.SH','600001.SH')",
-    #                             # where_clause="code='600350.SH'",
-    #                             )
-    # df_d_basic = dp.prepare_stock_d_basic(df_d_basic).drop_duplicates()
-    #
-    # df_d = dbop.create_df(cursor, STOCK_DAY[TABLE], start=start,
-    #                       # where_clause="code in ('002349.SZ','600352.SH','600350.SH','600001.SH')",
-    #                       # where_clause="code='600350.SH'",
-    #                       )
-    # df_d = dp.proc_stock_d(dp.prepare_stock_d(df_d))
-    #
-    # features = pd.DataFrame()
-    #
-    # intervals = [5, 10, 20, 30, 40, 60, 120, 250]
-    # for days in intervals:
-    #     tmp = groupby_rolling(df_d, level="code", window=days,
-    #                           ops={"low": "min"})
-    #     features["close/p{}min_low-1".format(days)] = df_d["close"] / tmp[
-    #         "low"] - 1
+    df_r = pd.read_parquet(r"database\return_10%_25%_60_20")
+    df_r.sort_index(inplace=True)
+    print(df_r.info(memory_usage="deep"))
+    print(df_r.head(5))
 
-    # kma = pd.DataFrame()
-    # for days in intervals:
-    #     tmp = k_MA_batch(days, df_d)
-    #     col = tmp.columns[0]
-    #     kma[col] = tmp[col]
+    cursor = dbop.connect_db("sqlite3").cursor()
+    start = 20120101
+    df_d_basic = dbop.create_df(cursor, STOCK_DAILY_BASIC[TABLE], start=start,
+                                # where_clause="code in ('002349.SZ','600352.SH','600350.SH','600001.SH')",
+                                # where_clause="code='600350.SH'",
+                                )
+    df_d_basic = dp.prepare_stock_d_basic(df_d_basic)
+
+    df_d = dbop.create_df(cursor, STOCK_DAY[TABLE], start=start,
+                          # where_clause="code in ('002349.SZ','600352.SH','600350.SH','600001.SH')",
+                          # where_clause="code='600350.SH'",
+                          )
+    df_d = dp.proc_stock_d(dp.prepare_stock_d(df_d))
+
     #
-    # for col in kma.columns:
-    #     features["close/{}-1".format(col)] = df_d["close"] / kma[col] - 1
-    #
-    # for col in kma.columns[1:]:
-    #     features["{0}/{1}-1".format(kma.columns[0], col)] = kma[kma.columns[
-    #         0]] / kma[col] - 1
-    #
-    # #
-    # df_d_basic["pb*pe_ttm"] = df_d_basic["pb"] * df_d_basic["pe_ttm"]
-    # df_d_basic["pb*pe"] = df_d_basic["pb"] * df_d_basic["pe"]
+    df_d_basic["pb*pe_ttm"] = df_d_basic["pb"] * df_d_basic["pe_ttm"]
+    df_d_basic["pb*pe"] = df_d_basic["pb"] * df_d_basic["pe"]
     # df_d_basic["peg"] = df_d_basic["pe_ttm"] / np.where(((df_d_basic["pe"] /
     #                                                       df_d_basic[
     #                                                           "pe_ttm"] - 1) * 100 / (
@@ -800,22 +777,55 @@ if __name__ == '__main__':
     #                                                                 df_d_basic.index.get_level_values(
     #                                                                     "date").quarter - 1) * 4,
     #                                                     1)
-    #
-    # features = pd.concat([features, df_d_basic], axis=1)
-    # print("Features generated!")
-    # del df_d_basic, kma
-    # df_d = df_d[[col for col in df_d.columns if "0" not in col]]
-    # y = df_r["r"].reindex(features.index)
-    # X = features[y.notnull()]
-    # y = y.dropna()
-    # features = features.astype("float32")
-    # y = y.astype("float32")
-    # store = pd.HDFStore("dataset")
-    # store["X"] = X
-    # store["y"] = y
-    # store.close()
 
-    get_return_rate_batch2_test()
+    one_year = 250
+    growth_1yr = ((df_d["close"]/df_d["close"].groupby("code").shift(one_year))
+                  * (df_d_basic["pe_ttm"].groupby("code").shift(one_year)/df_d_basic["pe_ttm"])
+                  - 1) * 100
+    df_d_basic["peg_1yr"] = df_d_basic["pe_ttm"]/growth_1yr
+
+    two_year = 500
+    growth_2yr = ((df_d["close"] / df_d["close"].groupby("code").shift(two_year))
+                  * (df_d_basic["pe_ttm"].groupby("code").shift(two_year) / df_d_basic["pe_ttm"])
+                  - 1) * 100
+    df_d_basic["peg_2yr"] = df_d_basic["pe_ttm"] / growth_2yr
+
+    features = pd.DataFrame()
+
+    intervals = [5, 10, 20, 30, 40, 60, 120, 250]
+    for days in intervals:
+        tmp = groupby_rolling(df_d, level="code", window=days,
+                              ops={"low": "min"})
+        features["close/p{}min_low-1".format(days)] = df_d["close"] / tmp[
+            "low"] - 1
+
+    kma = pd.DataFrame()
+    for days in intervals:
+        tmp = k_MA_batch(days, df_d)
+        col = tmp.columns[0]
+        kma[col] = tmp[col]
+
+    for col in kma.columns:
+        features["close/{}-1".format(col)] = df_d["close"] / kma[col] - 1
+
+    for col in kma.columns[1:]:
+        features["{0}/{1}-1".format(kma.columns[0], col)] = kma[kma.columns[
+            0]] / kma[col] - 1
+
+    features = pd.concat([features, df_d_basic], axis=1)
+    print("Features generated!")
+    del df_d_basic, kma
+    df_d = df_d[[col for col in df_d.columns if "0" not in col]]
+    y = df_r["r"].reindex(features.index)
+    X = features[y.notnull()]
+    y = y.dropna()
+    features = features.astype("float32")
+    y = y.astype("float32")
+    store = pd.HDFStore("dataset")
+    store["X"] = X
+    store["y"] = y
+    store.close()
+
 
 
 
