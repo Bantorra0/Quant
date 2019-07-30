@@ -88,6 +88,33 @@ def filter(y0, a, b):
     return np.where((y0>a) & (y0<b),1,0)
 
 
+def relu(x,k=100):
+    return np.log(1+np.exp(k*x))/k
+
+
+def grad_relu(x,k=100):
+    u = np.exp(k*x)
+    return u/(1+u)
+
+
+def hess_relu(x,k=100):
+    u = np.exp(k*x)
+    return u/np.power(1+u,2)
+
+
+def custom_r_obj_wrapper(y_pred_lowerbound=0.2, r_upperbound=1, k=100):
+    def custom_r_obj(y_true,y_pred):
+        p0 = y_pred - y_pred_lowerbound
+        l0 = r_upperbound-y_true
+        l = relu(l0,k)
+        grad_p = grad_relu(p0,k)
+        hess_p = hess_relu(p0, k)
+        grad = grad_p * l
+        hess = hess_p * l
+        return grad,hess
+    return custom_r_obj
+
+
 if __name__ == '__main__':
     n_samples = 10000
     n_features = 10
