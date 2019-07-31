@@ -14,6 +14,7 @@ import io_operations as IO_op
 import data_process as dp
 import ml_model as ml
 from constants import *
+from revenue_obj import *
 
 
 IDX = pd.IndexSlice
@@ -713,26 +714,43 @@ def explore_simple_features():
     y_test = y[test_mask]
     print(X_train.shape, X_test.shape)
 
-    reg = lgbm.LGBMRegressor(num_leaves=31,max_depth=12, learning_rate=0.4,
-                             n_estimators=3,
-                             min_child_samples=100)
-
-    reg.fit(X_train,y_train)
-    reg.score(X_test,y_test)
-    y_pred = reg.predict(X_test)
-    y_pred = pd.Series(y_pred,index=y_test.index,name="y_pred")
-    y_test.name="y"
-    Y = pd.concat([y_test,y_pred],axis=1)
+    obj = custom_r_obj_wrapper(10)
+    decay_learning_rate = lambda i: max(0.4 / (1 + i * 0.1),0.05)
+    reg = lgbm.LGBMRegressor(num_leaves=31, max_depth=12, learning_rate=decay_learning_rate(0),
+                             n_estimators=200,
+                             min_child_samples=75,
+                             objective=obj,
+                             )
+    callback = lgbm.reset_parameter(learning_rate=decay_learning_rate)
+    reg.fit(X_train, y_train,
+            callbacks=[callback]
+            )
+    reg.score(X_test, y_test)
+    y_pred_test = reg.predict(X_test)
+    y_pred_train = reg.predict(X_train)
+    y_pred_train = pd.Series(y_pred_train, index=y_train.index, name="y_pred")
+    y_pred_test = pd.Series(y_pred_test, index=y_test.index, name="y_pred")
+    y_train.name = "y"
+    y_test.name = "y"
+    Y_train = pd.concat([y_train, y_pred_train], axis=1).astype("float64")
+    Y_test = pd.concat([y_test, y_pred_test], axis=1).astype("float64")
     l = []
-    l.append(np.arange(5,40,5))
-    l.append(np.arange(40,100,20))
-    l.append(np.arange(100,200,50))
-    l.append(np.array([200,float("inf")]))
+    l.append(np.arange(5, 40, 5))
+    l.append(np.arange(40, 100, 20))
+    l.append(np.arange(100, 200, 50))
+    l.append(np.array([200, float("inf")]))
     positive_bins = np.concatenate(l)
-    bins = list(reversed(list(positive_bins*-1)))+[0]+list(positive_bins)
-    Y["bin"] = pd.cut(Y["y_pred"],bins=bins)
-    Y.groupby("bin").agg({"bin":"size","y_pred":["mean","median"],"y":["mean",
-                                                               "median"]})
+    bins = list(reversed(list(positive_bins * -1))) + [0] + list(positive_bins)
+    Y_test["bin"] = pd.cut(Y_test["y_pred"], bins=bins)
+    Y_test.groupby("bin").agg({"bin": "size", "y_pred": ["mean", "median"], "y": ["mean",
+                                                                                  "median"]})
+
+    Y_train["bin"] = pd.cut(Y_train["y_pred"], bins=bins)
+    print(Y_train.groupby("bin").agg({"bin": "size", "y_pred": ["mean", "median"], "y": ["mean",
+                                                                                         "median"]}))
+    Y_test["bin"] = pd.cut(Y_test["y_pred"], bins=bins)
+    print(Y_test.groupby("bin").agg({"bin": "size", "y_pred": ["mean", "median"], "y": ["mean",
+                                                                                        "median"]}))
 
     tmp.groupby(["tree1", "tree2"]).agg({"y": ["size", "median", "mean"], "y_pred": ["median", "mean"]}).sort_values(
         ("y", "median"), ascending=False)

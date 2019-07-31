@@ -102,17 +102,29 @@ def hess_relu(x,k=100):
     return u/np.power(1+u,2)
 
 
-def custom_r_obj_wrapper(y_pred_lowerbound=0.2, r_upperbound=1, k=100):
+# def custom_r_obj_wrapper(y_pred_lowerbound=0.2, r_upperbound=1, k=100):
+#     def custom_r_obj(y_true,y_pred):
+#         p0 = y_pred - y_pred_lowerbound
+#         l0 = r_upperbound-y_true
+#         l = relu(l0,k)
+#         grad_p = grad_relu(p0,k)
+#         hess_p = hess_relu(p0, k)
+#         grad = grad_p * l
+#         hess = hess_p * l
+#         return grad,hess
+#     return custom_r_obj
+
+
+def custom_r_obj_wrapper(k=100):
     def custom_r_obj(y_true,y_pred):
-        p0 = y_pred - y_pred_lowerbound
-        l0 = r_upperbound-y_true
-        l = relu(l0,k)
+        p0 = y_pred
+        l = -y_true
         grad_p = grad_relu(p0,k)
-        hess_p = hess_relu(p0, k)
         grad = grad_p * l
-        hess = hess_p * l
+        hess = np.ones(shape=grad.size)
         return grad,hess
     return custom_r_obj
+
 
 
 if __name__ == '__main__':
