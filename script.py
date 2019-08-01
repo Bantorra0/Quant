@@ -706,8 +706,8 @@ def explore_simple_features():
     y = store["y"]
     dates = X.index.get_level_values("date")
 
-    train_mask = dates <= "2017-10-31"
-    test_mask = dates >= "2018-01-01"
+    train_mask = dates <= "2018-10-31"
+    test_mask = dates >= "2019-01-01"
     X_train = X[train_mask]
     y_train = y[train_mask]
     X_test = X[test_mask]
@@ -715,16 +715,16 @@ def explore_simple_features():
     print(X_train.shape, X_test.shape)
 
     obj = custom_r_obj_wrapper(10)
-    decay_learning_rate = lambda i: max(0.4 / (1 + i * 0.1),0.05)
-    reg = lgbm.LGBMRegressor(num_leaves=31, max_depth=12, learning_rate=decay_learning_rate(0),
-                             n_estimators=200,
+    decay_learning_rate = lambda i: max(0.4 / (1 + i * 0.2), 0.05)
+    # decay_learning_rate = lambda i: 0.1
+    reg = lgbm.LGBMRegressor(num_leaves=63, max_depth=12, learning_rate=decay_learning_rate(0),
+                             n_estimators=20,
                              min_child_samples=75,
+                             min_split_gain=180000,
                              objective=obj,
                              )
     callback = lgbm.reset_parameter(learning_rate=decay_learning_rate)
-    reg.fit(X_train, y_train,
-            callbacks=[callback]
-            )
+    reg.fit(X_train, y_train, callbacks=[callback])
     reg.score(X_test, y_test)
     y_pred_test = reg.predict(X_test)
     y_pred_train = reg.predict(X_train)
@@ -744,13 +744,14 @@ def explore_simple_features():
     Y_test["bin"] = pd.cut(Y_test["y_pred"], bins=bins)
     Y_test.groupby("bin").agg({"bin": "size", "y_pred": ["mean", "median"], "y": ["mean",
                                                                                   "median"]})
-
     Y_train["bin"] = pd.cut(Y_train["y_pred"], bins=bins)
     print(Y_train.groupby("bin").agg({"bin": "size", "y_pred": ["mean", "median"], "y": ["mean",
                                                                                          "median"]}))
     Y_test["bin"] = pd.cut(Y_test["y_pred"], bins=bins)
     print(Y_test.groupby("bin").agg({"bin": "size", "y_pred": ["mean", "median"], "y": ["mean",
                                                                                         "median"]}))
+
+    ml.get_feature_importance(reg, X.columns)
 
     tmp.groupby(["tree1", "tree2"]).agg({"y": ["size", "median", "mean"], "y_pred": ["median", "mean"]}).sort_values(
         ("y", "median"), ascending=False)
