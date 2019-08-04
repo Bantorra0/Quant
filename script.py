@@ -714,17 +714,20 @@ def explore_simple_features():
     y_test = y[test_mask]
     print(X_train.shape, X_test.shape)
 
-    obj = custom_r_obj_wrapper(10)
-    decay_learning_rate = lambda i: max(0.4 / (1 + i * 0.2), 0.05)
+    obj = custom_r_obj_wrapper2(1)
+    decay_learning_rate = lambda i: max(0.4 / (1 + i * 0.1), 0.05)
     # decay_learning_rate = lambda i: 0.1
+    decay_min_split_gain = lambda i:max(60000/ (1 + i * 0.1),30000)
     reg = lgbm.LGBMRegressor(num_leaves=63, max_depth=12, learning_rate=decay_learning_rate(0),
                              n_estimators=20,
                              min_child_samples=75,
-                             min_split_gain=180000,
+                             min_split_gain=decay_min_split_gain(0),
                              objective=obj,
                              )
-    callback = lgbm.reset_parameter(learning_rate=decay_learning_rate)
-    reg.fit(X_train, y_train, callbacks=[callback])
+    callbacks = []
+    callbacks.append(lgbm.reset_parameter(learning_rate=decay_learning_rate))
+    callbacks.append(lgbm.reset_parameter(min_split_gain=decay_min_split_gain))
+    reg.fit(X_train, y_train, callbacks=callbacks)
     reg.score(X_test, y_test)
     y_pred_test = reg.predict(X_test)
     y_pred_train = reg.predict(X_train)
