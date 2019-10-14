@@ -192,7 +192,7 @@ def rolling_batch2(ops, days, df: pd.DataFrame,
     """
     A wrapper of df.rolling. Current date is included when using arg days, e.g.
     days=-5 means the window is current date and previous 4 days, days=5
-    means currate date and future 4 days.
+    means current date and future 4 days.
 
     :param ops:
     :param days:
