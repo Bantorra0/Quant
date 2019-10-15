@@ -11,7 +11,9 @@ def WSL_position_string_proc(date,sentinel = ",,,"):
 
     print("Paste string below:")
     s = '\n'.join(iter(input, sentinel))
-    print(re.sub("票[0-9]+%", "", s).replace("\n\n", ",,,").replace("\n", "\t").replace(",,,", "\n"))
+    # print(re.sub("票[0-9]+%", "", s).replace("\n\n", ",,,").replace("\n", "\t").replace(",,,", "\n"))
+    print(s.replace("票","\t").replace("\n\n", ",,,").replace("\n", "\t").replace(",,,", "\n"))
+
     # s2 = re.sub("票[0-9]+%", "", s).replace("\n\n", ",,,").replace("\n", "\t").replace(",,,", "\n")
     # df = pd.DataFrame([line.split("\t") for line in s2.split("\n")],columns=["position range","count"])
     # positions = [0]+list(range(5,100,10))+[100,100,None]
