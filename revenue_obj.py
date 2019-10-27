@@ -115,11 +115,22 @@ def hess_relu(x,k=100):
 #     return custom_r_obj
 
 
-def custom_r_obj_wrapper(k=100):
+def custom_r_obj_wrapper(k=1):
     def custom_r_obj(y_true,y_pred):
         p0 = y_pred
         l = -y_true
         grad_p = grad_relu(p0,k)
+        grad = grad_p * l
+        hess = np.ones(shape=grad.size)
+        return grad,hess
+    return custom_r_obj
+
+
+def custom_r_obj_wrapper2(k=1):
+    def custom_r_obj(y_true,y_pred):
+        p0 = y_pred
+        l = -y_true
+        grad_p = hess_relu(p0,k)
         grad = grad_p * l
         hess = np.ones(shape=grad.size)
         return grad,hess
