@@ -137,6 +137,17 @@ def custom_r_obj_wrapper2(k=1):
     return custom_r_obj
 
 
+def custom_r_obj_wrapper3(k=1):
+    def custom_r_obj(y_true,y_pred):
+        p0 = 1/(1+np.exp(-k*y_pred))
+        l = -y_true
+        grad_p = k*p0*(1-p0)
+        grad = grad_p * l
+        hess = np.ones(shape=grad.size)
+        return grad,hess
+    return custom_r_obj
+
+
 
 if __name__ == '__main__':
     n_samples = 10000

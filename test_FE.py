@@ -45,7 +45,7 @@ class FETestCase(unittest.TestCase):
             self.assertTrue((actual == expected).all().all())
 
         # Test multiple cols and ops.
-        # Precision from high to low: max=min>mean>std, thus delta=1e-10 is used.
+        # Precision from high to low: max=min>mean>std, thus delta=1e-10 is used.x`
         ops = ["max","min","mean","std"]
         for n in [-10,-5,5,10]:
             expected = pd.concat(
