@@ -706,24 +706,22 @@ def explore_simple_features():
     y = store["y"]
     dates = X.index.get_level_values("date")
 
-    train_mask = dates <= "2018-10-31"
-    test_mask = dates >= "2019-01-01"
+    train_mask = dates <= "2018-06-30"
+    test_mask = dates >= "2018-09-01"
     X_train = X[train_mask]
     y_train = y[train_mask]
     X_test = X[test_mask]
     y_test = y[test_mask]
     print(X_train.shape, X_test.shape)
-
-    obj = custom_r_obj_wrapper2(1)
+    obj = custom_r_obj_wrapper2(1 / 2)
     decay_learning_rate = lambda i: max(0.4 / (1 + i * 0.1), 0.05)
     # decay_learning_rate = lambda i: 0.1
-    decay_min_split_gain = lambda i:max(60000/ (1 + i * 0.1),30000)
-    reg = lgbm.LGBMRegressor(num_leaves=63, max_depth=12, learning_rate=decay_learning_rate(0),
-                             n_estimators=20,
-                             min_child_samples=75,
+    decay_min_split_gain = lambda i: max(60000 / (1 + i * 0.1), 15000)
+    reg = lgbm.LGBMRegressor(num_leaves=63, max_depth=12,
+                             learning_rate=decay_learning_rate(0),
+                             n_estimators=40, min_child_samples=75,
                              min_split_gain=decay_min_split_gain(0),
-                             objective=obj,
-                             )
+                             objective=obj, )
     callbacks = []
     callbacks.append(lgbm.reset_parameter(learning_rate=decay_learning_rate))
     callbacks.append(lgbm.reset_parameter(min_split_gain=decay_min_split_gain))
@@ -745,15 +743,16 @@ def explore_simple_features():
     positive_bins = np.concatenate(l)
     bins = list(reversed(list(positive_bins * -1))) + [0] + list(positive_bins)
     Y_test["bin"] = pd.cut(Y_test["y_pred"], bins=bins)
-    Y_test.groupby("bin").agg({"bin": "size", "y_pred": ["mean", "median"], "y": ["mean",
-                                                                                  "median"]})
+    Y_test.groupby("bin").agg(
+        {"bin": "size", "y_pred": ["mean", "median"], "y": ["mean", "median"]})
     Y_train["bin"] = pd.cut(Y_train["y_pred"], bins=bins)
-    print(Y_train.groupby("bin").agg({"bin": "size", "y_pred": ["mean", "median"], "y": ["mean",
-                                                                                         "median"]}))
+    print(Y_train.groupby("bin").agg(
+        {"bin": "size", "y_pred": ["mean", "median"],
+         "y": ["mean", "median"]}))
     Y_test["bin"] = pd.cut(Y_test["y_pred"], bins=bins)
-    print(Y_test.groupby("bin").agg({"bin": "size", "y_pred": ["mean", "median"], "y": ["mean",
-                                                                                        "median"]}))
-
+    print(Y_test.groupby("bin").agg(
+        {"bin": "size", "y_pred": ["mean", "median"],
+         "y": ["mean", "median"]}))
     ml.get_feature_importance(reg, X.columns)
 
     tmp.groupby(["tree1", "tree2"]).agg({"y": ["size", "median", "mean"], "y_pred": ["median", "mean"]}).sort_values(
