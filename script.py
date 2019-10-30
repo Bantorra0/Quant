@@ -763,6 +763,9 @@ def explore_simple_features():
 
 if __name__ == '__main__':
     from feature_engineering import *
+    import db_operations as dbop
+    from constants import *
+    import data_process as dp
 
     df_r = pd.read_parquet(r"database\return_10%_25%_60_20")
     df_r.sort_index(inplace=True)
@@ -771,11 +774,6 @@ if __name__ == '__main__':
 
     cursor = dbop.connect_db("sqlite3").cursor()
     start = 20120101
-    df_d_basic = dbop.create_df(cursor, STOCK_DAILY_BASIC[TABLE], start=start,
-                                # where_clause="code in ('002349.SZ','600352.SH','600350.SH','600001.SH')",
-                                # where_clause="code='600350.SH'",
-                                )
-    df_d_basic = dp.prepare_stock_d_basic(df_d_basic)
 
     df_d = dbop.create_df(cursor, STOCK_DAY[TABLE], start=start,
                           # where_clause="code in ('002349.SZ','600352.SH','600350.SH','600001.SH')",
@@ -783,6 +781,11 @@ if __name__ == '__main__':
                           )
     df_d = dp.proc_stock_d(dp.prepare_stock_d(df_d))
 
+    df_d_basic = dbop.create_df(cursor, STOCK_DAILY_BASIC[TABLE], start=start,
+                                # where_clause="code in ('002349.SZ','600352.SH','600350.SH','600001.SH')",
+                                # where_clause="code='600350.SH'",
+                                )
+    df_d_basic = dp.prepare_stock_d_basic(df_d_basic)
     #
     df_d_basic["pb*pe_ttm"] = df_d_basic["pb"] * df_d_basic["pe_ttm"]
     df_d_basic["pb*pe"] = df_d_basic["pb"] * df_d_basic["pe"]
@@ -848,6 +851,15 @@ if __name__ == '__main__':
     store["y"] = y
     store.close()
 
+    volatility = pd.DataFrame()
+    volatility["volatility_d"] = df_d["close"].dropna().groupby(level="code").pct_change(1)
+    volatility["(high-low)/avg"]=(df_d["high"]-df_d["low"])/df_d["avg"]
+    results = []
+    for i in [5, 10, 20, 60, 120, 250]:
+        tmp = groupby_rolling(volatility, level="code", window=i, ops="std", check_col="(high-low)/avg")
+        tmp.columns = ["p{}std".format(i) + col for col in tmp.columns]
+        results.append(tmp)
+    result = ml.assess_feature3(features, df_r["r"], 20)
 
 
 
