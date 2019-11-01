@@ -350,7 +350,7 @@ def pred_interval_summary(reg, X, ss_eval:pd.Series, interval=0.05,
     result = df_bins.groupby("pred_bin")["y_true"].agg(["size","mean","median","std","max","min"])
 
     pd.set_option("display.max_columns",10)
-    print(result.round({col:3 for col in result.columns if result[col].dtype!="int64"}))
+    print(result.round({col:3 for col in result.columns if np.issubdtype(result[col],int)}))
 
     plt.figure()
     plt.bar(np.arange(-n, n) * interval + interval / 2, result["mean"],
