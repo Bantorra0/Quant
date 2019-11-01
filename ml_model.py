@@ -293,44 +293,73 @@ def load_test(pred_period = 20,is_high = True, is_clf=False):
     plt.show()
 
 
-def pred_interval_summary(reg, X_test, ss_eval:pd.Series, interval=0.05,
-                          y_test_pred=None):
-    if y_test_pred is None:
-        y_test_pred = reg.predict(X_test)
+# def pred_interval_summary(reg, X_test, ss_eval:pd.Series, interval=0.05,
+#                           y_test_pred=None):
+#     if y_test_pred is None:
+#         y_test_pred = reg.predict(X_test)
+#
+#     n = int(1 / interval)
+#     x0 = np.arange(n + 1) * interval
+#     y0 = np.ones(x0.shape) * ss_eval.mean()
+#
+#     df = pd.DataFrame(columns=["count",
+#                                "eval_mean","eval_median","eval_std","eval_max","eval_min"])
+#     df.index.name="pred_range"
+#     for i in range(-n, n):
+#         p0 = i * interval
+#         p1 = (i + 1) * interval
+#         cond = (p0 < y_test_pred) & (y_test_pred <= p1)
+#         row = {"count": sum(cond),
+#                "eval_mean": ss_eval[cond].mean(),
+#                "eval_median": ss_eval[cond].median(),
+#                "eval_std": ss_eval[cond].std(),
+#                "eval_max": ss_eval[cond].max(),
+#                "eval_min":ss_eval[cond].min()}
+#         pred_range="({0:.2f},{1:.2f}]".format(p0, p1)
+#         df.loc[pred_range]=row
+#     df = df.astype({"count":int})
+#     # for c, p in zip(cnt, y1):
+#     #     print(c, p)
+#     pd.set_option("display.max_columns",10)
+#     print(df.round({col:3 for col in df.columns if col[:4]=="eval"}))
+#
+#     plt.figure()
+#     plt.bar(np.arange(-n, n) * interval + interval / 2, df["eval_mean"],
+#             width=0.8 * interval)
+#
+#     plt.plot(x0, y0, color='r')
+#     plt.xlim(-1, 1)
+#     plt.ylim(-0.5, 0.5)
+#     return df
+
+
+def pred_interval_summary(reg, X, ss_eval:pd.Series, interval=0.05,
+                           y_pred=None):
+    if y_pred is None:
+        y_pred = reg.predict(X)
 
     n = int(1 / interval)
     x0 = np.arange(n + 1) * interval
     y0 = np.ones(x0.shape) * ss_eval.mean()
 
-    df = pd.DataFrame(columns=["count",
-                               "eval_mean","eval_median","eval_std","eval_max","eval_min"])
-    df.index.name="pred_range"
-    for i in range(-n, n):
-        p0 = i * interval
-        p1 = (i + 1) * interval
-        cond = (p0 < y_test_pred) & (y_test_pred <= p1)
-        row = {"count": sum(cond),
-               "eval_mean": ss_eval[cond].mean(),
-               "eval_median": ss_eval[cond].median(),
-               "eval_std": ss_eval[cond].std(),
-               "eval_max": ss_eval[cond].max(),
-               "eval_min":ss_eval[cond].min()}
-        pred_range="({0:.2f},{1:.2f}]".format(p0, p1)
-        df.loc[pred_range]=row
-    df = df.astype({"count":int})
-    # for c, p in zip(cnt, y1):
-    #     print(c, p)
+    bins = np.arange(-n,n+1)*interval
+    print(bins)
+    df_bins = pd.DataFrame(np.hstack([ss_eval.values.reshape(-1,1), y_pred.reshape(-1,1)]),index=ss_eval.index)
+    df_bins.columns = ["y_true","y_pred"]
+    df_bins["pred_bin"] = pd.cut(df_bins["y_pred"],bins=bins)
+    result = df_bins.groupby("pred_bin")["y_true"].agg(["size","mean","median","std","max","min"])
+
     pd.set_option("display.max_columns",10)
-    print(df.round({col:3 for col in df.columns if col[:4]=="eval"}))
+    print(result.round({col:3 for col in result.columns if result[col].dtype!="int64"}))
 
     plt.figure()
-    plt.bar(np.arange(-n, n) * interval + interval / 2, df["eval_mean"],
+    plt.bar(np.arange(-n, n) * interval + interval / 2, result["mean"],
             width=0.8 * interval)
 
     plt.plot(x0, y0, color='r')
     plt.xlim(-1, 1)
     plt.ylim(-0.5, 0.5)
-    return df
+    return result
 
 
 def assess_by_revenue(Y_test, f_revenue, paras: dict, y_pred=None,reg=None,
