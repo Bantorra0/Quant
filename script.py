@@ -15,6 +15,7 @@ import data_process as dp
 import ml_model as ml
 from constants import *
 from revenue_obj import *
+import feature_engineering as fe
 
 
 IDX = pd.IndexSlice
@@ -308,9 +309,85 @@ def get_return_rate3(df_single_stock_d: pd.DataFrame, loss_limit=0.1, retracemen
     return df_tmp
 
 
-def get_return_rate_batch2(df_stock_d: pd.DataFrame, loss_limit=0.1, retracement=0.1, retracement_inc_pct=0.25,
+# def get_return_rate_batch2(df_stock_d: pd.DataFrame, loss_limit=0.1, retracement=0.1, retracement_inc_pct=0.25,
+#                           max_days=60, new_high_days_limit=20, is_truncated=True):
+#     # Cleaning input.
+#     df_stock_d = \
+#         df_stock_d[(df_stock_d["vol"] > 0)
+#                    & (df_stock_d[["open", "high", "low", "close"]].notnull().all(axis=1))].copy()
+#
+#     df_single_stock_d_list = []
+#     a_trunc_list = []
+#     for code,df_single_stock_d in df_stock_d.groupby("code"):
+#         k = len(df_single_stock_d)
+#         df_single_stock_d=df_single_stock_d.sort_index(ascending=True)
+#         df_single_stock_d["idx"] = np.arange(k)
+#         df_single_stock_d_list.append(df_single_stock_d)
+#
+#         trunc_open = np.ones(k)*df_single_stock_d["open"].iloc[-1]
+#         trunc_open[-1] = np.nan
+#         a_trunc_list.append(trunc_open)
+#
+#     print(len(df_single_stock_d_list))
+#     df_stock_d = pd.concat(df_single_stock_d_list,axis=0)
+#     origin_index = df_stock_d.index
+#     df_stock_d.reset_index(level="code", inplace=True)
+#     df_stock_d.set_index(["code", "idx"], inplace=True)
+#     index = df_stock_d.index
+#     a_trunc_open = np.concatenate(a_trunc_list,axis=0)
+#
+#     # Dataframe for intermediate result(info of holding shares).
+#     df_tmp = df_stock_d[["open","high"]].rename(columns={"high":"max"})
+#     df_tmp["idx"] = df_tmp.index.get_level_values("idx")-1
+#     df_tmp["max_idx"] = df_tmp["idx"] + 1 # Buy in next day, so here we increment 1.
+#     df_tmp["is_selled"] = False
+#     df_tmp.reset_index(level="code", inplace=True)
+#     df_tmp.set_index(["code", "idx"], inplace=True)
+#     df_tmp = df_tmp.reindex(index=index)
+#
+#     columns = ["open", "low","high","close"]
+#     df_curr = df_stock_d[columns].copy()
+#     df_curr["idx"] = index.get_level_values("idx")
+#     mask = pd.Series(False, index=index)
+#     while df_tmp["is_selled"].all()!=True:
+#         df_prev = df_curr
+#         df_curr = df_curr.groupby(level="code").shift(-1)
+#
+#         if df_tmp.loc[df_curr["open"].notnull(),"is_selled"].all():
+#             break
+#
+#         # Sell shares given mask.
+#         mask &= ~((df_curr["low"]==df_curr["high"])&(df_curr["open"]<df_prev["close"])) # 排除跌停板卖不出的情况
+#         mask &= ((df_tmp["is_selled"] == False) & df_curr["open"].notnull())
+#         df_tmp.loc[mask, "sell_price"] = df_curr.loc[mask, "open"].values
+#         df_tmp.loc[mask, "is_selled"] = True
+#
+#         cond = (df_tmp["is_selled"] == False) & (df_tmp["max"] < df_curr["high"])
+#         df_tmp.loc[cond, ["max", "max_idx"]] = df_curr.loc[cond, ["high", "idx"]].values
+#
+#         stop_profit_points = df_tmp["open"] * (1-loss_limit) + (df_tmp["max"] - df_tmp["open"]) * (1 - retracement_inc_pct)
+#         mask = df_curr["low"] <= stop_profit_points
+#
+#         # Sell if max_days is not none and max_days is exceeded.
+#         if max_days is not None:
+#             # print(df_tmp[(df_tmp["is_selled"]==False)&(df_prev["idx"] - df_tmp["buy_idx"] >= max_days)])
+#             mask |= (df_curr["idx"] - df_tmp.index.get_level_values("idx") >= max_days)
+#
+#         if new_high_days_limit is not None:
+#             mask |= (df_curr["idx"]+1 - df_tmp["max_idx"] >= new_high_days_limit) # Buy in next day, so here we increment 1.
+#
+#     if is_truncated:
+#         mask0 = (df_tmp["is_selled"]==False) & (~np.isnan(a_trunc_open))
+#         df_tmp.loc[mask0, "sell_price"] = a_trunc_open[mask0]
+#         df_tmp.loc[mask0, "is_selled"] = True
+#
+#     df_tmp.index = origin_index
+#     return df_tmp
+
+
+def get_return_rate_batch(df_stock_d: pd.DataFrame, loss_limit=0.1, retracement=0.1, retracement_inc_pct=0.25,
                           max_days=60, new_high_days_limit=20, is_truncated=True):
-    # Cleaning input.
+    # Cleaning input, filter days when vol=0 or any field is null.
     df_stock_d = \
         df_stock_d[(df_stock_d["vol"] > 0)
                    & (df_stock_d[["open", "high", "low", "close"]].notnull().all(axis=1))].copy()
@@ -324,30 +401,26 @@ def get_return_rate_batch2(df_stock_d: pd.DataFrame, loss_limit=0.1, retracement
         df_single_stock_d_list.append(df_single_stock_d)
 
         trunc_open = np.ones(k)*df_single_stock_d["open"].iloc[-1]
-        trunc_open[-1] = np.nan
+        trunc_open[-2:] = np.nan
         a_trunc_list.append(trunc_open)
 
     print(len(df_single_stock_d_list))
     df_stock_d = pd.concat(df_single_stock_d_list,axis=0)
-    origin_index = df_stock_d.index
-    df_stock_d.reset_index(level="code", inplace=True)
-    df_stock_d.set_index(["code", "idx"], inplace=True)
-    index = df_stock_d.index
     a_trunc_open = np.concatenate(a_trunc_list,axis=0)
 
     # Dataframe for intermediate result(info of holding shares).
-    df_tmp = df_stock_d[["open","high"]].rename(columns={"high":"max"})
-    df_tmp["idx"] = df_tmp.index.get_level_values("idx")-1
-    df_tmp["max_idx"] = df_tmp["idx"] + 1 # Buy in next day, so here we increment 1.
+    ss_pct = df_stock_d["open"]/df_stock_d.groupby(level="code")["close"].shift(1)-1
+    df_tmp = df_stock_d[["open","high","idx"]].rename(columns={"high":"max","open":"buy_at","idx":"max_idx"})
+    buy_mask = ((df_stock_d["high"]==df_stock_d["low"]) & (ss_pct>0))
+    df_tmp.loc[buy_mask,"buy_at"] = None
+    df_tmp = df_tmp.groupby(level="code").shift(-1) # Shift -1 because we buy in with open price next day.
+    df_tmp["idx"] = df_stock_d["idx"]
     df_tmp["is_selled"] = False
-    df_tmp.reset_index(level="code", inplace=True)
-    df_tmp.set_index(["code", "idx"], inplace=True)
-    df_tmp = df_tmp.reindex(index=index)
 
-    columns = ["open", "low","high","close"]
+    columns = ["open", "low","high","close","idx"]
     df_curr = df_stock_d[columns].copy()
-    df_curr["idx"] = index.get_level_values("idx")
-    mask = pd.Series(False, index=index)
+    df_curr = df_curr.groupby(level="code").shift(-1)
+    mask = pd.Series(False, index=df_stock_d.index)
     while df_tmp["is_selled"].all()!=True:
         df_prev = df_curr
         df_curr = df_curr.groupby(level="code").shift(-1)
@@ -358,33 +431,37 @@ def get_return_rate_batch2(df_stock_d: pd.DataFrame, loss_limit=0.1, retracement
         # Sell shares given mask.
         mask &= ~((df_curr["low"]==df_curr["high"])&(df_curr["open"]<df_prev["close"])) # 排除跌停板卖不出的情况
         mask &= ((df_tmp["is_selled"] == False) & df_curr["open"].notnull())
-        df_tmp.loc[mask, "sell_price"] = df_curr.loc[mask, "open"].values
+        df_tmp.loc[mask, "sell_at"] = df_curr.loc[mask, "open"].values
         df_tmp.loc[mask, "is_selled"] = True
 
+        # Update max price and the corresponding date index if necessary.
         cond = (df_tmp["is_selled"] == False) & (df_tmp["max"] < df_curr["high"])
         df_tmp.loc[cond, ["max", "max_idx"]] = df_curr.loc[cond, ["high", "idx"]].values
 
-        stop_profit_points = df_tmp["open"] * (1-loss_limit) + (df_tmp["max"] - df_tmp["open"]) * (1 - retracement_inc_pct)
+        # Sell condition of stopping profit or loss
+        stop_profit_points = df_tmp["buy_at"] * (1-loss_limit) + (df_tmp["max"] - df_tmp["buy_at"]) * (1 - retracement_inc_pct)
         mask = df_curr["low"] <= stop_profit_points
 
-        # Sell if max_days is not none and max_days is exceeded.
+        # Sell if arg max_days is not none and is exceeded.
         if max_days is not None:
             # print(df_tmp[(df_tmp["is_selled"]==False)&(df_prev["idx"] - df_tmp["buy_idx"] >= max_days)])
-            mask |= (df_curr["idx"] - df_tmp.index.get_level_values("idx") >= max_days)
+            mask |= (df_curr["idx"] - df_tmp["idx"] >= max_days)
 
+        # Sell if arg new_high_days_limit is not none is exceeded.
         if new_high_days_limit is not None:
-            mask |= (df_curr["idx"]+1 - df_tmp["max_idx"] >= new_high_days_limit) # Buy in next day, so here we increment 1.
+            mask |= (df_curr["idx"] - df_tmp["max_idx"] >= new_high_days_limit)
 
     if is_truncated:
         mask0 = (df_tmp["is_selled"]==False) & (~np.isnan(a_trunc_open))
-        df_tmp.loc[mask0, "sell_price"] = a_trunc_open[mask0]
+        df_tmp.loc[mask0, "sell_at"] = a_trunc_open[mask0]
         df_tmp.loc[mask0, "is_selled"] = True
 
-    df_tmp.index = origin_index
+    df_tmp["r"] = (df_tmp["sell_at"]/df_tmp["buy_at"]-1)
+    df_tmp.loc[~df_tmp["is_selled"],"r"]=None
     return df_tmp
 
 
-def get_return_rate_batch(df_stock_d: pd.DataFrame, loss_limit=0.1, retracement=0.1, retracement_inc_pct=0.25,
+def get_return_rate_batch2(df_stock_d: pd.DataFrame, loss_limit=0.1, retracement=0.1, retracement_inc_pct=0.25,
                           max_days=60, new_high_days_limit=20, is_truncated=True):
     # Cleaning input, filter days when vol=0 or any field is null.
     df_stock_d = \
@@ -772,7 +849,7 @@ if __name__ == '__main__':
     print(df_r.head(5))
 
     cursor = dbop.connect_db("sqlite3").cursor()
-    start = 20120101
+    start = 20140101
 
     df_d = dbop.create_df(cursor, STOCK_DAY[TABLE], start=start,
                           # where_clause="code in ('002349.SZ','600352.SH','600350.SH','600001.SH')",
@@ -802,17 +879,24 @@ if __name__ == '__main__':
     #                                                                     "date").quarter - 1) * 4,
     #                                                     1)
 
-    one_year = 250
-    growth_1yr = ((df_d["close"]/df_d["close"].groupby("code").shift(one_year))
-                  * (df_d_basic["pe_ttm"].groupby("code").shift(one_year)/df_d_basic["pe_ttm"])
-                  - 1) * 100
-    df_d_basic["peg_1yr"] = df_d_basic["pe_ttm"]/growth_1yr
+    # one_year = 250
+    # growth_1yr = ((df_d["close"]/df_d["close"].groupby("code").shift(one_year))
+    #               * (df_d_basic["pe_ttm"].groupby("code").shift(one_year)/df_d_basic["pe_ttm"])
+    #               - 1) * 100
+    # df_d_basic["peg_1yr"] = df_d_basic["pe_ttm"]/growth_1yr
+    #
+    # two_year = 500
+    # growth_2yr = ((df_d["close"] / df_d["close"].groupby("code").shift(two_year))
+    #               * (df_d_basic["pe_ttm"].groupby("code").shift(two_year) / df_d_basic["pe_ttm"])
+    #               - 1) * 100
+    # df_d_basic["peg_2yr"] = df_d_basic["pe_ttm"] / growth_2yr
 
-    two_year = 500
-    growth_2yr = ((df_d["close"] / df_d["close"].groupby("code").shift(two_year))
-                  * (df_d_basic["pe_ttm"].groupby("code").shift(two_year) / df_d_basic["pe_ttm"])
-                  - 1) * 100
-    df_d_basic["peg_2yr"] = df_d_basic["pe_ttm"] / growth_2yr
+    for days in [250,500,750]:
+        growth = ((df_d["close"] / df_d["close"].groupby("code").shift(days))
+                      * (df_d_basic["pe_ttm"].groupby("code").shift(days) / df_d_basic["pe_ttm"])
+                      - 1) * 100
+        df_d_basic["peg_{}".format(days)] = df_d_basic["pe_ttm"] / growth
+
 
     features = pd.DataFrame()
 
@@ -838,26 +922,27 @@ if __name__ == '__main__':
 
     features = pd.concat([features, df_d_basic], axis=1)
     print("Features generated!")
-    del df_d_basic, kma
-    df_d = df_d[[col for col in df_d.columns if "0" not in col]]
-    y = df_r["r"].reindex(features.index)
-    X = features[y.notnull()]
-    y = y.dropna()
-    features = features.astype("float32")
-    y = y.astype("float32")
-    store = pd.HDFStore("dataset")
-    store["X"] = X
-    store["y"] = y
-    store.close()
+    # del df_d_basic, kma
+    # df_d = df_d[[col for col in df_d.columns if "0" not in col]]
+    # y = df_r["r"].reindex(features.index)
+    # X = features[y.notnull()]
+    # y = y.dropna()
+    # features = features.astype("float32")
+    # y = y.astype("float32")
+    # store = pd.HDFStore("dataset")
+    # store["X"] = X
+    # store["y"] = y
+    # store.close()
 
     volatility = pd.DataFrame()
     volatility["volatility_d"] = df_d["close"].dropna().groupby(level="code").pct_change(1)
     volatility["(high-low)/avg"]=(df_d["high"]-df_d["low"])/df_d["avg"]
     results = []
     for i in [5, 10, 20, 60, 120, 250]:
-        tmp = groupby_rolling(volatility, level="code", window=i, ops="std", check_col="(high-low)/avg")
+        tmp = groupby_rolling(volatility, level="code", window=i, ops=["std","mean"], check_col="(high-low)/avg")
         tmp.columns = ["p{}std".format(i) + col for col in tmp.columns]
         results.append(tmp)
+    features = pd.concat(results, axis=1)
     result = ml.assess_feature3(features, df_r["r"], 20)
 
 

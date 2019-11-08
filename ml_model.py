@@ -338,7 +338,7 @@ def pred_interval_summary(reg, X, ss_eval:pd.Series, interval=0.05,
     if y_pred is None:
         y_pred = reg.predict(X)
 
-    n = int(1 / interval)
+    n = int(2 / interval)
     x0 = np.arange(n + 1) * interval
     y0 = np.ones(x0.shape) * ss_eval.mean()
 
