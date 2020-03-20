@@ -1,0 +1,804 @@
+import pandas as pd
+import numpy as np
+from script import *
+
+# 数据准备
+df_r = pd.read_parquet(r"database\return_8%_20%_60_20")
+df_r.sort_index(inplace=True)
+print(df_r.info(memory_usage="deep"))
+print(df_r.head(5))
+
+cursor = dbop.connect_db("sqlite3").cursor()
+start = 20130101
+
+df_d = dbop.create_df(cursor, STOCK_DAY[TABLE], start=start,
+                      # where_clause="code in ('002349.SZ','600352.SH','600350.SH','600001.SH')",
+                      # where_clause="code='600350.SH'",
+                      )
+df_d = dp.proc_stock_d(dp.prepare_stock_d(df_d))
+
+df_d_basic = dbop.create_df(cursor, STOCK_DAILY_BASIC[TABLE], start=start,
+                            # where_clause="code in ('002349.SZ','600352.SH','600350.SH','600001.SH')",
+                            # where_clause="code='600350.SH'",
+                            )
+df_d_basic = dp.prepare_stock_d_basic(df_d_basic)
+#
+df_d_basic["pb*pe_ttm"] = df_d_basic["pb"] * df_d_basic["pe_ttm"]
+df_d_basic["pb*pe"] = df_d_basic["pb"] * df_d_basic["pe"]
+
+df_d.drop(columns=['open0','high0','low0','vol0'],inplace=True)
+
+
+# 收益率概览
+df_r.reset_index('code').resample('Q')['r'].agg(['mean','median'])
+Out[13]: 
+                mean    median
+date                          
+2010-03-31  0.016561 -0.009664
+2010-06-30 -0.035694 -0.052260
+2010-09-30  0.065253  0.023152
+2010-12-31 -0.011295 -0.031785
+2011-03-31  0.009082 -0.018919
+2011-06-30 -0.017963 -0.041633
+2011-09-30 -0.039936 -0.051892
+2011-12-31 -0.030269 -0.047823
+2012-03-31  0.021019 -0.002358
+2012-06-30 -0.010394 -0.032007
+2012-09-30 -0.018669 -0.034934
+2012-12-31  0.038885 -0.020353
+2013-03-31  0.002261 -0.023913
+2013-06-30  0.001543 -0.028501
+2013-09-30  0.032849  0.002755
+2013-12-31 -0.008759 -0.036013
+2014-03-31  0.006927 -0.018072
+2014-06-30  0.047761 -0.000818
+2014-09-30  0.089855  0.045455
+2014-12-31  0.036629 -0.011538
+2015-03-31  0.157159  0.090598
+2015-06-30  0.011284 -0.016282
+2015-09-30 -0.012469 -0.030928
+2015-12-31 -0.015999 -0.033248
+2016-03-31  0.004369 -0.014414
+2016-06-30  0.010945 -0.014562
+2016-09-30  0.011423 -0.009178
+2016-12-31 -0.014676 -0.032609
+2017-03-31  0.008733 -0.016198
+2017-06-30 -0.001350 -0.029866
+2017-09-30  0.021861 -0.005378
+2017-12-31 -0.017302 -0.037062
+2018-03-31 -0.024921 -0.043719
+2018-06-30 -0.036735 -0.048352
+2018-09-30 -0.037617 -0.046875
+2018-12-31  0.005201 -0.023099
+2019-03-31  0.091665  0.048477
+2019-06-30 -0.018414 -0.034036
+2019-09-30 -0.005232 -0.029255
+2019-12-31  0.000273 -0.024267
+2020-03-31 -0.022288 -0.032926
+
+
+df_r.reset_index('code').resample('Y')['r'].agg(['mean','median'])
+Out[14]: 
+                mean    median
+date                          
+2010-12-31  0.009464 -0.021687
+2011-12-31 -0.020953 -0.042994
+2012-12-31  0.007327 -0.025301
+2013-12-31  0.007443 -0.022018
+2014-12-31  0.046283  0.001471
+2015-12-31  0.033293 -0.008840
+2016-12-31  0.003043 -0.018182
+2017-12-31  0.003161 -0.022194
+2018-12-31 -0.023454 -0.041250
+2019-12-31  0.015947 -0.018496
+2020-12-31 -0.022288 -0.032926
+
+
+df_idx = dbop.create_df(cursor, INDEX_DAY[TABLE], start=start)
+                        
+
+
+
+
+df[['win_days_5d','lose_days_5d','win_avg_pct_5d']].agg(['mean','median'])
+Out[44]: 
+        win_days_5d  lose_days_5d  win_avg_pct_5d
+mean       1.539726      1.867171       -0.007595
+median     1.000000      2.000000       -0.007380
+
+
+df[['win_days_20d','lose_days_20d','win_avg_pct_20d']].agg(['mean','median'])
+Out[60]: 
+        win_days_20d  lose_days_20d  win_avg_pct_20d
+mean        6.150047       7.468329        -0.007652
+median      6.000000       7.000000        -0.007217
+
+
+
+(df['win_days_5d']>=4).sum()/len(df)
+Out[46]: 0.040256121368784925
+mean     -0.001433
+median   -0.025812
+Name: r, dtype: float64
+df_r['r'].agg(['mean','median'])
+Out[52]: 
+mean      0.006997
+median   -0.023904
+Name: r, dtype: float64
+
+(df['win_days_5d']>=3).sum()/len(df)
+Out[47]: 0.18080346428848823
+(df['win_days_5d']-df['lose_days_5d']>=3).sum()/len(df)
+Out[48]: 0.06217148123292226
+
+((df['win_days_5d']-df['lose_days_5d']>=3) & (df['win_avg_pct_5d']<0.02)).sum()/len(df)
+Out[53]: 0.04829591321126522
+
+
+df_r.loc[filtered,'r'].agg(['mean','median'])
+mean      0.005290
+median   -0.023283
+Name: r, dtype: float64
+
+
+
+filtered = df.index[(df['win_days_5d']-df['lose_days_5d']>=3) & (df['win_avg_pct_5d']<0.01) & (df['win_days_20d']-df['lose_days_20d']<=3)]
+len(filtered)/len(df)
+Out[73]: 0.02300798612050481
+mean      0.008989
+median   -0.020945
+Name: r, dtype: float64
+
+
+
+filtered = df.index[(df['win_days_5d']-df['lose_days_5d']>=3) & (df['win_avg_pct_5d']<0.015) & (df['win_days_20d']-df['lose_days_20d']<=3)]
+len(filtered)/len(df)
+Out[75]: 0.02829439470512618
+mean      0.007164
+median   -0.021861
+Name: r, dtype: float64
+
+
+
+filtered = df.index[(df['win_days_5d']-df['lose_days_5d']>=3) & (df['win_avg_pct_5d']<0.005) & (df['win_days_20d']-df['lose_days_20d']<=3)]
+Out[78]: 0.014867833240099384
+mean      0.011223
+median   -0.019346
+Name: r, dtype: float64
+
+
+filtered = df.index[(df['win_days_5d']-df['lose_days_5d']>=3) & (df['win_avg_pct_5d']<-0.0075) & (df['win_days_20d']-df['lose_days_20d']<=3)]
+mean      0.012307
+median   -0.009698
+Name: r, dtype: float64
+
+
+filtered = df.index[(df['win_days_5d']-df['lose_days_5d']>=3) & (df['win_avg_pct_5d']<0.01) & (df['win_days_20d']-df['lose_days_20d']<=3)]
+len(filtered)/len(df)
+Out[73]: 0.02300798612050481
+mean      0.008989
+median   -0.020945
+Name: r, dtype: float64
+
+
+filtered = df.index[(df['win_days_5d']-df['lose_days_5d']>=3) & (df['win_avg_pct_5d']<0.01)
+                    & (df['win_days_20d']-df['lose_days_20d']<=3) & (df['win_avg_pct_20d']<0)]
+Out[97]: 0.02216931692532179
+mean      0.009304
+median   -0.020790
+Name: r, dtype: float64
+
+
+filtered = df.index[(df['win_days_5d']-df['lose_days_5d']>=3) & (df['win_avg_pct_5d']<0.01)
+                    & (df['win_days_20d']-df['lose_days_20d']<=3) & (df['win_avg_pct_20d']<-0.01)]
+len(filtered)/len(df)
+0.004734422876033173
+mean      0.010435
+median   -0.021240
+Name: r, dtype: float64
+
+
+filtered = df.index[(df['win_days_5d']-df['lose_days_5d']>=3) & (df['win_avg_pct_5d']>0) & (df['win_avg_pct_5d']<0.05)
+                    & (df['win_days_20d']-df['lose_days_20d']<=3) & (df['win_avg_pct_20d']<0)]
+len(filtered)/len(df)
+Out[114]: 0.014580277048826954
+
+
+
+
+
+
+
+
+result = assess_feature3(df[['win_days_20d', 'lose_days_20d','win-lose_days_20d','win_avg_pct_20d','win_avg_pct_5d','pct_ma60']],df_r['r'],q_bin=5)
+lose_days_20d 
+                    mean    median
+bin                              
+(-0.001, 6.0]  0.016359 -0.017604
+(6.0, 7.0]     0.010365 -0.020732
+(7.0, 8.0]     0.006804 -0.023074
+(8.0, 9.0]     0.005050 -0.024656
+(9.0, 20.0]    0.003698 -0.025886 
+pct_ma60 
+                        mean    median
+bin                                  
+(-64.821, -7.574]  0.009303 -0.016456
+(-7.574, -2.437]   0.008181 -0.023837
+(-2.437, 2.314]    0.012254 -0.022013
+(2.314, 9.0]       0.015116 -0.020629
+(9.0, 832.692]     0.006974 -0.022814 
+win-lose_days_20d 
+                      mean    median
+bin                                
+(-20.001, -4.0]  0.010122 -0.021361
+(-4.0, -2.0]     0.011382 -0.020976
+(-2.0, -1.0]     0.011252 -0.020456
+(-1.0, 2.0]      0.009475 -0.021640
+(2.0, 20.0]      0.005306 -0.023902 
+win_avg_pct_20d 
+                           mean    median
+bin                                     
+(-0.1001, -0.012]     0.023030 -0.012706
+(-0.012, -0.00851]    0.009378 -0.021150
+(-0.00851, -0.00594]  0.008018 -0.021798
+(-0.00594, -0.00304]  0.007157 -0.023510
+(-0.00304, 0.499]     0.000844 -0.027397 
+win_avg_pct_5d 
+                           mean    median
+bin                                     
+(-0.134, -0.0153]     0.020656 -0.014458
+(-0.0153, -0.00944]   0.011025 -0.021337
+(-0.00944, -0.00528]  0.008045 -0.022405
+(-0.00528, -6.9e-05]  0.007695 -0.022222
+(-6.9e-05, 2.022]     0.001418 -0.025723 
+win_days_20d 
+                    mean    median
+bin                              
+(-0.001, 4.0]  0.020077 -0.015475
+(4.0, 5.0]     0.012196 -0.019725
+(5.0, 7.0]     0.007486 -0.022698
+(7.0, 8.0]     0.003998 -0.025478
+(8.0, 20.0]    0.000099 -0.027043 
+result = assess_feature3(df[['win_days_20d', 'lose_days_20d','win-lose_days_20d','win_avg_pct_20d','win_avg_pct_5d','pct_ma60']],df_r['r'],q_bin=20)
+lose_days_20d 
+                    mean    median
+bin                              
+(-0.001, 4.0]  0.022655 -0.014892
+(4.0, 5.0]     0.015904 -0.017809
+(5.0, 6.0]     0.012985 -0.019032
+(6.0, 7.0]     0.010365 -0.020732
+(7.0, 8.0]     0.006804 -0.023074
+(8.0, 9.0]     0.005050 -0.024656
+(9.0, 10.0]    0.003934 -0.026157
+(10.0, 11.0]   0.002227 -0.026600
+(11.0, 20.0]   0.005224 -0.024096 
+pct_ma60 
+                         mean    median
+bin                                   
+(-64.821, -16.464]  0.014189 -0.007353
+(-16.464, -12.121]  0.009284 -0.016168
+(-12.121, -9.501]   0.007146 -0.019433
+(-9.501, -7.574]    0.006605 -0.021739
+(-7.574, -6.037]    0.006298 -0.023560
+(-6.037, -4.718]    0.008511 -0.023747
+(-4.718, -3.543]    0.007887 -0.024890
+(-3.543, -2.437]    0.010025 -0.023188
+(-2.437, -1.346]    0.011039 -0.022760
+(-1.346, -0.149]    0.012463 -0.021318
+(-0.149, 1.093]     0.012776 -0.021368
+(1.093, 2.314]      0.012736 -0.022727
+(2.314, 3.627]      0.014573 -0.022039
+(3.627, 5.121]      0.014575 -0.021097
+(5.121, 6.879]      0.015280 -0.020579
+(6.879, 9.0]        0.016036 -0.018816
+(9.0, 11.747]       0.012730 -0.020000
+(11.747, 15.631]    0.010164 -0.021584
+(15.631, 22.519]    0.006103 -0.023712
+(22.519, 832.692]  -0.001133 -0.025817 
+win-lose_days_20d 
+                      mean    median
+bin                                
+(-20.001, -7.0]  0.010294 -0.021011
+(-7.0, -6.0]     0.010178 -0.021694
+(-6.0, -5.0]     0.010460 -0.021277
+(-5.0, -4.0]     0.009696 -0.021459
+(-4.0, -3.0]     0.011036 -0.021290
+(-3.0, -2.0]     0.011702 -0.020667
+(-2.0, -1.0]     0.011252 -0.020456
+(-1.0, 0.0]      0.010340 -0.021142
+(0.0, 1.0]       0.008968 -0.021605
+(1.0, 2.0]       0.008828 -0.022388
+(2.0, 3.0]       0.006793 -0.023376
+(3.0, 5.0]       0.005695 -0.023810
+(5.0, 20.0]      0.001846 -0.025064 
+win_avg_pct_20d 
+                            mean    median
+bin                                      
+(-0.1001, -0.0185]     0.039726 -0.002808
+(-0.0185, -0.0152]     0.022672 -0.010270
+(-0.0152, -0.0134]     0.017079 -0.016000
+(-0.0134, -0.012]      0.012741 -0.019149
+(-0.012, -0.011]       0.010175 -0.020944
+(-0.011, -0.0101]      0.009665 -0.020930
+(-0.0101, -0.00924]    0.009179 -0.021357
+(-0.00924, -0.00851]   0.008494 -0.021390
+(-0.00851, -0.00783]   0.008501 -0.021250
+(-0.00783, -0.00719]   0.008220 -0.021503
+(-0.00719, -0.00656]   0.008204 -0.021860
+(-0.00656, -0.00594]   0.007146 -0.022472
+(-0.00594, -0.00531]   0.006834 -0.023499
+(-0.00531, -0.00463]   0.007069 -0.023451
+(-0.00463, -0.0039]    0.007231 -0.023679
+(-0.0039, -0.00304]    0.007493 -0.023386
+(-0.00304, -0.00196]   0.005599 -0.025427
+(-0.00196, -0.000455]  0.003658 -0.026316
+(-0.000455, 0.00215]   0.000077 -0.028054
+(0.00215, 0.499]      -0.006023 -0.029770 
+win_avg_pct_5d 
+                           mean    median
+bin                                     
+(-0.134, -0.0268]     0.021945 -0.011175
+(-0.0268, -0.021]     0.023730 -0.012097
+(-0.021, -0.0177]     0.020780 -0.015487
+(-0.0177, -0.0153]    0.016176 -0.018546
+(-0.0153, -0.0134]    0.013549 -0.020262
+(-0.0134, -0.0119]    0.011343 -0.020979
+(-0.0119, -0.0106]    0.010236 -0.021622
+(-0.0106, -0.00944]   0.008973 -0.022587
+(-0.00944, -0.00835]  0.008788 -0.022222
+(-0.00835, -0.00732]  0.007933 -0.022222
+(-0.00732, -0.00631]  0.008478 -0.022401
+(-0.00631, -0.00528]  0.006982 -0.022768
+(-0.00528, -0.0042]   0.008087 -0.021772
+(-0.0042, -0.00304]   0.007907 -0.021739
+(-0.00304, -0.0017]   0.007600 -0.022202
+(-0.0017, -6.9e-05]   0.007186 -0.023121
+(-6.9e-05, 0.00211]   0.006295 -0.023979
+(0.00211, 0.00537]    0.003957 -0.025569
+(0.00537, 0.0115]     0.001252 -0.026294
+(0.0115, 2.022]      -0.006024 -0.027058 
+win_days_20d 
+                    mean    median
+bin                              
+(-0.001, 3.0]  0.024106 -0.013264
+(3.0, 4.0]     0.015925 -0.017668
+(4.0, 5.0]     0.012196 -0.019725
+(5.0, 6.0]     0.008670 -0.021678
+(6.0, 7.0]     0.006196 -0.023810
+(7.0, 8.0]     0.003998 -0.025478
+(8.0, 9.0]     0.001533 -0.026722
+(9.0, 10.0]   -0.000441 -0.026946
+(10.0, 20.0]  -0.002303 -0.027778 
+filtered = df.index[(df['win_days_5d']==0) & (df['win_avg_pct_5d']<-0.02)
+                    & (df['win_days_20d']==0) & (df['win_avg_pct_20d']<-0.02)
+                    & (df['pct_ma60']<-15) 
+]
+len(filtered)/len(df)
+Out[183]: 3.1417368393952856e-05
+df_r.loc[filtered,'r'].agg(['mean','median'])
+Out[184]: 
+mean      0.028004
+median    0.010195
+Name: r, dtype: float64
+filtered = df.index[(df['win_days_5d']==0) & (df['lose_days_5d']==0) &(df['win_avg_pct_5d']<-0.02)
+                    & (df['win_days_20d']==0) & (df['lose_days_20d']==0) & (df['win_avg_pct_20d']<-0.02)
+                    & (df['pct_ma60']<-15) 
+]
+len(filtered)/len(df)
+Out[185]: 0.0
+filtered = df.index[(df['win_days_5d']==0) & (df['lose_days_5d']==0) &(df['win_avg_pct_5d']<-0.02)
+                    & (df['win_days_20d']<4) & (df['lose_days_20d']<4) & (df['win_avg_pct_20d']<-0.02)
+                    & (df['pct_ma60']<-15) 
+]
+len(filtered)/len(df)
+Out[186]: 0.0
+filtered = df.index[(df['win_days_5d']==0) & (df['lose_days_5d']==0) &(df['win_avg_pct_5d']<-0.02)
+                    & (df['win_days_20d']<4) & (df['lose_days_20d']<4) & (df['win_avg_pct_20d']<-0.02)
+                    & (df['pct_ma60']<-15) 
+]
+len(filtered)/len(df)
+Out[187]: 0.0
+filtered = df.index[(df['win_days_5d']==0) & (df['lose_days_5d']==0) &(df['win_avg_pct_5d']<-0.02)
+                    & (df['win_days_20d']<4) & (df['lose_days_20d']<4) & (df['win_avg_pct_20d']<-0.02)
+]
+len(filtered)/len(df)
+Out[188]: 1.8763150568610734e-05
+df_r.loc[filtered,'r'].agg(['mean','median'])
+C:\ProgramData\Anaconda3\lib\site-packages\pandas\core\indexing.py:910: FutureWarning: 
+Passing list-likes to .loc or [] with any missing label will raise
+KeyError in the future, you can use .reindex() as an alternative.
+See the documentation here:
+https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#deprecate-loc-reindex-listlike
+  return self._getitem_nested_tuple(tup)
+Out[189]: 
+mean      0.113142
+median   -0.013501
+Name: r, dtype: float64
+filtered = df.index[(df['win_days_5d']+df['lose_days_5d']<=1) &(df['win_avg_pct_5d']<-0.02)
+                    & (df['win_days_20d']<2) & (df['lose_days_20d']<2) & (df['win_avg_pct_20d']<-0.02)
+]
+len(filtered)/len(df)
+Out[190]: 4.3635233880490076e-07
+df_r.loc[filtered,'r'].agg(['mean','median'])
+Out[191]: 
+mean      0.35841
+median    0.35841
+Name: r, dtype: float64
+filtered = df.index[(df['win_days_5d']+df['lose_days_5d']<=1) &(df['win_avg_pct_5d']<-0.02)
+                    & (df['win_days_20d']+df['lose_days_20d']<=5) & (df['win_avg_pct_20d']<-0.02)
+]
+len(filtered)/len(df)
+Out[192]: 0.00013614192970712904
+df_r.loc[filtered,'r'].agg(['mean','median'])
+C:\ProgramData\Anaconda3\lib\site-packages\pandas\core\indexing.py:910: FutureWarning: 
+Passing list-likes to .loc or [] with any missing label will raise
+KeyError in the future, you can use .reindex() as an alternative.
+See the documentation here:
+https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#deprecate-loc-reindex-listlike
+  return self._getitem_nested_tuple(tup)
+Out[193]: 
+mean      0.110559
+median    0.001136
+Name: r, dtype: float64
+filtered = df.index[(df['win_days_5d']+df['lose_days_5d']<=1) &(df['win_avg_pct_5d']<-0.02)
+                    & (df['win_days_20d']+df['lose_days_20d']<=4) & (df['win_avg_pct_20d']<-0.02)
+]
+len(filtered)/len(df)
+Out[194]: 2.6181140328294045e-05
+df_r.loc[filtered,'r'].agg(['mean','median'])
+Out[195]: C:\ProgramData\Anaconda3\lib\site-packages\pandas\core\indexing.py:910: FutureWarning: 
+Passing list-likes to .loc or [] with any missing label will raise
+KeyError in the future, you can use .reindex() as an alternative.
+See the documentation here:
+https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#deprecate-loc-reindex-listlike
+  return self._getitem_nested_tuple(tup)
+mean      0.109287
+median    0.004787
+Name: r, dtype: float64
+filtered = df.index[(df['win_days_5d']+df['lose_days_5d']<=0) &(df['win_avg_pct_5d']<-0.02)
+                    & (df['win_days_20d']+df['lose_days_20d']<=5) & (df['win_avg_pct_20d']<-0.02)
+]
+len(filtered)/len(df)
+Out[196]: 5.67258040446371e-05
+df_r.loc[filtered,'r'].agg(['mean','median'])
+C:\ProgramData\Anaconda3\lib\site-packages\pandas\core\indexing.py:910: FutureWarning: 
+Passing list-likes to .loc or [] with any missing label will raise
+KeyError in the future, you can use .reindex() as an alternative.
+See the documentation here:
+https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#deprecate-loc-reindex-listlike
+  return self._getitem_nested_tuple(tup)
+Out[197]: 
+mean      0.098108
+median   -0.013339
+Name: r, dtype: float64
+filtered = df.index[(df['win_days_5d']+df['lose_days_5d']<=1) &(df['win_avg_pct_5d']<-0.02)
+                    & (df['win_days_20d']+df['lose_days_20d']<=5) & (df['win_avg_pct_20d']<-0.02)
+]
+len(filtered)/len(df)
+Out[198]: 0.00013614192970712904
+df_r.loc[filtered,'r'].agg(['mean','median'])
+Out[199]: C:\ProgramData\Anaconda3\lib\site-packages\pandas\core\indexing.py:910: FutureWarning: 
+Passing list-likes to .loc or [] with any missing label will raise
+KeyError in the future, you can use .reindex() as an alternative.
+See the documentation here:
+https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#deprecate-loc-reindex-listlike
+  return self._getitem_nested_tuple(tup)
+mean      0.110559
+median    0.001136
+Name: r, dtype: float64
+filtered = df.index[(df['win_days_5d']+df['lose_days_5d']<=2) &(df['win_avg_pct_5d']<-0.02)
+                    & (df['win_days_20d']+df['lose_days_20d']<=6) & (df['win_avg_pct_20d']<-0.02)
+]
+len(filtered)/len(df)
+Out[200]: 0.0004254435303347782
+df_r.loc[filtered,'r'].agg(['mean','median'])
+C:\ProgramData\Anaconda3\lib\site-packages\pandas\core\indexing.py:910: FutureWarning: 
+Passing list-likes to .loc or [] with any missing label will raise
+KeyError in the future, you can use .reindex() as an alternative.
+See the documentation here:
+https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#deprecate-loc-reindex-listlike
+  return self._getitem_nested_tuple(tup)
+Out[201]: 
+mean      0.127039
+median    0.019316
+Name: r, dtype: float64
+filtered = df.index[(df['win_days_5d']+df['lose_days_5d']<=1) &(df['win_avg_pct_5d']<-0.02)
+                    & (df['win_days_20d']+df['lose_days_20d']<=6) & (df['win_avg_pct_20d']<-0.02)
+]
+len(filtered)/len(df)
+Out[202]: 0.0002753383257858924
+df_r.loc[filtered,'r'].agg(['mean','median'])
+C:\ProgramData\Anaconda3\lib\site-packages\pandas\core\indexing.py:910: FutureWarning: 
+Passing list-likes to .loc or [] with any missing label will raise
+KeyError in the future, you can use .reindex() as an alternative.
+See the documentation here:
+https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#deprecate-loc-reindex-listlike
+  return self._getitem_nested_tuple(tup)
+Out[203]: 
+mean      0.119071
+median    0.018789
+Name: r, dtype: float64
+filtered = df.index[(df['win_avg_pct_5d']<-0.02)
+                    & (df['win_days_20d']+df['lose_days_20d']<=6) & (df['win_avg_pct_20d']<-0.02)
+]
+len(filtered)/len(df)
+Out[204]: 0.0004428976238869743
+df_r.loc[filtered,'r'].agg(['mean','median'])
+C:\ProgramData\Anaconda3\lib\site-packages\pandas\core\indexing.py:910: FutureWarning: 
+Passing list-likes to .loc or [] with any missing label will raise
+KeyError in the future, you can use .reindex() as an alternative.
+See the documentation here:
+https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#deprecate-loc-reindex-listlike
+  return self._getitem_nested_tuple(tup)
+Out[205]: 
+mean      0.124860
+median    0.019157
+Name: r, dtype: float64
+filtered = df.index[(df['win_avg_pct_5d']<-0.02)
+                    & (df['win_days_20d']+df['lose_days_20d']<=8) & (df['win_avg_pct_20d']<-0.02)
+]
+len(filtered)/len(df)
+Out[206]: 0.0019369680319549544
+df_r.loc[filtered,'r'].agg(['mean','median'])
+C:\ProgramData\Anaconda3\lib\site-packages\pandas\core\indexing.py:910: FutureWarning: 
+Passing list-likes to .loc or [] with any missing label will raise
+KeyError in the future, you can use .reindex() as an alternative.
+See the documentation here:
+https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#deprecate-loc-reindex-listlike
+  return self._getitem_nested_tuple(tup)
+Out[207]: 
+mean      0.134211
+median    0.029093
+Name: r, dtype: float64
+filtered = df.index[(df['win_avg_pct_5d']<-0.02)
+                    & (df['win_avg_pct_20d']<-0.02)
+]
+len(filtered)/len(df)
+Out[208]: 0.023885054321502657
+df_r.loc[filtered,'r'].agg(['mean','median'])
+C:\ProgramData\Anaconda3\lib\site-packages\pandas\core\indexing.py:910: FutureWarning: 
+Passing list-likes to .loc or [] with any missing label will raise
+KeyError in the future, you can use .reindex() as an alternative.
+See the documentation here:
+https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#deprecate-loc-reindex-listlike
+  return self._getitem_nested_tuple(tup)
+Out[209]: 
+mean      0.051217
+median    0.004202
+Name: r, dtype: float64
+filtered = df.index[(df['win_avg_pct_5d']<-0.02)
+                    & (df['win_days_20d']+df['lose_days_20d']<=10) & (df['win_avg_pct_20d']<-0.02)
+]
+len(filtered)/len(df)
+Out[210]: 0.004944308350998331
+filtered = df.index[(df['win_avg_pct_5d']<-0.02)
+                    & (df['win_days_20d']+df['lose_days_20d']<=10) & (df['win_avg_pct_20d']<-0.02)
+]
+len(filtered)/len(df)
+Out[211]: 0.004944308350998331
+df_r.loc[filtered,'r'].agg(['mean','median'])
+C:\ProgramData\Anaconda3\lib\site-packages\pandas\core\indexing.py:910: FutureWarning: 
+Passing list-likes to .loc or [] with any missing label will raise
+KeyError in the future, you can use .reindex() as an alternative.
+See the documentation here:
+https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#deprecate-loc-reindex-listlike
+  return self._getitem_nested_tuple(tup)
+Out[212]: 
+mean      0.110110
+median    0.021581
+Name: r, dtype: float64
+filtered = df.index[(df['win_avg_pct_5d']<-0.02)
+                    & (df['win_days_20d']+df['lose_days_20d']<=8) & (df['win_avg_pct_20d']<-0.02)
+]
+len(filtered)/len(df)
+Out[213]: 0.0019369680319549544
+df_r.loc[filtered,'r'].agg(['mean','median'])
+C:\ProgramData\Anaconda3\lib\site-packages\pandas\core\indexing.py:910: FutureWarning: 
+Passing list-likes to .loc or [] with any missing label will raise
+KeyError in the future, you can use .reindex() as an alternative.
+See the documentation here:
+https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#deprecate-loc-reindex-listlike
+  return self._getitem_nested_tuple(tup)
+Out[214]: 
+mean      0.134211
+median    0.029093
+Name: r, dtype: float64
+filtered = df.index[(df['win_avg_pct_5d']<-0.02)
+                    & (df['win_days_20d']+df['lose_days_20d']<=7) & (df['win_avg_pct_20d']<-0.02)
+]
+len(filtered)/len(df)
+Out[215]: 0.0010795356862033246
+df_r.loc[filtered,'r'].agg(['mean','median'])
+C:\ProgramData\Anaconda3\lib\site-packages\pandas\core\indexing.py:910: FutureWarning: 
+Passing list-likes to .loc or [] with any missing label will raise
+KeyError in the future, you can use .reindex() as an alternative.
+See the documentation here:
+https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#deprecate-loc-reindex-listlike
+  return self._getitem_nested_tuple(tup)
+Out[216]: 
+mean      0.140766
+median    0.026126
+Name: r, dtype: float64
+filtered = df.index[(df['win_avg_pct_5d']<-0.02)
+                    & (df['win_days_20d']+df['lose_days_20d']<=6) & (df['win_avg_pct_20d']<-0.02)
+]
+len(filtered)/len(df)
+Out[217]: 0.0004428976238869743
+df_r.loc[filtered,'r'].agg(['mean','median'])
+C:\ProgramData\Anaconda3\lib\site-packages\pandas\core\indexing.py:910: FutureWarning: 
+Passing list-likes to .loc or [] with any missing label will raise
+KeyError in the future, you can use .reindex() as an alternative.
+See the documentation here:
+https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#deprecate-loc-reindex-listlike
+  return self._getitem_nested_tuple(tup)
+Out[218]: 
+mean      0.124860
+median    0.019157
+Name: r, dtype: float64
+filtered = df.index[(df['win_avg_pct_5d']<-0.02)
+                    & (df['win_days_20d']+df['lose_days_20d']<=7) & (df['win_avg_pct_20d']<-0.02)
+]
+len(filtered)/len(df)
+Out[219]: 0.0010795356862033246
+df_r.loc[filtered,'r'].agg(['mean','median'])
+C:\ProgramData\Anaconda3\lib\site-packages\pandas\core\indexing.py:910: FutureWarning: 
+Passing list-likes to .loc or [] with any missing label will raise
+KeyError in the future, you can use .reindex() as an alternative.
+See the documentation here:
+https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#deprecate-loc-reindex-listlike
+  return self._getitem_nested_tuple(tup)
+Out[220]: 
+mean      0.140766
+median    0.026126
+Name: r, dtype: float64
+df_r.loc[filtered,'r'].resample('M').agg(['mean','median'])
+C:\ProgramData\Anaconda3\lib\site-packages\pandas\core\indexing.py:910: FutureWarning: 
+Passing list-likes to .loc or [] with any missing label will raise
+KeyError in the future, you can use .reindex() as an alternative.
+See the documentation here:
+https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#deprecate-loc-reindex-listlike
+  return self._getitem_nested_tuple(tup)
+Traceback (most recent call last):
+  File "C:\ProgramData\Anaconda3\lib\site-packages\IPython\core\interactiveshell.py", line 2910, in run_code
+    exec(code_obj, self.user_global_ns, self.user_ns)
+  File "<ipython-input-221-2299df10cb32>", line 1, in <module>
+    df_r.loc[filtered,'r'].resample('M').agg(['mean','median'])
+  File "C:\ProgramData\Anaconda3\lib\site-packages\pandas\core\generic.py", line 8449, in resample
+    level=level,
+  File "C:\ProgramData\Anaconda3\lib\site-packages\pandas\core\resample.py", line 1306, in resample
+    return tg._get_resampler(obj, kind=kind)
+  File "C:\ProgramData\Anaconda3\lib\site-packages\pandas\core\resample.py", line 1443, in _get_resampler
+    "but got an instance of %r" % type(ax).__name__
+TypeError: Only valid with DatetimeIndex, TimedeltaIndex or PeriodIndex, but got an instance of 'MultiIndex'
+df_r.loc[filtered,'r'].reset_index('code')['r'].resample('M').agg(['mean','median'])
+C:\ProgramData\Anaconda3\lib\site-packages\pandas\core\indexing.py:910: FutureWarning: 
+Passing list-likes to .loc or [] with any missing label will raise
+KeyError in the future, you can use .reindex() as an alternative.
+See the documentation here:
+https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#deprecate-loc-reindex-listlike
+  return self._getitem_nested_tuple(tup)
+Out[222]: 
+                mean    median
+date                          
+2013-07-31  0.078378  0.052750
+2013-08-31       NaN       NaN
+2013-09-30       NaN       NaN
+2013-10-31       NaN       NaN
+2013-11-30       NaN       NaN
+2013-12-31       NaN       NaN
+2014-01-31  0.120206  0.120206
+2014-02-28       NaN       NaN
+2014-03-31       NaN       NaN
+2014-04-30       NaN       NaN
+2014-05-31       NaN       NaN
+2014-06-30       NaN       NaN
+2014-07-31       NaN       NaN
+2014-08-31       NaN       NaN
+2014-09-30       NaN       NaN
+2014-10-31       NaN       NaN
+2014-11-30       NaN       NaN
+2014-12-31  0.043234  0.009798
+2015-01-31  0.166201  0.013440
+2015-02-28  0.305165  0.271869
+2015-03-31  0.044434  0.044434
+2015-04-30  0.003902  0.003902
+2015-05-31  0.087383  0.059269
+2015-06-30  0.061035  0.046460
+2015-07-31  0.069502  0.060494
+2015-08-31       NaN       NaN
+2015-09-30  0.097887  0.066025
+2015-10-31  0.038580  0.023077
+2015-11-30       NaN       NaN
+2015-12-31       NaN       NaN
+2016-01-31       NaN       NaN
+2016-02-29       NaN       NaN
+2016-03-31  0.003284  0.003284
+2016-04-30       NaN       NaN
+2016-05-31       NaN       NaN
+2016-06-30       NaN       NaN
+2016-07-31       NaN       NaN
+2016-08-31       NaN       NaN
+2016-09-30       NaN       NaN
+2016-10-31       NaN       NaN
+2016-11-30       NaN       NaN
+2016-12-31       NaN       NaN
+2017-01-31       NaN       NaN
+2017-02-28       NaN       NaN
+2017-03-31       NaN       NaN
+2017-04-30       NaN       NaN
+2017-05-31       NaN       NaN
+2017-06-30 -0.009077 -0.009077
+2017-07-31       NaN       NaN
+2017-08-31       NaN       NaN
+2017-09-30       NaN       NaN
+2017-10-31       NaN       NaN
+2017-11-30       NaN       NaN
+2017-12-31       NaN       NaN
+2018-01-31       NaN       NaN
+2018-02-28  0.013100  0.013100
+df_r.loc[filtered,'r'].reset_index('code')['r'].resample('M').agg(['mean','median','size'])
+C:\ProgramData\Anaconda3\lib\site-packages\pandas\core\indexing.py:910: FutureWarning: 
+Passing list-likes to .loc or [] with any missing label will raise
+KeyError in the future, you can use .reindex() as an alternative.
+See the documentation here:
+https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#deprecate-loc-reindex-listlike
+  return self._getitem_nested_tuple(tup)
+Out[223]: 
+                mean    median  size
+date                                
+2013-07-31  0.078378  0.052750    40
+2013-08-31       NaN       NaN     0
+2013-09-30       NaN       NaN     0
+2013-10-31       NaN       NaN     0
+2013-11-30       NaN       NaN     0
+2013-12-31       NaN       NaN     0
+2014-01-31  0.120206  0.120206     2
+2014-02-28       NaN       NaN     0
+2014-03-31       NaN       NaN     0
+2014-04-30       NaN       NaN     0
+2014-05-31       NaN       NaN     0
+2014-06-30       NaN       NaN     0
+2014-07-31       NaN       NaN     0
+2014-08-31       NaN       NaN     0
+2014-09-30       NaN       NaN     0
+2014-10-31       NaN       NaN     0
+2014-11-30       NaN       NaN     0
+2014-12-31  0.043234  0.009798   180
+2015-01-31  0.166201  0.013440  1794
+2015-02-28  0.305165  0.271869    22
+2015-03-31  0.044434  0.044434     4
+2015-04-30  0.003902  0.003902     1
+2015-05-31  0.087383  0.059269    54
+2015-06-30  0.061035  0.046460   265
+2015-07-31  0.069502  0.060494    14
+2015-08-31       NaN       NaN     0
+2015-09-30  0.097887  0.066025    76
+2015-10-31  0.038580  0.023077    16
+2015-11-30       NaN       NaN     0
+2015-12-31       NaN       NaN     0
+2016-01-31       NaN       NaN     0
+2016-02-29       NaN       NaN     0
+2016-03-31  0.003284  0.003284     4
+2016-04-30       NaN       NaN     0
+2016-05-31       NaN       NaN     0
+2016-06-30       NaN       NaN     0
+2016-07-31       NaN       NaN     0
+2016-08-31       NaN       NaN     0
+2016-09-30       NaN       NaN     0
+2016-10-31       NaN       NaN     0
+2016-11-30       NaN       NaN     0
+2016-12-31       NaN       NaN     0
+2017-01-31       NaN       NaN     0
+2017-02-28       NaN       NaN     0
+2017-03-31       NaN       NaN     0
+2017-04-30       NaN       NaN     0
+2017-05-31       NaN       NaN     0
+2017-06-30 -0.009077 -0.009077     1
+2017-07-31       NaN       NaN     0
+2017-08-31       NaN       NaN     0
+2017-09-30       NaN       NaN     0
+2017-10-31       NaN       NaN     0
+2017-11-30       NaN       NaN     0
+2017-12-31       NaN       NaN     0
+2018-01-31       NaN       NaN     0
+2018-02-28  0.013100  0.013100     1

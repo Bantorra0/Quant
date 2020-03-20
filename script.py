@@ -843,13 +843,13 @@ if __name__ == '__main__':
     from constants import *
     import data_process as dp
 
-    df_r = pd.read_parquet(r"database\return_10%_25%_60_20")
+    df_r = pd.read_parquet(r"database\return_8%_20%_60_20")
     df_r.sort_index(inplace=True)
     print(df_r.info(memory_usage="deep"))
     print(df_r.head(5))
 
     cursor = dbop.connect_db("sqlite3").cursor()
-    start = 20140101
+    start = 20130101
 
     df_d = dbop.create_df(cursor, STOCK_DAY[TABLE], start=start,
                           # where_clause="code in ('002349.SZ','600352.SH','600350.SH','600001.SH')",

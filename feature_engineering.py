@@ -266,8 +266,9 @@ def groupby_rolling(df:pd.DataFrame,by=None,level=None,window=None,
             axis=1,sort=False)
     else:
         result = df.rolling(window).agg(ops)
-
-    result.loc[df[check_col].groupby(by=by,level=level).shift(window-1).isnull()]=np.nan
+    cond = df[[col for col in df.columns if col in {check_col, by}]].groupby(by=by, level=level).shift(window - 1)\
+        .isnull().any(axis=1).values
+    result.loc[cond]=np.nan
     return result
 
 
@@ -871,7 +872,7 @@ def mp_batch(df, target: callable, batch_size=10, print_freq=1, num_reserved_cpu
 
 def return_script(df):
     import script
-    kwargs = {"loss_limit":0.1,"retracement":0.1,"retracement_inc_pct":0.25,
+    kwargs = {"loss_limit":0.08,"retracement":0.1,"retracement_inc_pct":0.2,
               "max_days":60,"new_high_days_limit":20,
               "is_truncated":True}
     df_r, _ = mp_batch(df, target=script.get_return_rate_batch, batch_size=50,
