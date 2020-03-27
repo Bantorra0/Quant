@@ -386,7 +386,7 @@ def get_return_rate3(df_single_stock_d: pd.DataFrame, loss_limit=0.1, retracemen
 
 
 def get_return_rate_batch(df_stock_d: pd.DataFrame, loss_limit=0.1, retracement=0.1, retracement_inc_pct=0.25,
-                          max_days=60, new_high_days_limit=20, is_truncated=True):
+                          max_days=60, new_high_days_limit=20, stop_profit=None,is_truncated=True):
     # Cleaning input, filter days when vol=0 or any field is null.
     df_stock_d = \
         df_stock_d[(df_stock_d["vol"] > 0)
@@ -441,6 +441,8 @@ def get_return_rate_batch(df_stock_d: pd.DataFrame, loss_limit=0.1, retracement=
         # Sell condition of stopping profit or loss
         stop_profit_points = df_tmp["buy_at"] * (1-loss_limit) + (df_tmp["max"] - df_tmp["buy_at"]) * (1 - retracement_inc_pct)
         mask = df_curr["low"] <= stop_profit_points
+        if stop_profit is not None:
+            mask |= ((df_tmp["max"]/df_tmp["buy_at"]-1)>=stop_profit)
 
         # Sell if arg max_days is not none and is exceeded.
         if max_days is not None:
@@ -462,7 +464,7 @@ def get_return_rate_batch(df_stock_d: pd.DataFrame, loss_limit=0.1, retracement=
 
 
 def get_return_rate_batch2(df_stock_d: pd.DataFrame, loss_limit=0.1, retracement=0.1, retracement_inc_pct=0.25,
-                          max_days=60, new_high_days_limit=20, is_truncated=True):
+                          max_days=60, new_high_days_limit=20, stop_profit=None,is_truncated=True):
     # Cleaning input, filter days when vol=0 or any field is null.
     df_stock_d = \
         df_stock_d[(df_stock_d["vol"] > 0)
@@ -517,6 +519,8 @@ def get_return_rate_batch2(df_stock_d: pd.DataFrame, loss_limit=0.1, retracement
         # Sell condition of stopping profit or loss
         stop_profit_points = df_tmp["buy_at"] * (1-loss_limit) + (df_tmp["max"] - df_tmp["buy_at"]) * (1 - retracement_inc_pct)
         mask = df_curr["low"] <= stop_profit_points
+        if stop_profit is not None:
+            mask |= ((df_tmp["max"]/df_tmp["buy_at"]-1)>=stop_profit)
 
         # Sell if arg max_days is not none and is exceeded.
         if max_days is not None:

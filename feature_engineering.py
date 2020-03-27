@@ -872,17 +872,20 @@ def mp_batch(df, target: callable, batch_size=10, print_freq=1, num_reserved_cpu
 
 def return_script(df):
     import script
-    kwargs = {"loss_limit":0.08,"retracement":0.1,"retracement_inc_pct":0.2,
-              "max_days":60,"new_high_days_limit":20,
+    kwargs = {"loss_limit":0.05,"retracement_inc_pct":0.1,
+              "max_days":20,"new_high_days_limit":8,
+              "stop_profit":0.15,
               "is_truncated":True}
     df_r, _ = mp_batch(df, target=script.get_return_rate_batch, batch_size=50,
                        num_reserved_cpu=0,**kwargs)
     print(df_r.info(memory_usage="deep"))
-    df_r.to_parquet(r"database\return_{0:.0%}_{1:.0%}_{2}_{3}"
+    df_r.to_parquet(r"database\return_{0:.0%}_{1:.0%}_{2}_{3}_{4:.0%}"
                     .format(kwargs["loss_limit"],
                             kwargs["retracement_inc_pct"],
                             kwargs["max_days"],
-                            kwargs["new_high_days_limit"]),
+                            kwargs["new_high_days_limit"],
+                            kwargs["stop_profit"],
+                            ),
                     engine="pyarrow")
 
 
