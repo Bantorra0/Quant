@@ -61,3 +61,29 @@ filtered = df.index[(df['win_days_5d']-df['lose_days_5d']>=3) & (df['win_avg_pct
 filtered = df.index[(df['win_days_5d']-df['lose_days_5d']>=3) & (df['win_avg_pct_5d']<0.01)
                     & (df['win_days_20d']-df['lose_days_20d']<=3) & (df['win_avg_pct_20d']<-0.01)]
 len(filtered)/len(df)
+
+
+for k in [5,10,20,30,60]:
+    df['{:d}ma'.format(k)]=df.reset_index('code').groupby('code')['close'].rolling(k).mean()
+
+
+# 追高明显不佳
+df_r.loc[df.index[(df['close']/df['5ma']>1.05)],'r'].agg(['mean','median','size'])
+
+
+df_r.loc[df.index[(df['close']/df['5ma']<0.98)
+                  & (df['5ma']/df['10ma']<0.98)
+                  & (df['10ma']/df['20ma']<0.98)
+                  & (df['20ma']/df['30ma']<0.98)
+                  & (df['30ma']/df['60ma']<0.98)],'r'].agg(['mean','median','size'])
+y_result = df_r.loc[df.index[(df['close']/df['5ma']<0.98)
+                             & (df['5ma']/df['10ma']<0.98)
+                             & (df['10ma']/df['20ma']<0.98)
+                             & (df['20ma']/df['30ma']<0.98)
+                             & (df['30ma']/df['60ma']<0.98)],'r'].reset_index('code')['r'].resample('A').agg(['mean','median','size'])
+q_result = df_r.loc[df.index[(df['close'] / df['5ma'] < 0.98)
+                             & (df['5ma'] / df['10ma'] < 0.98)
+                             & (df['10ma'] / df['20ma'] < 0.98)
+                             & (df['20ma'] / df['30ma'] < 0.98)
+                             & (df['30ma'] / df['60ma'] < 0.98)], 'r'].reset_index('code')['r'].resample('Q').agg(['mean', 'median', 'size'])
+base_q_result = df_r.loc[df.index,'r'].reset_index('code')['r'].resample('Q').agg(['mean','median','size'])

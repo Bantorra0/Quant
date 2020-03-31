@@ -1,0 +1,109 @@
+df.shape
+Out[359]: (2291726, 32)
+
+df.index.get_level_values('date').min()
+Out[361]: Timestamp('2013-01-04 00:00:00')
+df.index.get_level_values('date').max()
+Out[362]: Timestamp('2020-03-20 00:00:00')
+
+
+df_r.loc[df.index,'r'].agg(['mean','median'])
+C:\ProgramData\Anaconda3\lib\site-packages\pandas\core\indexing.py:910: FutureWarning: 
+Passing list-likes to .loc or [] with any missing label will raise
+KeyError in the future, you can use .reindex() as an alternative.
+See the documentation here:
+https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#deprecate-loc-reindex-listlike
+  return self._getitem_nested_tuple(tup)
+Out[373]: 
+mean      0.009884
+median   -0.021330
+Name: r, dtype: float64
+
+
+df_r.loc[df.index[(df['close']/df['5ma']>1.10)],'r'].agg(['mean','median'])
+mean     -0.010797
+median   -0.026990
+
+(df['close']/df['5ma']>1.1).sum()
+Out[356]: 21737
+
+
+df_r.loc[df.index[(df['close']/df['5ma']>1.05)],'r'].agg(['mean','median'])
+mean     -0.000576
+median   -0.023155
+
+(df['close']/df['5ma']>1.05).sum()
+Out[355]: 118272
+
+
+
+df_r.loc[df.index[(df['close']/df['5ma']>1.02)],'r'].agg(['mean','median'])
+mean      0.007725
+median   -0.022368
+
+(df['close']/df['5ma']>1.02).sum()
+Out[357]: 441703
+
+
+
+df_r.loc[df.index[(df['close']/df['5ma']>1)],'r'].agg(['mean','median'])
+Out[365]: 
+mean      0.009928
+median   -0.021448
+Name: r, dtype: float64
+(df['close']/df['5ma']>1).sum()
+Out[366]: 1077658
+
+
+
+
+df_r.loc[df.index[(df['close']/df['5ma']).notnull()],'r'].agg(['mean','median'])
+C:\ProgramData\Anaconda3\lib\site-packages\pandas\core\indexing.py:910: FutureWarning: 
+Passing list-likes to .loc or [] with any missing label will raise
+KeyError in the future, you can use .reindex() as an alternative.
+See the documentation here:
+https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#deprecate-loc-reindex-listlike
+  return self._getitem_nested_tuple(tup)
+Out[371]: 
+mean      0.009908
+median   -0.021362
+Name: r, dtype: float64
+df_r.loc[df.index[(df['close']/df['5ma']).isnull()],'r'].agg(['mean','median'])
+C:\ProgramData\Anaconda3\lib\site-packages\pandas\core\indexing.py:910: FutureWarning: 
+Passing list-likes to .loc or [] with any missing label will raise
+KeyError in the future, you can use .reindex() as an alternative.
+See the documentation here:
+https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#deprecate-loc-reindex-listlike
+  return self._getitem_nested_tuple(tup)
+Out[372]: 
+mean      0.007886
+median   -0.018182
+Name: r, dtype: float64
+
+
+
+
+df_r.loc[df.index[(df['close']/df['5ma']<1.02) & (df['close']/df['5ma']>1)],'r'].agg(['mean','median','size'])
+Out[375]: 
+mean           0.011453
+median        -0.020779
+size      635952.000000
+Name: r, dtype: float64
+
+
+
+
+
+# ø’Õ∑≈≈¡–
+df_r.loc[df.index[(df['close']/df['5ma']<0.98) & (df['5ma']/df['10ma']<0.98)],'r'].agg(['mean','median','size'])
+C:\ProgramData\Anaconda3\lib\site-packages\pandas\core\indexing.py:910: FutureWarning: 
+Passing list-likes to .loc or [] with any missing label will raise
+KeyError in the future, you can use .reindex() as an alternative.
+See the documentation here:
+https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#deprecate-loc-reindex-listlike
+  return self._getitem_nested_tuple(tup)
+Out[384]: 
+mean           0.009204
+median        -0.018494
+size      141119.000000
+Name: r, dtype: float64
