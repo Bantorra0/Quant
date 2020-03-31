@@ -41,6 +41,7 @@ df_idx_pct.index = pd.to_datetime(df_idx_pct.index, format='%Y%m%d')
 
 # 拼表
 df = df_d.join(df_idx_pct[['idx_pct_max','idx_pct_mean','idx_pct_median','idx_pct_min']],on='date')
+df = df.join(df_d_basic)
 
 # 生成特征
 df['pct'] = df.sort_index().groupby('code')['close'].pct_change()
@@ -63,7 +64,7 @@ filtered = df.index[(df['win_days_5d']-df['lose_days_5d']>=3) & (df['win_avg_pct
 len(filtered)/len(df)
 
 
-for k in [5,10,20,30,60]:
+for k in [5,10,20,30,60,120]:
     df['{:d}ma'.format(k)]=df.reset_index('code').groupby('code')['close'].rolling(k).mean()
 
 
@@ -87,3 +88,44 @@ q_result = df_r.loc[df.index[(df['close'] / df['5ma'] < 0.98)
                              & (df['20ma'] / df['30ma'] < 0.98)
                              & (df['30ma'] / df['60ma'] < 0.98)], 'r'].reset_index('code')['r'].resample('Q').agg(['mean', 'median', 'size'])
 base_q_result = df_r.loc[df.index,'r'].reset_index('code')['r'].resample('Q').agg(['mean','median','size'])
+
+
+q_result = df_r.loc[df.index[(df['close'] / df['5ma'] < 0.985)
+                             & (df['5ma'] / df['10ma'] < 0.985)
+                             & (df['10ma'] / df['20ma'] < 0.985)
+                             & (df['20ma'] / df['30ma'] < 0.985)
+                             & (df['30ma'] / df['60ma'] < 0.985)],
+                    'r'].reset_index('code')['r'].resample('Q').agg([
+    'mean', 'median', 'size'])
+
+
+df_r.loc[df.index[(df['close'] / df['5ma'] < 0.99)
+                             & (df['5ma'] / df['10ma'] < 0.99)
+                             & (df['10ma'] / df['20ma'] < 0.99)
+                             & (df['20ma'] / df['30ma'] < 0.99)
+                             & (df['30ma'] / df['60ma'] < 0.99)
+                             & (df['close']/df['60ma']<0.8)
+         ],
+                    'r'].reset_index('code')['r'].resample('Q').agg([
+    'mean', 'median', 'size'])
+
+
+q_result = df_r.loc[df.index[(df['close'] / df['5ma'] < 0.99)
+                             & (df['5ma'] / df['10ma'] < 0.99)
+                             & (df['10ma'] / df['20ma'] < 0.99)
+                             & (df['20ma'] / df['30ma'] < 0.99)
+                             & (df['30ma'] / df['60ma'] < 0.99)
+                             & (df['close']/df['60ma']<0.7)]
+                    ,'r'].reset_index('code')['r'].resample('Q')\
+    .agg(['mean', 'median', 'size'])
+
+
+df_r.loc[df.index[(df['close'] / df['5ma'] < 0.99)
+                             & (df['5ma'] / df['10ma'] < 0.99)
+                             & (df['10ma'] / df['20ma'] < 0.99)
+                             & (df['20ma'] / df['30ma'] < 0.99)
+                             & (df['30ma'] / df['60ma'] < 0.99)
+                             & (df['close']/df['60ma']<0.7)
+                             & (df['pct']>-0.08)]
+                    ,'r'].reset_index('code')['r'].resample('M')\
+    .agg(['mean', 'median','max','min', 'size'])
