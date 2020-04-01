@@ -44,7 +44,7 @@ df = df_d.join(df_idx_pct[['idx_pct_max','idx_pct_mean','idx_pct_median','idx_pc
 df = df.join(df_d_basic)
 
 # 生成特征
-df['pct'] = df.sort_index().groupby('code')['close'].pct_change()
+df['pct'] = df.sort_index().groupby('code')['close'].pct_change()*100
 df['win_idx'] = df['pct']>df['idx_pct_max']
 df['lose_idx'] = df['pct']<df['idx_pct_min']
 df['win_idx_pct'] = df['pct']-df['idx_pct_max']
@@ -129,3 +129,35 @@ df_r.loc[df.index[(df['close'] / df['5ma'] < 0.99)
                              & (df['pct']>-0.08)]
                     ,'r'].reset_index('code')['r'].resample('M')\
     .agg(['mean', 'median','max','min', 'size'])
+
+
+
+
+df_rs = pd.read_parquet(r"database\return_5%_10%_20_8")
+df_rs.sort_index(inplace=True)
+
+mask_yzdtb = ~((df['high']==df['low']) & ((df['pct'].round()==-10) | (df['pct'].round()==-5)))
+mask_strategy = ((df['close'] / df['5ma'] < 0.99)
+                             & (df['5ma'] / df['10ma'] < 0.99)
+                             & (df['10ma'] / df['20ma'] < 0.99)
+                             & (df['20ma'] / df['30ma'] < 0.99)
+                             & (df['30ma'] / df['60ma'] < 0.99)
+                             & (df['close']/df['60ma']<0.7))
+
+mask_strategy = ((df['close'] / df['5ma'] < 1)
+                             & (df['5ma'] / df['10ma'] < 1)
+                             & (df['10ma'] / df['20ma'] < 1)
+                             & (df['20ma'] / df['30ma'] < 1)
+                             & (df['30ma'] / df['60ma'] < 1)
+                             & (df['close']/df['60ma']<0.7))
+
+
+df_rs.loc[df.index[mask_strategy & mask_yzdtb],'r'].reset_index('code')['r'].resample('M')\
+    .agg(['mean', 'median','max','min', 'size'])
+
+
+cond_met_cnt = ((df['close'] / df['5ma'] < 1).astype('int')
+                + (df['5ma'] / df['10ma'] < 1)
+                + (df['10ma'] / df['20ma'] < 1)
+                + (df['20ma'] / df['30ma'] < 1)
+                + (df['30ma'] / df['60ma'] < 1))
