@@ -4,16 +4,26 @@ from script import *
 import itertools
 import lightgbm as lgbm
 
-# 数据准备
-# df_r = pd.read_parquet(r"database\return_8%_20%_60_20")
-df_r = pd.read_parquet(r"database\return_5%_10%_20_8_15%")
+pd.set_option('display.max_rows',200)
 
-df_r.sort_index(inplace=True)
+idx = pd.IndexSlice
+
+agg_operations =['mean','median','max','min','size']
+
+# 数据准备
+start = 20130101
+start_date = '-'.join([str(start)[:4],str(start)[4:6],str(start)[6:8]])
+print(start_date)
+# df_r = pd.read_parquet(r"database\return_8%_20%_60_20")
+df_rs = pd.read_parquet(r"database\return_5%_10%_20_8").loc[idx[:,start_date:],:].sort_index()
+df_rs_sp = pd.read_parquet(r"database\return_5%_10%_20_8_15%").loc[idx[:,start_date:],:].sort_index()
+
+# df_r.sort_index(inplace=True)
 print(df_r.info(memory_usage="deep"))
 print(df_r.head(5))
 
 cursor = dbop.connect_db("sqlite3").cursor()
-start = 20130101
+
 
 df_d = dbop.create_df(cursor, STOCK_DAY[TABLE], start=start,
                       # where_clause="code in ('002349.SZ','600352.SH','600350.SH','600001.SH')",
@@ -186,7 +196,7 @@ dataset = dataset.join(df_rs['r'],how='left')
 dataset = dataset[~((dataset['high']==dataset['low']) & ((dataset['pct'].round()>=-10) | (dataset['pct'].round()==-5)))]
 dataset = dataset[dataset.r>-0.2]
 dataset = dataset[(dataset.cond_cnt>=4) & (dataset['close/60ma']<0.8)]
-idx = pd.IndexSlice
+
 dataset_train = dataset.loc[idx[:,:'2019-01-01'],:]
 dataset_test = dataset.loc[idx[:,'2019-01-01':],:]
 print(len(dataset),len(dataset_train),len(dataset_test))
@@ -207,7 +217,7 @@ print(reg.score(dataset_test.drop(columns='r'),dataset_test['r']))
 res = dataset_test[['r']].copy()
 res['pred'] = reg.predict(dataset_test.drop(columns='r'))
 res['bin'] = pd.cut(res['pred'],bins=5)
-pd.set_option('display.max_rows',200)
+
 print(res.groupby('bin')['r'].agg(['mean','median','max','min','size']))
 print(res.reset_index('code').groupby('bin')['r'].resample('M').agg(['mean','median','max','min','size']))
 
