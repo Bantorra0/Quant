@@ -15,8 +15,15 @@ start = 20130101
 start_date = '-'.join([str(start)[:4],str(start)[4:6],str(start)[6:8]])
 print(start_date)
 # df_r = pd.read_parquet(r"database\return_8%_20%_60_20")
-df_rs = pd.read_parquet(r"database\return_5%_10%_20_8").loc[idx[:,start_date:],:].sort_index()
+df_rs = pd.read_parquet(r"database\return_5%_10%_20_8_inf%").loc[idx[:,
+                                                             start_date:],:].sort_index()
 df_rs_sp = pd.read_parquet(r"database\return_5%_10%_20_8_15%").loc[idx[:,start_date:],:].sort_index()
+
+df_rs1 = pd.read_parquet(r"database\return_5%_10%_20_8_inf% v1").loc[idx[:,
+                                                             start_date:],:].sort_index()
+df_rs_sp1 = pd.read_parquet(r"database\return_5%_10%_20_8_15% v1").loc[idx[:,
+                                                                    start_date:],:].sort_index()
+
 
 # df_r.sort_index(inplace=True)
 print(df_r.info(memory_usage="deep"))
@@ -31,6 +38,7 @@ df_d = dbop.create_df(cursor, STOCK_DAY[TABLE], start=start,
                       )
 df_d = dp.proc_stock_d(dp.prepare_stock_d(df_d))
 df_d.drop(columns=['open0','high0','low0','vol0'],inplace=True)
+df_d['pct'] = df_d.sort_index().groupby('code')['close'].pct_change()*100
 
 
 df_d_basic = dbop.create_df(cursor, STOCK_DAILY_BASIC[TABLE], start=start,
@@ -59,7 +67,7 @@ df = df_d.join(df_idx_pct[['idx_pct_max','idx_pct_mean','idx_pct_median','idx_pc
 df = df.join(df_d_basic)
 
 # 生成特征
-df['pct'] = df.sort_index().groupby('code')['close'].pct_change()*100
+# df['pct'] = df.sort_index().groupby('code')['close'].pct_change()*100
 df['win_idx'] = df['pct']>df['idx_pct_max']
 df['lose_idx'] = df['pct']<df['idx_pct_min']
 df['win_idx_pct'] = df['pct']-df['idx_pct_max']
@@ -181,8 +189,8 @@ df_sample['cond_cnt'] = ((df_sample['close'] / df_sample['5ma'] < 1).astype('int
                 )
 
 periods = [5,10,20,30,60,120,250]
-for k in periods:
-    df_sample['close/{}ma'.format(k)] = df_sample['close']/df["{}ma".format(k)]
+# for k in periods:
+#     df_sample['close/{}ma'.format(k)] = df_sample['close']/df["{}ma".format(k)]
 
 for col1,col2 in itertools.combinations(['close']+["{}ma".format(k) for k in periods],2):
     df_sample['{}/{}'.format(col1,col2)] = df_sample[col1]/df[col2]
@@ -208,6 +216,7 @@ callbacks = [lgbm.reset_parameter(learning_rate=lambda x:10/(n_estimators+x*2))]
 
 reg = lgbm.LGBMRegressor(n_estimators=n_estimators,learning_rate=0.1,num_leaves=15,max_depth=8,min_child_samples=len(dataset)//100,
                          random_state=1)
+lgbm.LGBMClassifier
 reg.fit(dataset_train.drop(columns='r'),dataset_train['r'],
         callbacks=callbacks
         )
