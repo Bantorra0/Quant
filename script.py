@@ -433,7 +433,7 @@ def get_return_rate_batch(df_stock_d: pd.DataFrame, loss_limit=0.1, retracement=
         # 排除一字板板或停牌等情况，一字跌停板或停牌卖不出，若集合竞价涨停也不卖。
         mask &= ~(((df_curr["low"]==df_curr["high"])
                    & ((df_curr['open']/df_prev['close']).round(2)<=0.96))
-                  # | ((df_curr['open']/df_prev['close']).round(2)>=1.1)
+                  | ((df_curr['open']/df_prev['close']).round(2)>=1.1)
                   )
         # 筛选出没卖出且开盘价非空的数据
         mask &= ((df_tmp["is_selled"] == False) & df_curr["open"].notnull())
