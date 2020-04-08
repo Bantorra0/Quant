@@ -411,7 +411,7 @@ def get_return_rate_batch(df_stock_d: pd.DataFrame, loss_limit=0.1, retracement=
     # Dataframe for intermediate result(info of holding shares).
     ss_pct = df_stock_d["open"]/df_stock_d.groupby(level="code")["close"].shift(1)-1
     df_tmp = df_stock_d[["open","high","idx"]].rename(columns={"high":"max","open":"buy_at","idx":"max_idx"})
-    buy_mask = ((df_stock_d["high"]==df_stock_d["low"]) & (ss_pct>0))
+    buy_mask = ((df_stock_d["high"]==df_stock_d["low"]) & (ss_pct>1.04)) | (df_stock_d['vol']==0)
     df_tmp.loc[buy_mask,"buy_at"] = None  # 排除一字涨停板买不进去
     df_tmp = df_tmp.groupby(level="code").shift(-1)  # Shift -1 because we buy in with open price next day.
     df_tmp["idx"] = df_stock_d["idx"]
@@ -433,7 +433,7 @@ def get_return_rate_batch(df_stock_d: pd.DataFrame, loss_limit=0.1, retracement=
         # 排除一字板板或停牌等情况，一字跌停板或停牌卖不出，若集合竞价涨停也不卖。
         mask &= ~(((df_curr["low"]==df_curr["high"])
                    & ((df_curr['open']/df_prev['close']).round(2)<=0.96))
-                  # | ((df_curr['open']/df_prev['close']).round(2)>=1.1)
+                  | ((df_curr['open']/df_prev['close']).round(2)>=1.1)
                   )
         # 筛选出没卖出且开盘价非空的数据
         mask &= ((df_tmp["is_selled"] == False) & df_curr["open"].notnull())
