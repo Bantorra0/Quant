@@ -19,7 +19,7 @@ def prepare_stock_d(df_stck_d):
     df_stck_d["date"] = pd.to_datetime(df_stck_d["date"],format="%Y%m%d")
     df_stck_d = df_stck_d.set_index(["code","date"]).sort_index()
 
-    return df_stck_d[["open", "high", "low", "close", "vol", "amt", "adj_factor"]]
+    return df_stck_d[["open", "high", "low", "close", "vol", "amt", "adj_factor"]].astype('float32')
 
 
 def prepare_index_d(df_idx_d):
@@ -73,9 +73,7 @@ def prepare_each_stock(df_stock_d, qfq_type="hfq"):
 
 def prepare_stock_d_basic(df_stock_d_basic:pd.DataFrame):
     df_stock_d_basic["date"] = pd.to_datetime(df_stock_d_basic["date"],format="%Y%m%d")
-    df_stock_d_basic.set_index(["code","date"],inplace=True)
-    df_stock_d_basic.sort_index(inplace=True)
-    return df_stock_d_basic
+    return df_stock_d_basic.set_index(["code","date"]).sort_index().astype('float32')
 
 
 def proc_stock_d(df_stock_d, qfq_type="hfq"):
