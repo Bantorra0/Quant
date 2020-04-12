@@ -1,22 +1,8 @@
-import datetime
 import os
-import pickle
-import time
 
-import lightgbm.sklearn as lgbm
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-
-import db_operations as dbop
-import customized_obj as cus_obj
 import io_operations as IO_op
-import data_process as dp
 import ml_model as ml
-from constants import *
 from revenue_obj import *
-import feature_engineering as fe
-
 
 IDX = pd.IndexSlice
 
@@ -385,8 +371,10 @@ def get_return_rate3(df_single_stock_d: pd.DataFrame, loss_limit=0.1, retracemen
 #     return df_tmp
 
 
-def get_return_rate_batch(df_stock_d: pd.DataFrame, loss_limit=0.1, retracement=0.1, retracement_inc_pct=0.25,
-                          max_days=60, new_high_days_limit=20, stop_profit=None,is_truncated=True):
+def get_return_rate_batch1(df_stock_d: pd.DataFrame, loss_limit=0.1,
+                           retracement=0.1, retracement_inc_pct=0.25,
+                          max_days=60, new_high_days_limit=20,
+                          stop_profit=None,is_truncated=False):
     # Cleaning input, filter days when vol=0 or any field is null.
     df_stock_d = \
         df_stock_d[(df_stock_d["vol"] > 0)
@@ -416,9 +404,11 @@ def get_return_rate_batch(df_stock_d: pd.DataFrame, loss_limit=0.1, retracement=
     df_tmp = df_tmp.groupby(level="code").shift(-1)  # Shift -1 because we buy in with open price next day.
     df_tmp["idx"] = df_stock_d["idx"]
     df_tmp["is_selled"] = False
+    # df_tmp['sell_date'] = None  # 默认类型是float，导致日期转为timestamp数字，注释掉
 
     columns = ["open", "low","high","close","idx"]
     df_curr = df_stock_d[columns].copy()
+    df_curr['curr_date'] = df_curr.index.get_level_values('date')
     df_curr = df_curr.groupby(level="code").shift(-1)
     mask = pd.Series(False, index=df_stock_d.index)
     while df_tmp["is_selled"].all()!=True:
@@ -436,9 +426,12 @@ def get_return_rate_batch(df_stock_d: pd.DataFrame, loss_limit=0.1, retracement=
                   | ((df_curr['open']/df_prev['close']).round(2)>=1.1)
                   )
         # 筛选出没卖出且开盘价非空的数据
-        mask &= ((df_tmp["is_selled"] == False) & df_curr["open"].notnull())
+        mask &= ((df_tmp["is_selled"] == False)
+                 # & df_curr["open"].notnull()
+                 )
         df_tmp.loc[mask, "sell_at"] = df_curr.loc[mask, "open"].values
         df_tmp.loc[mask, "is_selled"] = True
+        df_tmp.loc[mask,'sell_date'] = df_curr.loc[mask,'curr_date']
 
         # Update max price and the corresponding date index if necessary.
         cond = (df_tmp["is_selled"] == False) & (df_tmp["max"] < df_curr["high"])
@@ -446,7 +439,8 @@ def get_return_rate_batch(df_stock_d: pd.DataFrame, loss_limit=0.1, retracement=
 
         # Sell condition of stopping profit or loss
         stop_profit_points = df_tmp["buy_at"] * (1-loss_limit) + (df_tmp["max"] - df_tmp["buy_at"]) * (1 - retracement_inc_pct)
-        mask = df_curr["low"] <= stop_profit_points
+        # mask = df_curr["low"] <= stop_profit_points
+        mask = df_curr["close"] <= stop_profit_points
         if stop_profit is not None:
             mask |= ((df_curr["close"]/df_tmp["buy_at"]-1)>=stop_profit)
             # tmp_mask = (((df_tmp["max"]/df_tmp["buy_at"]-1)>=stop_profit) & (df_tmp['is_selled']==False))
@@ -465,6 +459,107 @@ def get_return_rate_batch(df_stock_d: pd.DataFrame, loss_limit=0.1, retracement=
         mask0 = (df_tmp["is_selled"]==False) & (~np.isnan(a_trunc_open))
         df_tmp.loc[mask0, "sell_at"] = a_trunc_open[mask0]
         df_tmp.loc[mask0, "is_selled"] = True
+        # df_tmp.loc[mask0,'sell_date']
+
+    df_tmp["r"] = (df_tmp["sell_at"]/df_tmp["buy_at"]-1)
+    df_tmp.loc[~df_tmp["is_selled"],"r"]=None
+    return df_tmp
+
+
+def get_return_rate_batch(df_stock_d: pd.DataFrame, loss_limit=0.1,
+                          retracement=0.1, retracement_inc_pct=0.25,
+                          max_days=60, new_high_days_limit=20,
+                          stop_profit=None, is_truncated=False):
+    # Cleaning input, filter days when vol=0 or any field is null.
+    df_stock_d = \
+        df_stock_d[(df_stock_d["vol"] > 0)
+                   & (df_stock_d[["open", "high", "low", "close"]].notnull().all(axis=1))].copy()
+
+    df_single_stock_d_list = []
+    a_trunc_list = []
+    for code,df_single_stock_d in df_stock_d.groupby("code"):
+        k = len(df_single_stock_d)
+        df_single_stock_d=df_single_stock_d.sort_index(ascending=True)
+        df_single_stock_d["idx"] = np.arange(k)
+        df_single_stock_d_list.append(df_single_stock_d)
+
+        trunc_open = np.ones(k)*df_single_stock_d["open"].iloc[-1]
+        trunc_open[-2:] = np.nan
+        a_trunc_list.append(trunc_open)
+
+    print(len(df_single_stock_d_list))
+    df_stock_d = pd.concat(df_single_stock_d_list,axis=0)
+    a_trunc_open = np.concatenate(a_trunc_list,axis=0)
+
+    # Dataframe for intermediate result(info of holding shares).
+    ss_pct = df_stock_d["open"]/df_stock_d.groupby(level="code")["close"].shift(1)-1
+    df_tmp = df_stock_d[["open","high","idx"]].rename(columns={"high":"max","open":"buy_at","idx":"max_idx"})
+    buy_mask = ((df_stock_d["high"]==df_stock_d["low"]) & (ss_pct>1.04)) | (df_stock_d['vol']==0)
+    df_tmp.loc[buy_mask,"buy_at"] = None  # 排除一字涨停板买不进去
+    df_tmp = df_tmp.groupby(level="code").shift(-1)  # Shift -1 because we buy in with open price next day.
+    df_tmp["idx"] = df_stock_d["idx"]
+    df_tmp["is_selled"] = False
+    # df_tmp['sell_date'] = None  # 默认类型是float，导致日期转为timestamp数字，注释掉
+
+    columns = ["open", "low","high","close","idx"]
+    df_curr = df_stock_d[columns].copy()
+    df_curr['curr_date'] = df_curr.index.get_level_values('date')
+    df_curr = df_curr.groupby(level="code").shift(-1)
+    mask = pd.Series(False, index=df_stock_d.index)
+    while df_tmp["is_selled"].all()!=True:
+        df_prev = df_curr
+        df_curr = df_curr.groupby(level="code").shift(-1)
+
+        # Sell shares given mask.
+        # mask &= ~((df_curr["low"]==df_curr["high"])&(df_curr["open"]<df_prev["close"])) # 排除跌停板卖不出的情况
+        # 排除一字板板或停牌等情况，一字跌停板或停牌卖不出，若集合竞价涨停也不卖。
+        mask &= ~(((df_curr["low"]==df_curr["high"])
+                   & ((df_curr['open']/df_prev['close']).round(2)<=0.96))
+                  | ((df_curr['open']/df_prev['close']).round(2)>=1.1)
+                  )
+        # 筛选出没卖出且开盘价非空的数据
+        mask &= ((df_tmp["is_selled"] == False)
+                 # & df_curr["open"].notnull()
+                 )
+        df_tmp.loc[mask, "sell_at"] = df_curr.loc[mask, "open"].values
+        df_tmp.loc[mask, "is_selled"] = True
+        df_tmp.loc[mask,'sell_date'] = df_curr.loc[mask,'curr_date']
+
+        # 每次循环顺序是，先处理前一日符合条件的卖出请求。
+        # 接着判断是否继续使用本日数据进行数据更新。
+        # 若继续，则利用每日数据更新买入最高点等数据。
+        if df_tmp.loc[df_curr["open"].notnull(),"is_selled"].all():
+            break
+
+        # Update max price and the corresponding date index if necessary.
+        cond = (df_tmp["is_selled"] == False) & (df_tmp["max"] < df_curr["high"])
+        df_tmp.loc[cond, ["max", "max_idx"]] = df_curr.loc[cond, ["high", "idx"]].values
+
+        # Sell condition of stopping profit or loss
+        # 止损筛选，按收盘价计算
+        stop_profit_points = df_tmp["buy_at"] * (1-loss_limit) + (df_tmp["max"] - df_tmp["buy_at"]) * (1 - retracement_inc_pct)
+        # mask = df_curr["low"] <= stop_profit_points
+        mask = df_curr["close"] <= stop_profit_points
+        # 止盈筛选，按收盘价计算
+        if stop_profit is not None:
+            mask |= ((df_curr["close"]/df_tmp["buy_at"]-1)>=stop_profit)
+            # tmp_mask = (((df_tmp["max"]/df_tmp["buy_at"]-1)>=stop_profit) & (df_tmp['is_selled']==False))
+            # print('stop profit:', tmp_mask.sum(),pd.concat([df_tmp[tmp_mask].head(),(df_tmp["max"]/df_tmp["buy_at"]-1)[tmp_mask].head()],axis=1))
+
+        # Sell if arg max_days is not none and is exceeded.
+        if max_days is not None:
+            # print(df_tmp[(df_tmp["is_selled"]==False)&(df_prev["idx"] - df_tmp["buy_idx"] >= max_days)])
+            mask |= (df_curr["idx"] - df_tmp["idx"] >= max_days)
+
+        # Sell if arg new_high_days_limit is not none is exceeded.
+        if new_high_days_limit is not None:
+            mask |= (df_curr["idx"] - df_tmp["max_idx"] >= new_high_days_limit)
+
+    if is_truncated:
+        mask0 = (df_tmp["is_selled"]==False) & (~np.isnan(a_trunc_open))
+        df_tmp.loc[mask0, "sell_at"] = a_trunc_open[mask0]
+        df_tmp.loc[mask0, "is_selled"] = True
+        # df_tmp.loc[mask0,'sell_date']
 
     df_tmp["r"] = (df_tmp["sell_at"]/df_tmp["buy_at"]-1)
     df_tmp.loc[~df_tmp["is_selled"],"r"]=None
