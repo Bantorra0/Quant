@@ -538,8 +538,8 @@ def get_return_rate_batch(df_stock_d: pd.DataFrame, loss_limit=0.1,
         # Sell condition of stopping profit or loss
         # 止损筛选，按收盘价计算
         stop_profit_points = df_tmp["buy_at"] * (1-loss_limit) + (df_tmp["max"] - df_tmp["buy_at"]) * (1 - retracement_inc_pct)
-        # mask = df_curr["low"] <= stop_profit_points
-        mask = df_curr["close"] <= stop_profit_points
+        mask = df_curr["low"] <= stop_profit_points
+        # mask = df_curr["close"] <= stop_profit_points
         # 止盈筛选，按收盘价计算
         if stop_profit is not None:
             mask |= ((df_curr["close"]/df_tmp["buy_at"]-1)>=stop_profit)
