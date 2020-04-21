@@ -597,21 +597,20 @@ if __name__ == '__main__':
 
     db_type = "sqlite3"
 
-    # update_stock_basic()
+    update_stock_basic()
 
-    # # index_pool = dbop.get_all_indexes()
-    # index_pool = get_index_pool()
-    # print(index_pool)
-    # # init_table(const.INDEX_DAY[const.TABLE],db_type=db_type)
-    # update_indexes(index_pool,db_type,update=True)
+    # index_pool = dbop.get_all_indexes()
+    index_pool = get_index_pool()
+    print(index_pool)
+    # init_table(const.INDEX_DAY[const.TABLE],db_type=db_type)
+    update_indexes(index_pool,db_type,update=True)
     #
     stock_pool = get_stock_pool()
     print(stock_pool.shape)
     print(stock_pool.head())
-    # print(stock_pool.shape)
-    # update_stocks(stock_pool, db_type=db_type,update=True)
+    update_stocks(stock_pool, db_type=db_type,update=True)
     #
-    # # init_table(const.STOCK_DAILY_BASIC[const.TABLE],db_type=db_type)
-    # update_stock_daily_basic(stock_pool=stock_pool,db_type=db_type,update=True)
+    # init_table(const.STOCK_DAILY_BASIC[const.TABLE],db_type=db_type)
+    update_stock_daily_basic(stock_pool=stock_pool,db_type=db_type,update=True)
 
 
