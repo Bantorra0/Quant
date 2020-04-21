@@ -8,6 +8,7 @@ import pandas as pd
 import tushare as ts
 
 import constants as const
+from constants import *
 import data_cleaning as dc
 import db_operations as dbop
 import df_operations as dfop
@@ -205,24 +206,42 @@ def download_stock_basic():
               'enname', 'market', 'exchange', 'curr_type', 'list_status',
               'list_date', 'delist_date', 'is_hs']
     df_list = []
-    try:
-        for status in status_list:
-            df_list.append(
-                pro.stock_basic(list_status=status, fields=",".join(fields)))
-            print(df_list[-1].shape)
+    for status in status_list:
+        cnt_failure = 0
+        is_stopped = False
+        while not is_stopped:
+            try:
+                df_tmp = pro.stock_basic(list_status=status, fields=",".join(fields))
+                is_stopped = True
+            except Exception as err:
+                print(err)
+                cnt_failure +=1
+            df_list.append(df_tmp)
+            print(status,df_tmp.shape,cnt_failure)
 
-        df = pd.concat(df_list, sort=False, ignore_index=True)
-        df.columns = unify_col_names(df.columns)
-        print(df.shape)
-        print(df.columns)
-        yield df
-
-    except Exception as err:
-        download_failure = 1
-        print(err)
-
-    print("-" * 10, "\nDownload failure:{0}\n".format(download_failure))
-    yield download_failure
+    df = pd.concat(df_list, sort=False, ignore_index=True)
+    df.columns = unify_col_names(df.columns)
+    print(df.shape)
+    print(df.columns)
+    return df
+    # try:
+    #     for status in status_list:
+    #         df_list.append(
+    #             pro.stock_basic(list_status=status, fields=",".join(fields)))
+    #         print(df_list[-1].shape)
+    #
+    #     df = pd.concat(df_list, sort=False, ignore_index=True)
+    #     df.columns = unify_col_names(df.columns)
+    #     print(df.shape)
+    #     print(df.columns)
+    #     yield df
+    #
+    # except Exception as err:
+    #     download_failure = 1
+    #     print(err)
+    #
+    # print("-" * 10, "\nDownload failure:{0}\n".format(download_failure))
+    # yield download_failure
 
 
 def collect_single_stock_day(code, db_type: str, update=False,
@@ -273,7 +292,7 @@ def collect_single_index_day(code:str, db_type: str, update=False,
 def collect_stock_basic(db_type: str, update=False):
     conn = dbop.connect_db(db_type)
     download_failure, write_failure = 0, 0
-    for df_single_stock_basic in download_stock_basic(db_type=db_type):
+    for df_single_stock_basic in download_stock_basic():
         if type(df_single_stock_basic) == pd.DataFrame:
             conn, failure = dbop.write2db(df_single_stock_basic,
                                           table=const.STOCK_BASIC[const.TABLE],
@@ -283,6 +302,7 @@ def collect_stock_basic(db_type: str, update=False):
         elif type(df_single_stock_basic)==int and df_single_stock_basic>0:
             download_failure = df_single_stock_basic
         else:
+            print(df_single_stock_basic)
             raise ValueError
         time.sleep(1)
     dbop.close_db(conn)
@@ -526,11 +546,20 @@ def update_stock_basic(db_type="sqlite3", initialize=False):
     if initialize:
         init_table(const.STOCK_BASIC[const.TABLE], "sqlite3")
 
-    download_failure = 1
-    write_failure = 0
-    while download_failure > 0 or write_failure > 0:
-        download_failure, write_failure = collect_stock_basic(db_type,
-                                                              update=True)
+    conn = dbop.connect_db(db_type)
+    df = download_stock_basic()
+    conn, failure = dbop.write2db(df,
+                                  table=const.STOCK_BASIC[const.TABLE],
+                                  cols=const.STOCK_BASIC[const.COLUMNS],
+                                  conn=conn, close=False)
+
+    print('Finish updating stock basic. Update {} stocks'.format(df.shape))
+    print('Write failure cnt:', failure)
+    # download_failure = 1
+    # write_failure = 0
+    # while download_failure > 0 or write_failure > 0:
+    #     download_failure, write_failure = collect_stock_basic(db_type,
+    #                                                           update=True)
 
 def update_stock_list(stock_pool=None, db_type="sqlite3",cursor=None):
     if stock_pool is None:
@@ -543,10 +572,13 @@ def update_stock_list(stock_pool=None, db_type="sqlite3",cursor=None):
         pickle.dump(set(stock_pool),f)
 
 
-def get_stock_pool():
+def get_stock_pool(db_type='sqlite3'):
     # with open(r"database\stock_d_stock_list","rb") as f:
     #     stock_pool = pickle.load(f)
-    df = pd.read_csv(r"database\\stock_list.csv")
+    # df = pd.read_csv(r"database\\stock_list.csv")
+    conn = dbop.connect_db(db_type)
+    cursor = conn.cursor()
+    df = dbop.create_df(cursor, const.STOCK_BASIC[TABLE])
     return df
 
 
@@ -567,16 +599,19 @@ if __name__ == '__main__':
 
     # update_stock_basic()
 
-    # index_pool = dbop.get_all_indexes()
-    index_pool = get_index_pool()
-    print(index_pool)
-    # init_table(const.INDEX_DAY[const.TABLE],db_type=db_type)
-    update_indexes(index_pool,db_type,update=True)
-
+    # # index_pool = dbop.get_all_indexes()
+    # index_pool = get_index_pool()
+    # print(index_pool)
+    # # init_table(const.INDEX_DAY[const.TABLE],db_type=db_type)
+    # update_indexes(index_pool,db_type,update=True)
+    #
     stock_pool = get_stock_pool()
-    update_stocks(stock_pool, db_type=db_type,update=True)
-
-    # init_table(const.STOCK_DAILY_BASIC[const.TABLE],db_type=db_type)
-    update_stock_daily_basic(stock_pool=stock_pool,db_type=db_type,update=True)
+    print(stock_pool.shape)
+    print(stock_pool.head())
+    # print(stock_pool.shape)
+    # update_stocks(stock_pool, db_type=db_type,update=True)
+    #
+    # # init_table(const.STOCK_DAILY_BASIC[const.TABLE],db_type=db_type)
+    # update_stock_daily_basic(stock_pool=stock_pool,db_type=db_type,update=True)
 
 
