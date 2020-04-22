@@ -877,7 +877,7 @@ def return_script(df):
               "stop_profit":0.15,
               "is_truncated":False}
     df_r_spl, _ = mp_batch(df, target=script.get_return_rate_batch, batch_size=50,
-                       num_reserved_cpu=2,**kwargs)
+                       num_reserved_cpu=1,**kwargs)
     # script.get_return_rate_batch(df,**kwargs)
     print(df_r_spl.info(memory_usage="deep"))
     df_r_spl.to_parquet(
@@ -890,7 +890,7 @@ def return_script(df):
         engine="pyarrow")
 
     df_r_spc, _ = mp_batch(df, target=script.get_return_rate_batch2,
-                           batch_size=50, num_reserved_cpu=2, **kwargs)
+                           batch_size=50, num_reserved_cpu=1, **kwargs)
     # script.get_return_rate_batch(df,**kwargs)
     print(df_r_spc.info(memory_usage="deep"))
     df_r_spc.to_parquet(

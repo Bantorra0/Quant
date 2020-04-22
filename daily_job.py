@@ -12,18 +12,43 @@ import customized_obj as cus_obj
 import io_operations as IO_op
 import ml_model as ml
 from collect import *
+import db_operations as dbop
+from constants import *
+import data_process as dp
+from feature_engineering import return_script
 
 
 def collect_data():
     db_type = "sqlite3"
 
-    index_pool = dbop.get_all_indexes()
-    update_indexes(index_pool, db_type)
+    update_stock_basic()
 
+    # index_pool = dbop.get_all_indexes()
+    index_pool = get_index_pool()
+    print(index_pool)
+    # init_table(const.INDEX_DAY[const.TABLE],db_type=db_type)
+    update_indexes(index_pool, db_type, update=True)
+    #
     stock_pool = get_stock_pool()
-    update_stocks(stock_pool, db_type=db_type)
+    print(stock_pool.shape)
+    print(stock_pool.head())
+    update_stocks(stock_pool, db_type=db_type, update=True)
+    #
+    # init_table(const.STOCK_DAILY_BASIC[const.TABLE],db_type=db_type)
+    update_stock_daily_basic(stock_pool=stock_pool, db_type=db_type,
+                             update=True)
 
-    dc.fillna_stock_day(db_type=db_type, start="2000-01-01")
+
+def get_return():
+    cursor = dbop.connect_db("sqlite3").cursor()
+    start = 20100101
+    df = dbop.create_df(cursor, STOCK_DAY[TABLE], start=start,
+                        # where_clause="code in ('002349.SZ','600352.SH','600350.SH','600001.SH')",
+                        # where_clause="code='600350.SH'",
+                        )
+    df = dp.proc_stock_d(dp.prepare_stock_d(df))
+    print(df.shape)
+    return_script(df)
 
 
 def update_dataset():
@@ -203,8 +228,10 @@ def daily_job2():
 
 
 def daily_job():
-    daily_job1()
-    daily_job2()
+    # daily_job1()
+    # daily_job2()
+    collect_data()
+    get_return()
 
 
 if __name__ == '__main__':
