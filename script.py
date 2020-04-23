@@ -397,7 +397,7 @@ def get_return_rate_batch1(df_stock_d: pd.DataFrame, loss_limit=0.1,
     a_trunc_open = np.concatenate(a_trunc_list,axis=0)
 
     # Dataframe for intermediate result(info of holding shares).
-    ss_pct = df_stock_d["open"]/df_stock_d.groupby(level="code")["close"].shift(1)-1
+    ss_pct = df_stock_d["open"]/df_stock_d.groupby(level="code")["close"].shift(1)
     df_tmp = df_stock_d[["open","high","idx"]].rename(columns={"high":"max","open":"buy_at","idx":"max_idx"})
     buy_mask = ((df_stock_d["high"]==df_stock_d["low"]) & (ss_pct>1.04)) | (df_stock_d['vol']==0)
     df_tmp.loc[buy_mask,"buy_at"] = None  # 排除一字涨停板买不进去
@@ -492,7 +492,7 @@ def get_return_rate_batch(df_stock_d: pd.DataFrame, loss_limit=0.1,
     a_trunc_open = np.concatenate(a_trunc_list,axis=0)
 
     # Dataframe for intermediate result(info of holding shares).
-    ss_pct = df_stock_d["open"]/df_stock_d.groupby(level="code")["close"].shift(1)-1
+    ss_pct = df_stock_d["open"]/df_stock_d.groupby(level="code")["close"].shift(1)
     df_tmp = df_stock_d[["open","high","idx"]].rename(columns={"high":"max","open":"buy_at","idx":"max_idx"})
     buy_mask = ((df_stock_d["high"]==df_stock_d["low"]) & (ss_pct>1.04)) | (df_stock_d['vol']==0)
     df_tmp.loc[buy_mask,"buy_at"] = None  # 排除一字涨停板买不进去
@@ -592,7 +592,7 @@ def get_return_rate_batch2(df_stock_d: pd.DataFrame, loss_limit=0.1,
     a_trunc_open = np.concatenate(a_trunc_list,axis=0)
 
     # Dataframe for intermediate result(info of holding shares).
-    ss_pct = df_stock_d["open"]/df_stock_d.groupby(level="code")["close"].shift(1)-1
+    ss_pct = df_stock_d["open"]/df_stock_d.groupby(level="code")["close"].shift(1)
     df_tmp = df_stock_d[["open","high","idx"]].rename(columns={"high":"max","open":"buy_at","idx":"max_idx"})
     buy_mask = ((df_stock_d["high"]==df_stock_d["low"]) & (ss_pct>1.04)) | (df_stock_d['vol']==0)
     df_tmp.loc[buy_mask,"buy_at"] = None  # 排除一字涨停板买不进去

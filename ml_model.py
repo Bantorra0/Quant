@@ -493,7 +493,7 @@ def assess_feature3(features:pd.DataFrame,y:pd.Series,q_bin,plot=False):
     # df = features.join(y,how="inner")
     # df.columns = ["feature","y"]
     ycol=y.name
-    # result = pd.DataFrame(columns=)
+    # stats = pd.DataFrame(columns=)
     ops1 = ["mean","median"]
     # ops2 = [("std",np.std, {"axis": 0}),
     #         ("90%",np.nanpercentile, {"q": 90, "axis": 0}),
@@ -502,10 +502,12 @@ def assess_feature3(features:pd.DataFrame,y:pd.Series,q_bin,plot=False):
             ("max", np.max, {}),
             ("min", np.min, {}),
             ("q96%", np.nanpercentile, {"q": 96}),
-            ("q4%", np.nanpercentile, {"q": 4})]
+            ("q4%", np.nanpercentile, {"q": 4}),
+            ]
     [kwargs.update({"axis":0}) for _,_,kwargs in ops2]
     columns = [col+"_"+name for name,_,_ in ops2 for col in ops1]
-    result = pd.DataFrame(columns=columns)
+    stats = pd.DataFrame(columns=columns)
+    results = {}
     for fcol in df.columns.difference([ycol]):
         df["bin"],bins = pd.qcut(df[fcol],q=q_bin,
                                  retbins=True,
@@ -522,8 +524,11 @@ def assess_feature3(features:pd.DataFrame,y:pd.Series,q_bin,plot=False):
         fcol_result = np.concatenate(
             [func(middle_result,**kwargs) for _,func,kwargs in ops2],
             axis=0)
-        result.loc[fcol]=(pd.Series(fcol_result,index=columns))
-    return result
+        stats.loc[fcol]=(pd.Series(fcol_result,index=columns))
+
+        middle_result['cnt'] = df.groupby("bin")[ycol].count()
+        results[fcol] = middle_result
+    return stats,results
 
 
 class RegressorNetwork:
