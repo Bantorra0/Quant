@@ -499,6 +499,8 @@ def assess_feature3(features:pd.DataFrame,y:pd.Series,q_bin,plot=False):
     #         ("90%",np.nanpercentile, {"q": 90, "axis": 0}),
     #         ("10%",np.nanpercentile, {"q": 10, "axis": 0})]
     ops2 = [("std", np.std, {}),
+            ("max", np.max, {}),
+            ("min", np.min, {}),
             ("q96%", np.nanpercentile, {"q": 96}),
             ("q4%", np.nanpercentile, {"q": 4})]
     [kwargs.update({"axis":0}) for _,_,kwargs in ops2]
