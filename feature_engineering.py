@@ -874,20 +874,20 @@ def return_script(df):
     import script
     kwargs = {"loss_limit":0.05,"retracement_inc_pct":0.1,
               "max_days":20,"new_high_days_limit":8,
-              "stop_profit":0.15,
+              "stop_profit":None,
               "is_truncated":False}
-    df_r_spl, _ = mp_batch(df, target=script.get_return_rate_batch, batch_size=50,
-                       num_reserved_cpu=0,**kwargs)
-    # script.get_return_rate_batch(df,**kwargs)
-    print(df_r_spl.info(memory_usage="deep"))
-    df_r_spl.to_parquet(
-        r"database\return_spl_{0:.0%}_{1:.0%}_{2}_{3}_{4:.0%}".format(
-            kwargs["loss_limit"],kwargs["retracement_inc_pct"],
-            kwargs["max_days"],kwargs["new_high_days_limit"],
-            kwargs["stop_profit"] if "stop_profit" in kwargs.keys() and
-                                     kwargs["stop_profit"] else float('inf'),
-                            ),
-        engine="pyarrow")
+    # df_r_spl, _ = mp_batch(df, target=script.get_return_rate_batch, batch_size=50,
+    #                    num_reserved_cpu=0,**kwargs)
+    # # script.get_return_rate_batch(df,**kwargs)
+    # print(df_r_spl.info(memory_usage="deep"))
+    # df_r_spl.to_parquet(
+    #     r"database\return_spl_{0:.0%}_{1:.0%}_{2}_{3}_{4:.0%}".format(
+    #         kwargs["loss_limit"],kwargs["retracement_inc_pct"],
+    #         kwargs["max_days"],kwargs["new_high_days_limit"],
+    #         kwargs["stop_profit"] if "stop_profit" in kwargs.keys() and
+    #                                  kwargs["stop_profit"] else float('inf'),
+    #                         ),
+    #     engine="pyarrow")
 
     df_r_spc, _ = mp_batch(df, target=script.get_return_rate_batch2,
                            batch_size=50, num_reserved_cpu=0, **kwargs)
