@@ -872,7 +872,7 @@ def mp_batch(df, target: callable, batch_size=10, print_freq=1, num_reserved_cpu
 
 def return_script(df):
     import script
-    kwargs = {"loss_limit":0.05,"retracement_inc_pct":0.1,
+    kwargs = {"loss_limit":0.05,"retracement_inc_pct":0.3,
               "max_days":20,"new_high_days_limit":8,
               "stop_profit":None,
               "is_truncated":False}
