@@ -272,7 +272,7 @@ def groupby_rolling1(df:pd.DataFrame,by=None,level=None,window=None,
     return result
 
 
-def groupby_rolling(df:pd.DataFrame,by=None,level=None,window=None,
+def groupby_rolling3(df:pd.DataFrame,by=None,level=None,window=None,
                      ops=None,sort=False):
     if not sort:
         df=df.sort_index()
@@ -301,6 +301,30 @@ def groupby_rolling(df:pd.DataFrame,by=None,level=None,window=None,
     mask = df_check.groupby(by=by, level=level)['mark'].shift(window - 1)\
         .isnull()
     result.loc[mask,:]=np.nan
+    return result
+
+
+def groupby_rolling(df: pd.DataFrame, by=None, level=None, window=None,
+                    ops=None, check_col="open", sort=False, min_periods=None):
+    if type(ops) == str:
+        ops = {col: [ops] for col in df.columns}
+    elif type(ops) == list:
+        ops = {col: ops for col in df.columns}
+    elif type(ops) != dict:
+        raise ValueError('ops={} is illegal!'.format(ops))
+
+    if not sort:
+        df = df.sort_index()
+
+    df_check = df[by if by else []].copy()
+    df_check['mark'] = 1
+
+    result = df.rolling(window, min_periods=min_periods).agg(ops)
+    result.columns = ['p{}{}_{}'.format(window, op, col) for col, op in
+                      result.columns]
+
+    mask = df_check.groupby(by=by, level=level)['mark'].shift(window - 1).isnull()
+    result.loc[mask, : ]=np.nan
     return result
 
 
