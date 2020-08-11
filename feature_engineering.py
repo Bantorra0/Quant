@@ -252,7 +252,7 @@ def groupby_rolling2(df:pd.DataFrame,by=None,level=None,window=None,
     return result
 
 
-def groupby_rolling(df:pd.DataFrame,by=None,level=None,window=None,
+def groupby_rolling1(df:pd.DataFrame,by=None,level=None,window=None,
                      ops=None,check_col="open",sort=False):
     if sort:
         df=df.sort_index()
@@ -269,6 +269,38 @@ def groupby_rolling(df:pd.DataFrame,by=None,level=None,window=None,
     cond = df[[col for col in df.columns if col in {check_col, by}]].groupby(by=by, level=level).shift(window - 1)\
         .isnull().any(axis=1).values
     result.loc[cond]=np.nan
+    return result
+
+
+def groupby_rolling(df:pd.DataFrame,by=None,level=None,window=None,
+                     ops=None,sort=False):
+    if not sort:
+        df=df.sort_index()
+
+    df_check = df[by if by else []].copy()
+    df_check['mark']=1
+
+    if type(ops)==list and type(ops[0])==tuple and len(ops[0])==2:
+        result = pd.concat([df.rolling(window).agg(op) for op,_ in ops],
+                           axis=1,sort=False)
+        result.columns = ['p{}{}_{}'.format(window, name, col) for _,name in
+                          ops for col in df.columns]
+    elif type(ops)==list and type(ops[0])==tuple and len(ops[0])==3:
+        result = pd.concat(
+            [df[col].rolling(window).agg(op) for col,op,_ in ops],
+            axis=1,sort=False)
+        result.columns = ['p{}{}_{}'.format(window, name, col)
+                          for col, _,name in ops]
+    elif type(ops)==tuple and len(ops)==2:
+        result = df.rolling(window).agg(ops[0])
+        result.columns = ['p{}{}_{}'.format(window, ops[1], col) for
+                          col in df.columns]
+    else:
+        raise ValueError('ops={} is illegal!'.format(ops))
+
+    mask = df_check.groupby(by=by, level=level)['mark'].shift(window - 1)\
+        .isnull()
+    result.loc[mask,:]=np.nan
     return result
 
 
@@ -872,7 +904,7 @@ def mp_batch(df, target: callable, batch_size=10, print_freq=1, num_reserved_cpu
 
 def return_script(df):
     import script
-    kwargs = {"loss_limit":0.05,"retracement_inc_pct":0.1,
+    kwargs = {"loss_limit":0.05,"retracement_inc_pct":0.3,
               "max_days":20,"new_high_days_limit":8,
               "stop_profit":None,
               "is_truncated":False}
