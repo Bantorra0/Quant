@@ -593,14 +593,17 @@ def get_return_rate_batch2(df_stock_d: pd.DataFrame, loss_limit=0.1,
 
     # Dataframe for intermediate result(info of holding shares).
     ss_pct = df_stock_d["open"]/df_stock_d.groupby(level="code")["close"].shift(1)
-    df_tmp = df_stock_d[["open","high","idx"]].rename(columns={"high":"max","open":"buy_at","idx":"max_idx"})
+    df_tmp = pd.DataFrame(columns=["sell_at",'sell_at0','sell_date','sell_idx']
+                          ,index=df_stock_d.index)
+    df_tmp = df_tmp.join(df_stock_d[["open",'open0',"high",'idx']],how='left').rename(columns={"open":"buy_at",'open0':'buy_at0',
+                 "high":"max","idx":"max_idx"})
     buy_mask = ((df_stock_d["high"]==df_stock_d["low"]) & (ss_pct>1.04)) | (df_stock_d['vol']==0)
-    df_tmp.loc[buy_mask,"buy_at"] = None  # 排除一字涨停板买不进去
+    df_tmp.loc[buy_mask,["buy_at",'buy_at0']] = None  # 排除一字涨停板买不进去
     df_tmp = df_tmp.groupby(level="code").shift(-1)  # Shift -1 because we buy in with open price next day.
     df_tmp["idx"] = df_stock_d["idx"]
     df_tmp["is_selled"] = False
 
-    columns = ["open", "low","high","close","idx"]
+    columns = ["open",'open0', "low","high","close","idx"]
     df_curr = df_stock_d[columns].copy()
     df_curr['curr_date'] = df_curr.index.get_level_values('date')
     df_curr = df_curr.groupby(level="code").shift(-1)
@@ -620,9 +623,12 @@ def get_return_rate_batch2(df_stock_d: pd.DataFrame, loss_limit=0.1,
         mask &= ((df_tmp["is_selled"] == False)
                  # & df_curr["open"].notnull()
                  )
-        df_tmp.loc[mask, "sell_at"] = df_curr.loc[mask, "open"].values
+
+        df_tmp.loc[mask, ["sell_at",'sell_at0','sell_date','sell_idx']] = \
+            df_curr.loc[mask, ["open",'open0','curr_date','idx']].values
         df_tmp.loc[mask, "is_selled"] = True
-        df_tmp.loc[mask,'sell_date'] = df_curr.loc[mask,'curr_date']
+        # df_tmp.loc[mask,['sell_date','sell_idx']] = df_curr.loc[mask,['curr_date','idx']]
+
 
         # 每次循环顺序是，先处理前一日符合条件的卖出请求。
         # 接着判断是否继续使用本日数据进行数据更新。
@@ -654,10 +660,11 @@ def get_return_rate_batch2(df_stock_d: pd.DataFrame, loss_limit=0.1,
             mask |= (df_curr["idx"] - df_tmp["max_idx"] >= new_high_days_limit)
 
     if is_truncated:
-        mask0 = (df_tmp["is_selled"]==False) & (~np.isnan(a_trunc_open))
-        df_tmp.loc[mask0, "sell_at"] = a_trunc_open[mask0]
-        df_tmp.loc[mask0, "is_selled"] = True
+        # mask0 = (df_tmp["is_selled"]==False) & (~np.isnan(a_trunc_open))
+        # df_tmp.loc[mask0, "sell_at"] = a_trunc_open[mask0]
+        # df_tmp.loc[mask0, "is_selled"] = True
         # df_tmp.loc[mask0,'sell_date']
+        pass
 
     df_tmp["r"] = (df_tmp["sell_at"]/df_tmp["buy_at"]-1)
     df_tmp.loc[~df_tmp["is_selled"],"r"]=None

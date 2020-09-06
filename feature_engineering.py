@@ -929,7 +929,7 @@ def mp_batch(df, target: callable, batch_size=10, print_freq=1, num_reserved_cpu
 def return_script(df):
     import script
     kwargs = {"loss_limit":0.05,"retracement_inc_pct":0.3,
-              "max_days":20,"new_high_days_limit":8,
+              "max_days":60,"new_high_days_limit":8,
               "stop_profit":None,
               "is_truncated":False}
     # df_r_spl, _ = mp_batch(df, target=script.get_return_rate_batch, batch_size=50,
@@ -948,7 +948,7 @@ def return_script(df):
     df_r_spc, _ = mp_batch(df, target=script.get_return_rate_batch2,
                            batch_size=50, num_reserved_cpu=0, **kwargs)
     # script.get_return_rate_batch(df,**kwargs)
-    print(df_r_spc.info(memory_usage="deep"))
+    # print(df_r_spc.info(memory_usage="deep"))
     df_r_spc.to_parquet(
         r"database\return_spc_{0:.0%}_{1:.0%}_{2}_{3}_{4:.0%}".format(
             kwargs["loss_limit"], kwargs["retracement_inc_pct"],
@@ -966,7 +966,7 @@ if __name__ == '__main__':
     df = dbop.create_df(cursor, STOCK_DAY[TABLE],
                         start=start,
                         # where_clause="code in ('002349.SZ','600352.SH','600350.SH','600001.SH')",
-                        # where_clause="code='600350.SH'",
+                        # where_clause="code='603259.SH'",
                         )
     df = dp.proc_stock_d(dp.prepare_stock_d(df))
     # print(df.shape)
