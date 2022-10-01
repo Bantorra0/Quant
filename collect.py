@@ -304,7 +304,7 @@ def collect_stock_basic(db_type: str, update=False):
         else:
             print(df_single_stock_basic)
             raise ValueError
-        time.sleep(1)
+        time.sleep(0.3)
     dbop.close_db(conn)
     return download_failure, write_failure
 
@@ -357,8 +357,8 @@ def update_indexes(index_pool:pd.DataFrame, db_type="sqlite3", update=True,
             # Sleep to make sure each iteration take 0.3s,
             # because the server has a limit of 200 api connections per min.
             t1 = time.time()
-            if t1 - t0 < 0.3:
-                time.sleep(0.3 - (t1 - t0))
+            if t1 - t0 < 1.2:
+                time.sleep(1.2 - (t1 - t0))
             t0 = t1
     dbop.close_db(conn)
 
@@ -587,30 +587,138 @@ def get_index_pool():
     return df
 
 
+def get_ts_report_latest_date(table,db_type:str):
+    conn = dbop.connect_db(db_type=db_type)
+    cursor = conn.cursor()
+    cursor.execute(
+        "select max(report_date) from {0}".format(table))
+    rs = cursor.fetchall()
+    dbop.close_db(conn)
+    if len(rs) > 0:
+        return sorted(rs, reverse=True)[0][0]
+    else:
+        return None
+
+
+def download_ts_report(**kwargs):
+    # 数据预处理
+    pro = _init_api(const.TOKEN)
+    df_ts_report = pro.report_rc(**kwargs)
+    df_ts_report = df_ts_report.rename(columns={'ts_code': 'code'}).fillna(
+        '')  # 防止null导致写入/主键判别/groupby统计异常，数字列也会被赋值空字符串，后续注意处理。
+    df_ts_report['report_date'] = pd.to_datetime(df_ts_report['report_date'], format="%Y%m%d").astype(str)
+
+    return df_ts_report
+
+
+def update_ts_report(db_type="sqlite3", update=True,
+                     start_date=const.START_DT,
+                     end_date=datetime.datetime.now().strftime('%Y%m%d'),
+                     verbose=0,
+                     print_freq=1):
+    if update:
+        max_report_date = datetime.datetime.strptime(get_ts_report_latest_date('ts_report', db_type), '%Y-%m-%d')
+        max_report_date
+        start_date = datetime.datetime.strftime(max_report_date - datetime.timedelta(2), '%Y%m%d')
+    else:
+        dbop.init_table(const.TS_REPORT[const.TABLE], db_type=db_type)
+    print(start_date, end_date)
+
+    conn = dbop.connect_db(db_type)
+
+    pool = mp.Pool(processes=1)
+
+    start_time = time.time()
+    len_ = 1
+    i = 0
+    max_len_per_call = 4000
+    while len_ > 0:
+
+        failure = 1
+        while failure > 0:
+            kwargs = {'start_date': start_date, 'end_date': end_date,
+                      'offset': i * max_len_per_call
+                      }
+
+            # Use pickle to send and receive objects in mp,
+            # which may raise error in case of unpicklable objects, e.g. sqlite3.connector.
+            # That's why conn is not passed, returned and reused.
+            try:
+                res = pool.apply_async(func=download_ts_report, kwds=kwargs)
+                t0 = time.time()
+                df_ts_report = res.get(
+                    timeout=const.TIMEOUT)
+
+                # 写入
+                dbop.write2db(df_ts_report,
+                              table=const.TS_REPORT[const.TABLE],
+                              cols=const.TS_REPORT[const.COLUMNS],
+                              conn=None,
+                              close=False)
+
+                failure = 0
+                t1 = time.time()
+                if t1 - t0 < 0.3:
+                    time.sleep(0.3 - (t1 - t0))
+
+            except Exception as err:
+                print(err)
+                pool.terminate()
+                pool = mp.Pool(processes=1)
+                failure = 1
+                continue
+
+        if i % print_freq == 0:
+            print('Current min report_date:{}'.format(df_ts_report.report_date.min()))
+        len_ = len(df_ts_report)
+        i += 1
+
+    end_time = time.time()
+
+    print("Total collecting time: {:.1f}s".format(end_time - start_time))
+    dbop.close_db(conn)
+
+
 if __name__ == '__main__':
-    # p = mp.Process(target=collect_single_stock_day, kwargs=kwargs)
-    # p.start()
-    # time.sleep(0.1)
-    # if p.is_alive():
-    #     p.terminate()
-    #     print("Kill")
+
+    with open('log.txt','a') as f:
+        f.write('\n--Start collecting at {}.'.format(datetime.datetime.now()))
 
     db_type = "sqlite3"
 
-    update_stock_basic()
+    # update_stock_basic()
+    #
+    # # index_pool = dbop.get_all_indexes()
 
-    # index_pool = dbop.get_all_indexes()
     index_pool = get_index_pool()
     print(index_pool)
-    # init_table(const.INDEX_DAY[const.TABLE],db_type=db_type)
+    # # init_table(const.INDEX_DAY[const.TABLE],db_type=db_type)
     update_indexes(index_pool,db_type,update=True)
     #
     stock_pool = get_stock_pool()
     print(stock_pool.shape)
     print(stock_pool.head())
-    update_stocks(stock_pool, db_type=db_type,update=True)
+    update_stocks(stock_pool, db_type=db_type,update=True) #
     #
-    # init_table(const.STOCK_DAILY_BASIC[const.TABLE],db_type=db_type)
+    # # init_table(const.STOCK_DAILY_BASIC[const.TABLE],db_type=db_type)
     update_stock_daily_basic(stock_pool=stock_pool,db_type=db_type,update=True)
+
+    with open('log.txt','a') as f:
+        f.write('\n**Finish collecting at {}.'.format(datetime.datetime.now()))
+
+
+    with open('report_rc_log.txt','a') as f:
+        f.write('\n--Start collecting at {}.'.format(datetime.datetime.now()))
+
+    update_ts_report(db_type="sqlite3", update=True,
+                     start_date='20100101',
+                     end_date=datetime.datetime.now().strftime('%Y%m%d'),
+                     verbose=0,
+                     print_freq=1)
+
+    with open('report_rc_log.txt','a') as f:
+        f.write('\n**Finish collecting at {}.'.format(datetime.datetime.now()))
+
+
 
 

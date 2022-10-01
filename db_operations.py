@@ -61,7 +61,7 @@ def init_table(table_name, db_type):
     configs = parse_config(path="database\\config\\{}".format(table_name))
     sql_drop = "drop table {}".format(table_name)
     print(sql_drop)
-    sql_create = configs["create"]
+    sql_create = configs["create"].format(table_name)
     print(sql_create)
     try:
         cursor.execute(sql_drop)

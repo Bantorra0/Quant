@@ -161,6 +161,25 @@ def custom_r_obj_wrapper4(k=1):
 
 
 
+# def custom_r_obj(y_true,y_pred):
+#     y_pred = pd.Series(y_pred,index=y_true.index)
+#     y_pred_q = y_pred.groupby('date').rank(pct=True)
+#
+#     pos = y_pred_q-0.5
+#     pos.loc[pos<0]=0
+#     pos_scaled = pos/pos.groupby('date').sum()
+#     pos_scaled
+#
+#
+#     p0 = 1/(1+np.exp(-k*y_pred))
+#     l = -y_true
+#     # grad_p = k*p0*(1-p0)
+#     tmp = np.where(y_true>=0,1-p0,p0)
+#     grad = tmp * l
+#     hess = np.ones(shape=grad.size)
+#     return grad,hess
+
+
 if __name__ == '__main__':
     n_samples = 10000
     n_features = 10

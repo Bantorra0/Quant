@@ -30,6 +30,18 @@ STOCK_DAILY_BASIC = {
          'ps', 'ps_ttm', 'total_share', 'float_share', 'free_share', 'total_mv', 'circ_mv')
 }
 
+TS_REPORT = {
+    TABLE: "ts_report",
+    COLUMNS:
+        (
+        'code', 'name', 'report_date', 'report_title', 'report_type',
+       'classify', 'org_name', 'author_name', 'quarter', 'op_rt', 'op_pr',
+       'tp', 'np', 'eps', 'pe', 'rd', 'roe', 'ev_ebitda', 'rating',
+       'max_price', 'min_price'
+        )
+}
+
+
 TIMEOUT=30
 
 FEE_RATE = 2.5 / 10000
